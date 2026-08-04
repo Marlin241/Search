@@ -1,0 +1,5 @@
+-r requirements.txt
+pytest
+respx
+fpdf2
+pillow
