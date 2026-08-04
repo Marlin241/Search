@@ -29,7 +29,7 @@ def evaluate_structure(parse_result: CVParseResult) -> StructuralReport:
         issues.append(
             "Ce CV contient des images ; tout texte qu'elles contiennent ne sera pas lu par l'ATS."
         )
-        penalty += 25
+        penalty += 15
 
     for section, message in _REQUIRED_SECTIONS.items():
         if section not in parse_result.detected_sections:

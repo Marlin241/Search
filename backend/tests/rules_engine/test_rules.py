@@ -32,7 +32,7 @@ def test_missing_sections_lower_score_and_add_issues():
     assert len(report.issues) == 3
 
 
-def test_score_never_goes_below_zero():
+def test_worst_case_cv_still_scores_low():
     cv = CVParseResult(
         text="...",
         has_tables=True,
@@ -41,4 +41,18 @@ def test_score_never_goes_below_zero():
         detected_sections=set(),
     )
     report = evaluate_structure(cv)
-    assert report.score == 0
+    assert report.score == 10
+
+
+def test_has_tables_penalty_in_isolation():
+    cv = _clean_cv().model_copy(update={"has_tables": True})
+    report = evaluate_structure(cv)
+    assert report.score == 80
+    assert any("tableaux" in issue for issue in report.issues)
+
+
+def test_has_images_penalty_in_isolation():
+    cv = _clean_cv().model_copy(update={"has_images": True})
+    report = evaluate_structure(cv)
+    assert report.score == 85
+    assert any("images" in issue for issue in report.issues)
