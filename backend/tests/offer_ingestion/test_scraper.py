@@ -1,3 +1,6 @@
+import socket
+from unittest.mock import patch
+
 import httpx
 import pytest
 import respx
@@ -38,16 +41,41 @@ def test_scrape_offer_rejects_non_http_scheme():
         scrape_offer("file:///etc/passwd")
 
 
+@respx.mock
 @pytest.mark.parametrize("url", ["http://127.0.0.1/", "http://localhost/"])
 def test_scrape_offer_rejects_loopback_address(url):
     # Real DNS/hosts resolution: 127.0.0.1 and localhost genuinely resolve
-    # to loopback on any machine, so no DNS mocking is needed here. respx
-    # is not activated, so if scrape_offer attempted an actual network
-    # call to loopback it would either connect for real (wrong) or blow up
-    # with a connection error instead of ScrapingError - either way this
-    # test would fail, proving the block happens before any request.
+    # to loopback on any machine, so no DNS mocking is needed here.
+    #
+    # Deliberately no respx route is registered for these URLs. respx's
+    # default assert_all_mocked=True means that if _validate_url failed to
+    # block the request, scrape_offer would attempt a real send and respx
+    # would raise AllMockedAssertionError - which is NOT a subclass of
+    # httpx.HTTPError, so it would propagate straight out of scrape_offer's
+    # `except httpx.HTTPError` handler and fail this test loudly, rather
+    # than accidentally being swallowed into a ScrapingError as it would if
+    # the request were instead attempted for real against a closed local
+    # port. This proves the block happens before any network attempt.
     with pytest.raises(ScrapingError):
         scrape_offer(url)
+
+
+@respx.mock
+def test_scrape_offer_rejects_shared_address_space():
+    # RFC 6598 Carrier-Grade NAT / Shared Address Space (100.64.0.0/10).
+    # Not a real DNS name, so we mock socket.getaddrinfo to resolve it into
+    # that range - same trick as the loopback test: no respx route is
+    # registered for it, so if _validate_url's new range check were broken
+    # or removed, scrape_offer would attempt a real send and respx would
+    # raise AllMockedAssertionError (not caught by scrape_offer's
+    # `except httpx.HTTPError`), failing this test loudly instead of
+    # accidentally passing.
+    fake_addrinfo = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.0.1", 80)),
+    ]
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo):
+        with pytest.raises(ScrapingError):
+            scrape_offer("http://cgnat.example.com/")
 
 
 @respx.mock

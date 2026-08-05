@@ -10,6 +10,12 @@ MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 5
 USER_AGENT = "Mozilla/5.0 (compatible; ATSDiagnosticBot/1.0)"
 
+# RFC 6598 Carrier-Grade NAT / Shared Address Space. Not covered by
+# ipaddress.IPv4Address's is_private/is_reserved/etc. properties, but used
+# by real cloud NAT/internal-LB setups and by Tailscale's overlay network -
+# a real SSRF target class, so it needs an explicit block.
+_SHARED_ADDRESS_SPACE = ipaddress.ip_network("100.64.0.0/10")
+
 
 class ScrapingError(Exception):
     pass
@@ -46,6 +52,7 @@ def _validate_url(url: str) -> None:
             or ip.is_multicast
             or ip.is_reserved
             or ip.is_unspecified
+            or (ip.version == 4 and ip in _SHARED_ADDRESS_SPACE)
         ):
             raise ScrapingError(
                 f"URL host '{hostname}' resolves to a disallowed address: {sockaddr[0]}"
