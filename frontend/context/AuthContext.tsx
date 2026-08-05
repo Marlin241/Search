@@ -36,6 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((error) => {
         if (error instanceof ApiError && error.status === 401) {
           localStorage.removeItem(TOKEN_STORAGE_KEY);
+        } else {
+          setToken(stored);
         }
       })
       .finally(() => setIsLoading(false));

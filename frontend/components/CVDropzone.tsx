@@ -45,7 +45,7 @@ export function CVDropzone({ file, onFileSelected }: CVDropzoneProps) {
           type="file"
           accept=".pdf,.docx"
           onChange={handleInputChange}
-          className="hidden"
+          className="sr-only"
           aria-label="Sélectionner un CV"
         />
       </div>

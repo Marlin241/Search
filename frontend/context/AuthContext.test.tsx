@@ -84,7 +84,8 @@ describe("AuthProvider", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
-    expect(screen.getByTestId("token").textContent).toBe("none");
+    expect(screen.getByTestId("token").textContent).toBe("existing-token");
+    expect(screen.getByTestId("email").textContent).toBe("none");
     expect(localStorage.getItem("ats_diagnostic_token")).toBe("existing-token");
   });
 
