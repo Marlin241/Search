@@ -1,3 +1,5 @@
+from sqlalchemy import text
+
 from app.models.user import User
 from app.models.diagnostic import Diagnostic
 
@@ -52,4 +54,38 @@ def test_deleting_user_cascades_diagnostics(db_session):
     db_session.delete(user)
     db_session.commit()
 
+    assert db_session.query(Diagnostic).count() == 0
+
+
+def test_deleting_user_via_raw_sql_cascades_diagnostics(db_session):
+    """Test that database-level FK cascade works when user is deleted via raw SQL."""
+    # Enable foreign key constraints in SQLite
+    db_session.execute(text("PRAGMA foreign_keys=ON"))
+
+    user = User(email="jane@example.com", hashed_password="hashed")
+    db_session.add(user)
+    db_session.commit()
+    user_id = user.id
+
+    db_session.add(
+        Diagnostic(
+            user_id=user_id,
+            cv_text="cv",
+            offer_text="offer",
+            overall_score=1,
+            structural_score=1,
+            structural_issues=[],
+            semantic_score=1,
+            missing_keywords=[],
+            recommendations=[],
+        )
+    )
+    db_session.commit()
+
+    # Delete user via raw SQL (bypassing ORM cascade)
+    db_session.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
+    db_session.commit()
+
+    # Verify both user and diagnostic are gone
+    assert db_session.query(User).count() == 0
     assert db_session.query(Diagnostic).count() == 0
