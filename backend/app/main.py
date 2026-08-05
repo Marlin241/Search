@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.database import Base, engine
-from app.routers import auth
+from app.routers import auth, diagnostics
 import app.models  # noqa: F401 register models on Base
 
 app = FastAPI(title="ATS Diagnostic API")
@@ -9,6 +9,7 @@ app = FastAPI(title="ATS Diagnostic API")
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
+app.include_router(diagnostics.router)
 
 
 @app.get("/health")
