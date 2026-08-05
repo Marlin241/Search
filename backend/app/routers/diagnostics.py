@@ -71,22 +71,22 @@ def create_diagnostic(
 
     report = build_diagnostic_report(structural, semantic)
 
-    db.add(
-        Diagnostic(
-            user_id=current_user.id,
-            cv_text=parsed_cv.text,
-            offer_text=offer,
-            overall_score=report.overall_score,
-            structural_score=report.structural_score,
-            structural_issues=report.structural_issues,
-            semantic_score=report.semantic_score,
-            missing_keywords=report.missing_keywords,
-            recommendations=report.recommendations,
-        )
+    diagnostic = Diagnostic(
+        user_id=current_user.id,
+        cv_text=parsed_cv.text,
+        offer_text=offer,
+        overall_score=report.overall_score,
+        structural_score=report.structural_score,
+        structural_issues=report.structural_issues,
+        semantic_score=report.semantic_score,
+        missing_keywords=report.missing_keywords,
+        recommendations=report.recommendations,
     )
+    db.add(diagnostic)
     db.commit()
+    db.refresh(diagnostic)
 
-    return report
+    return report.model_copy(update={"id": diagnostic.id, "created_at": diagnostic.created_at})
 
 
 @router.get("", response_model=list[DiagnosticReport])
@@ -102,6 +102,8 @@ def list_diagnostics(
     )
     return [
         DiagnosticReport(
+            id=d.id,
+            created_at=d.created_at,
             overall_score=d.overall_score,
             structural_score=d.structural_score,
             structural_issues=d.structural_issues,

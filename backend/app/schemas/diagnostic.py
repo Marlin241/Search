@@ -1,7 +1,11 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
 class DiagnosticReport(BaseModel):
+    id: int | None = None
+    created_at: datetime | None = None
     overall_score: int
     structural_score: int
     structural_issues: list[str]

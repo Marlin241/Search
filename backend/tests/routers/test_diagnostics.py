@@ -50,6 +50,8 @@ def test_create_diagnostic_returns_combined_report(client):
     assert body["semantic_score"] == 60
     assert body["overall_score"] == 80
     assert body["missing_keywords"] == ["Docker"]
+    assert isinstance(body["id"], int)
+    assert body["created_at"]
 
     app.dependency_overrides.pop(get_semantic_analyzer, None)
 
@@ -153,5 +155,31 @@ def test_rate_limit_returns_429(client):
         data={"offer_text": "We need a Python developer."},
     )
     assert blocked.status_code == 429
+
+    app.dependency_overrides.pop(get_semantic_analyzer, None)
+
+
+def test_list_diagnostics_includes_id_and_created_at_newest_first(client):
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    first = client.post(
+        "/diagnostics",
+        headers=headers,
+        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        data={"offer_text": "We need a Python developer."},
+    ).json()
+    second = client.post(
+        "/diagnostics",
+        headers=headers,
+        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        data={"offer_text": "We need a Python developer."},
+    ).json()
+
+    listed = client.get("/diagnostics", headers=headers).json()
+
+    assert [d["id"] for d in listed] == [second["id"], first["id"]]
+    assert all("created_at" in d for d in listed)
 
     app.dependency_overrides.pop(get_semantic_analyzer, None)
