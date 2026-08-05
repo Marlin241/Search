@@ -71,6 +71,34 @@ def test_analyze_raises_after_two_failures():
         analyzer.analyze("cv text", "offer text")
 
 
+def test_analyze_retries_once_on_out_of_range_score_then_succeeds():
+    client = FakeClient(
+        [
+            _fake_tool_use_response({"score": 150, "missing_keywords": [], "recommendations": []}),
+            _fake_tool_use_response({"score": 50, "missing_keywords": [], "recommendations": []}),
+        ]
+    )
+    analyzer = SemanticAnalyzer(client)
+
+    report = analyzer.analyze("cv text", "offer text")
+
+    assert report.score == 50
+    assert len(client.messages.calls) == 2
+
+
+def test_analyze_raises_when_both_attempts_return_out_of_range_score():
+    client = FakeClient(
+        [
+            _fake_tool_use_response({"score": 1000, "missing_keywords": [], "recommendations": []}),
+            _fake_tool_use_response({"score": -500, "missing_keywords": [], "recommendations": []}),
+        ]
+    )
+    analyzer = SemanticAnalyzer(client)
+
+    with pytest.raises(LLMAnalysisError):
+        analyzer.analyze("cv text", "offer text")
+
+
 def test_analyze_retries_on_api_error():
     client = FakeClient(
         [

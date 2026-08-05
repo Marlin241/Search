@@ -1,9 +1,9 @@
 import anthropic
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 
 class SemanticReport(BaseModel):
-    score: int
+    score: int = Field(ge=0, le=100)
     missing_keywords: list[str]
     recommendations: list[str]
 
