@@ -36,10 +36,10 @@ def test_cors_allows_configured_origin(client):
 def test_full_flow_register_login_diagnose_list_delete(client):
     app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
 
-    register = client.post("/auth/register", json={"email": "flow@example.com", "password": "s3cret!"})
+    register = client.post("/auth/register", json={"email": "flow@example.com", "password": "s3cret!1"})
     assert register.status_code == 201
 
-    login = client.post("/auth/login", data={"username": "flow@example.com", "password": "s3cret!"})
+    login = client.post("/auth/login", data={"username": "flow@example.com", "password": "s3cret!1"})
     assert login.status_code == 200
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
