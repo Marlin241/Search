@@ -1,0 +1,6 @@
+node_modules/
+.next/
+.env.local
+README.md
+**/*.test.ts
+**/*.test.tsx

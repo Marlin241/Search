@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.database import Base, engine
+from app import database
 from app.routers import auth, diagnostics
 import app.models  # noqa: F401 register models on Base
 
@@ -17,7 +17,10 @@ async def lifespan(app: FastAPI):
     # merely importing app.main - e.g. for linting, OpenAPI generation, or
     # `pytest --collect-only` - does not connect to and issue DDL against
     # whatever DATABASE_URL happens to be configured on the machine.
-    Base.metadata.create_all(bind=engine)
+    # Looked up via the `database` module (not a direct `engine` import) so
+    # tests can monkeypatch `app.database.engine` to an isolated in-memory
+    # database before the lifespan runs.
+    database.Base.metadata.create_all(bind=database.engine)
     yield
 
 
