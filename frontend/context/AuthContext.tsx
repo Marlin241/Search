@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { login as apiLogin, register as apiRegister, fetchMe } from "@/lib/api";
+import { login as apiLogin, register as apiRegister, fetchMe, ApiError } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 interface AuthContextValue {
@@ -33,8 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(stored);
         setUser(fetchedUser);
       })
-      .catch(() => {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
+      .catch((error) => {
+        if (error instanceof ApiError && error.status === 401) {
+          localStorage.removeItem(TOKEN_STORAGE_KEY);
+        }
       })
       .finally(() => setIsLoading(false));
   }, []);

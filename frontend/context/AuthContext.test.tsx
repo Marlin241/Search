@@ -2,12 +2,17 @@ import { render, screen, waitFor, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AuthProvider, useAuth } from "./AuthContext";
 import * as api from "@/lib/api";
+import { ApiError } from "@/lib/api";
 
-vi.mock("@/lib/api", () => ({
-  login: vi.fn(),
-  register: vi.fn(),
-  fetchMe: vi.fn(),
-}));
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+  return {
+    login: vi.fn(),
+    register: vi.fn(),
+    fetchMe: vi.fn(),
+    ApiError: actual.ApiError,
+  };
+});
 
 function Probe() {
   const { user, token, isLoading, login, logout } = useAuth();
@@ -55,7 +60,7 @@ describe("AuthProvider", () => {
 
   it("clears an invalid stored token", async () => {
     localStorage.setItem("ats_diagnostic_token", "bad-token");
-    vi.mocked(api.fetchMe).mockRejectedValue(new Error("401"));
+    vi.mocked(api.fetchMe).mockRejectedValue(new ApiError(401, "Unauthorized"));
 
     render(
       <AuthProvider>
@@ -66,6 +71,21 @@ describe("AuthProvider", () => {
     await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
     expect(screen.getByTestId("token").textContent).toBe("none");
     expect(localStorage.getItem("ats_diagnostic_token")).toBeNull();
+  });
+
+  it("keeps a stored token on a non-401 restoration failure", async () => {
+    localStorage.setItem("ats_diagnostic_token", "existing-token");
+    vi.mocked(api.fetchMe).mockRejectedValue(new ApiError(0, "Impossible de contacter le serveur."));
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId("loading").textContent).toBe("false"));
+    expect(screen.getByTestId("token").textContent).toBe("none");
+    expect(localStorage.getItem("ats_diagnostic_token")).toBe("existing-token");
   });
 
   it("login stores the token and exposes the user", async () => {
