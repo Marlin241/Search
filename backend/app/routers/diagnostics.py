@@ -5,7 +5,7 @@ from app.database import get_db
 from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.models.diagnostic import Diagnostic
-from app.cv_parser.parser import parse_cv, CVParsingError
+from app.cv_parser.parser import parse_cv, CVParsingError, MAX_CV_SIZE_BYTES
 from app.offer_ingestion.ingestion import get_offer_text, OfferIngestionError
 from app.rules_engine.rules import evaluate_structure
 from app.llm_analyzer.analyzer import SemanticAnalyzer, LLMAnalysisError
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 @router.post("", response_model=DiagnosticReport, status_code=status.HTTP_201_CREATED)
 def create_diagnostic(
     cv_file: UploadFile = File(...),
-    offer_text: str | None = Form(None),
+    offer_text: str | None = Form(None, max_length=50000),
     offer_url: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -39,6 +39,17 @@ def create_diagnostic(
         check_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+
+    # Check the declared upload size (from Content-Length, via Starlette's
+    # UploadFile.size) before reading the body into memory, so an oversized
+    # upload doesn't get fully buffered just to be rejected afterwards. Some
+    # clients don't send a size (cv_file.size is None); in that case we fall
+    # back to the existing post-read check inside parse_cv.
+    if cv_file.size is not None and cv_file.size > MAX_CV_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Le fichier dépasse la taille maximale autorisée (5 Mo).",
+        )
 
     try:
         cv_bytes = cv_file.file.read()
