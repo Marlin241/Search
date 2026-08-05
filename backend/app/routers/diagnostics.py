@@ -12,7 +12,7 @@ from app.llm_analyzer.analyzer import SemanticAnalyzer, LLMAnalysisError
 from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.aggregator.aggregator import build_diagnostic_report
 from app.schemas.diagnostic import DiagnosticReport
-from app.rate_limit.limiter import check_rate_limit, RateLimitExceeded
+from app.rate_limit.limiter import check_rate_limit, lock_user_for_rate_limit, RateLimitExceeded
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
@@ -26,6 +26,15 @@ def create_diagnostic(
     current_user: User = Depends(get_current_user),
     analyzer: SemanticAnalyzer = Depends(get_semantic_analyzer),
 ) -> DiagnosticReport:
+    # Lock the user's row for the duration of this request BEFORE checking
+    # the rate limit. This serializes diagnostic creation per-user: a second
+    # concurrent request for the same user blocks here until the first
+    # request's entire pipeline (parse -> offer -> LLM -> insert -> commit)
+    # finishes and releases the lock at db.commit(). That guarantees the
+    # rate-limit count below always reflects any in-flight sibling request,
+    # closing the TOCTOU bypass. See app/rate_limit/limiter.py for details.
+    lock_user_for_rate_limit(db, current_user.id)
+
     try:
         check_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
