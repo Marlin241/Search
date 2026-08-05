@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,7 +10,18 @@ import app.models  # noqa: F401 register models on Base
 
 settings = get_settings()
 
-app = FastAPI(title="ATS Diagnostic API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Deferred to app startup (rather than module import time) so that
+    # merely importing app.main - e.g. for linting, OpenAPI generation, or
+    # `pytest --collect-only` - does not connect to and issue DDL against
+    # whatever DATABASE_URL happens to be configured on the machine.
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="ATS Diagnostic API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,8 +30,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
 app.include_router(diagnostics.router)
