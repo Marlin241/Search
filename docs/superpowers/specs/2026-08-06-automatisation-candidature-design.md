@@ -127,7 +127,16 @@ stocké, saisi ou utilisé.
 | `portfolio_url` | str, nullable | |
 | `work_authorization` | str | ex: "Autorisé à travailler en France/UE" |
 | `salary_expectation` | str, nullable | libre (ex: "45-55k€") |
+| `cv_text` | str, nullable | texte extrait du CV de référence — permet de générer un diagnostic pour chaque offre sélectionnée sans réuploader le fichier à chaque fois ; mis à jour via un upload dédié sur la page `/profil` (même parser `cv_parser` que le sous-projet 1) |
+| `cv_filename` | str, nullable | nom du fichier d'origine, pour affichage |
+| `cv_has_tables` / `cv_has_multi_column` / `cv_has_images` | bool, nullable | métadonnées structurelles issues de `CVParseResult` (`cv_parser`), calculées une seule fois à l'upload et réutilisées pour chaque diagnostic — impossibles à recalculer plus tard puisque le fichier brut n'est jamais conservé |
+| `cv_detected_sections` | JSON (liste de str), nullable | idem, issu de `CVParseResult.detected_sections` |
 | `created_at` / `updated_at` | datetime | |
+
+Cohérent avec l'existant : le texte extrait d'un CV est déjà persisté en base par
+le sous-projet 1 (`Diagnostic.cv_text`) — le stocker une fois de plus au niveau
+du profil ne change pas la posture de confidentialité déjà établie (jamais le
+fichier brut, seulement le texte extrait et ses métadonnées structurelles).
 
 ### `Application` (nouveau — pivot du sous-projet)
 
@@ -187,6 +196,10 @@ frontend, rien en base tant que le diagnostic n'est pas lancé.
 
 ### 3. `app/applications/` — orchestration
 
+Pré-requis : `CandidateProfile.cv_text` doit être renseigné (CV de référence
+uploadé sur `/profil`) — sinon 422 propre invitant l'utilisateur à compléter
+son profil avant de lancer une recherche.
+
 Pour chaque offre cochée, au clic sur "Lancer le diagnostic" :
 1. Récupération du texte complet de l'offre (via `offer_ingestion` existant
    si besoin d'aller chercher le HTML, ou directement l'extrait de l'API
@@ -194,7 +207,9 @@ Pour chaque offre cochée, au clic sur "Lancer le diagnostic" :
 2. Vérification du dédoublonnage (`offer_url` déjà présente pour cet
    utilisateur) → rejet propre avant tout appel LLM si c'est le cas
 3. Appel du pipeline diagnostic existant (`rules_engine` + `llm_analyzer` +
-   `aggregator`) → `Diagnostic` créé
+   `aggregator`) sur `CandidateProfile.cv_text` et ses métadonnées
+   structurelles déjà stockées (pas de ré-upload, pas de re-parsing) →
+   `Diagnostic` créé
 4. `Application` créée dans le même mouvement, liée au `Diagnostic`, statut
    `en_cours`
 
@@ -303,8 +318,9 @@ Nouvelle page `/candidatures` :
   soumission automatique (Greenhouse/Lever) ou affiche le mode assisté (lien
   + PDF + "Marquer comme envoyée")
 
-Nouvelle page `/profil` : formulaire `CandidateProfile`, avec indicateur clair
-des champs requis pour débloquer l'auto-submit.
+Nouvelle page `/profil` : formulaire `CandidateProfile` + upload du CV de
+référence (réutilise `cv_parser` existant), avec indicateur clair des champs
+requis pour débloquer l'auto-submit.
 
 `/historique` (existante) étendue pour lister aussi les `Application`
 (entreprise, poste, statut, date).
