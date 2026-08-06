@@ -34,16 +34,18 @@ def cv_needs_review(original_cv_text: str, rewritten: RewrittenCv) -> bool:
     """
     original_terms = _extract_reference_terms(original_cv_text)
 
-    # Fields are joined with newlines (not spaces) so an entry's title,
-    # company, and dates each stay on their own "line" for the proper-noun
-    # regex above - otherwise e.g. a title ending in a capitalized word
-    # immediately followed by a capitalized company name would be read as
-    # one fused phrase instead of two separately-comparable terms.
+    # Fields (and each bullet) are joined with newlines, not spaces, so an
+    # entry's title, company, dates, and each bullet each stay on their own
+    # "line" for the proper-noun regex above - otherwise e.g. a title ending
+    # in a capitalized word immediately followed by a capitalized company
+    # name (or one bullet's last word fused with the next bullet's first)
+    # would be read as one bogus phrase instead of separately-comparable
+    # terms.
     rewritten_text = "\n".join(
         [
             rewritten.summary,
             *(
-                f"{entry.title}\n{entry.company}\n{entry.dates}\n{' '.join(entry.bullets)}"
+                f"{entry.title}\n{entry.company}\n{entry.dates}\n{"\n".join(entry.bullets)}"
                 for entry in rewritten.experience
             ),
             *rewritten.education,
