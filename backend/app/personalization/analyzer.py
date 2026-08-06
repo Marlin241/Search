@@ -65,9 +65,17 @@ _COVER_LETTER_TOOL = {
                 "items": {"type": "string"},
                 "description": "Body paragraphs of the letter, in order.",
             },
-            "closing": {"type": "string", "description": "Closing formula, e.g. 'Cordialement, ...'."},
+            "closing_formula": {
+                "type": "string",
+                "description": "Closing formula only, e.g. 'Cordialement,'. Do not include the "
+                "candidate's name here - use the separate signature field for that.",
+            },
+            "signature": {
+                "type": "string",
+                "description": "The candidate's name, used as the letter's signature line.",
+            },
         },
-        "required": ["greeting", "body_paragraphs", "closing"],
+        "required": ["greeting", "body_paragraphs", "closing_formula", "signature"],
     },
 }
 

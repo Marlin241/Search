@@ -75,6 +75,8 @@ def render_cover_letter_pdf(letter: CoverLetter) -> bytes:
         pdf.multi_cell(0, 6, paragraph)
         pdf.ln(3)
     pdf.ln(2)
-    pdf.multi_cell(0, 6, letter.closing)
+    pdf.multi_cell(0, 6, letter.closing_formula)
+    pdf.ln(4)
+    pdf.multi_cell(0, 6, letter.signature)
 
     return bytes(pdf.output())

@@ -30,7 +30,8 @@ def test_render_cover_letter_pdf_returns_nonempty_pdf_bytes():
             "Je vous écris pour candidater au poste de développeuse.",
             "Mon expérience chez TechCorp Solutions correspond à vos besoins.",
         ],
-        closing="Cordialement, Jane Doe",
+        closing_formula="Cordialement,",
+        signature="Jane Doe",
     )
 
     pdf_bytes = render_cover_letter_pdf(letter)
@@ -66,7 +67,8 @@ def test_render_cover_letter_pdf_handles_typographic_characters_claude_commonly_
     letter = CoverLetter(
         greeting="Madame, Monsieur,",
         body_paragraphs=["Je suis passionné par le cœur de métier — c'est mon œuvre…"],
-        closing="Cordialement, Jane Doe",
+        closing_formula="Cordialement,",
+        signature="Jane Doe",
     )
 
     pdf_bytes = render_cover_letter_pdf(letter)

@@ -34,7 +34,8 @@ class FakeCoverLetterGenerator:
         return CoverLetter(
             greeting="Madame, Monsieur,",
             body_paragraphs=["Je vous écris pour candidater à ce poste."],
-            closing="Cordialement, Jane Doe",
+            closing_formula="Cordialement,",
+            signature="Jane Doe",
         )
 
 

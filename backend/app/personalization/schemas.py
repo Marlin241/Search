@@ -18,4 +18,5 @@ class RewrittenCv(BaseModel):
 class CoverLetter(BaseModel):
     greeting: str
     body_paragraphs: list[str]
-    closing: str
+    closing_formula: str
+    signature: str
