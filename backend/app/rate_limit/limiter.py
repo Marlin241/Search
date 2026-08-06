@@ -4,9 +4,11 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.models.diagnostic import Diagnostic
+from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.user import User
 
 MAX_DIAGNOSTICS_PER_HOUR = 10
+MAX_PERSONALIZATIONS_PER_HOUR = 10
 
 
 class RateLimitExceeded(Exception):
@@ -46,4 +48,26 @@ def check_rate_limit(db: Session, user_id: int) -> None:
     if count is not None and count >= MAX_DIAGNOSTICS_PER_HOUR:
         raise RateLimitExceeded(
             f"Limite de {MAX_DIAGNOSTICS_PER_HOUR} diagnostics par heure atteinte. Réessaie plus tard."
+        )
+
+
+def check_personalization_rate_limit(db: Session, user_id: int) -> None:
+    """Counts CV and lettre generations combined, over the last hour.
+
+    Backed by PersonalizationRequestLog rather than PersonalizedDocument
+    because the latter is upserted (one row per diagnostic+kind, overwritten
+    on regeneration) and would not reflect how many generations actually
+    happened - repeated regenerations of the same document would only ever
+    count as one row.
+    """
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    count = db.scalar(
+        select(func.count()).select_from(PersonalizationRequestLog).where(
+            PersonalizationRequestLog.user_id == user_id,
+            PersonalizationRequestLog.created_at >= one_hour_ago,
+        )
+    )
+    if count is not None and count >= MAX_PERSONALIZATIONS_PER_HOUR:
+        raise RateLimitExceeded(
+            f"Limite de {MAX_PERSONALIZATIONS_PER_HOUR} générations par heure atteinte. Réessaie plus tard."
         )

@@ -75,3 +75,35 @@ def test_lock_then_check_rate_limit_still_enforces_limit_sequentially(db_session
     lock_user_for_rate_limit(db_session, user.id)  # should not raise
     with pytest.raises(RateLimitExceeded):
         check_rate_limit(db_session, user.id)
+
+
+from app.models.personalization_request_log import PersonalizationRequestLog
+from app.rate_limit.limiter import MAX_PERSONALIZATIONS_PER_HOUR, check_personalization_rate_limit
+
+
+def _add_personalization_logs(db_session, user_id: int, count: int) -> None:
+    for _ in range(count):
+        db_session.add(PersonalizationRequestLog(user_id=user_id))
+    db_session.commit()
+
+
+def test_personalization_allows_under_limit(db_session):
+    user = _make_user(db_session)
+    _add_personalization_logs(db_session, user.id, MAX_PERSONALIZATIONS_PER_HOUR - 1)
+    check_personalization_rate_limit(db_session, user.id)  # should not raise
+
+
+def test_personalization_blocks_at_limit(db_session):
+    user = _make_user(db_session)
+    _add_personalization_logs(db_session, user.id, MAX_PERSONALIZATIONS_PER_HOUR)
+    import pytest
+
+    with pytest.raises(RateLimitExceeded):
+        check_personalization_rate_limit(db_session, user.id)
+
+
+def test_diagnostic_and_personalization_rate_limits_are_independent(db_session):
+    user = _make_user(db_session)
+    _add_diagnostics(db_session, user.id, MAX_DIAGNOSTICS_PER_HOUR)
+    # The diagnostic limit is maxed out, but personalization has its own counter.
+    check_personalization_rate_limit(db_session, user.id)  # should not raise
