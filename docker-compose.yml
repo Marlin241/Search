@@ -15,15 +15,49 @@ services:
     ports:
       - "5432:5432"
 
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/personalization
+      "
+
   backend:
     build: ./backend
     env_file:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/ats_diagnostic
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: personalization
     depends_on:
       db:
         condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
 
@@ -39,3 +73,4 @@ services:
 
 volumes:
   db_data:
+  minio_data:

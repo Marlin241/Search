@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24
     anthropic_api_key: str
     cors_origins: list[str] = ["http://localhost:3000"]
+    minio_endpoint: str = "http://localhost:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_bucket: str = "personalization"
 
 
 @lru_cache

@@ -13,3 +13,5 @@ python-docx
 httpx
 beautifulsoup4
 anthropic
+boto3
+fpdf2
