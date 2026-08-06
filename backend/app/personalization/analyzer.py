@@ -90,6 +90,14 @@ def _submit_via_tool_use(
             response = client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
+                # claude-sonnet-5 runs adaptive thinking by default when
+                # `thinking` is omitted, and max_tokens caps thinking +
+                # response combined - which could silently truncate a
+                # forced tool_use JSON payload on a long CV. This call is
+                # deterministic structured extraction, not open-ended
+                # reasoning, so thinking is disabled: max_tokens is then
+                # dedicated entirely to the response.
+                thinking={"type": "disabled"},
                 tools=[tool],
                 tool_choice={"type": "tool", "name": tool["name"]},
                 messages=[{"role": "user", "content": prompt}],

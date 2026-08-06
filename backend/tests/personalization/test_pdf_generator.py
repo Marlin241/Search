@@ -37,3 +37,38 @@ def test_render_cover_letter_pdf_returns_nonempty_pdf_bytes():
 
     assert pdf_bytes.startswith(b"%PDF")
     assert len(pdf_bytes) > 200
+
+
+def test_render_cv_pdf_handles_typographic_characters_claude_commonly_emits():
+    # fpdf2's core Helvetica font is latin-1 only and raises
+    # FPDFUnicodeEncodingException on these - regression test for the
+    # crash this project's PDFs must never hit in production.
+    cv = RewrittenCv(
+        summary="A dirigé le cœur d'une équipe — 5 ans d'expérience…",
+        experience=[
+            CvExperienceEntry(
+                title="Chef d'équipe",
+                company="Société Générale d'Œuvres",
+                dates="2020-2022",
+                bullets=["A géré un budget de 50 000 €."],
+            )
+        ],
+        education=["Master, l'Université Paris-Saclay"],
+        skills=["Œuvre collective"],
+    )
+
+    pdf_bytes = render_cv_pdf(cv)
+
+    assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_render_cover_letter_pdf_handles_typographic_characters_claude_commonly_emits():
+    letter = CoverLetter(
+        greeting="Madame, Monsieur,",
+        body_paragraphs=["Je suis passionné par le cœur de métier — c'est mon œuvre…"],
+        closing="Cordialement, Jane Doe",
+    )
+
+    pdf_bytes = render_cover_letter_pdf(letter)
+
+    assert pdf_bytes.startswith(b"%PDF")

@@ -74,9 +74,9 @@ def _clean_cv_docx_bytes() -> bytes:
     return buffer.getvalue()
 
 
-def _register_and_login(client) -> str:
-    client.post("/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"})
-    login = client.post("/auth/login", data={"username": "jane@example.com", "password": "s3cret!1"})
+def _register_and_login(client, email: str = "jane@example.com") -> str:
+    client.post("/auth/register", json={"email": email, "password": "s3cret!1"})
+    login = client.post("/auth/login", data={"username": email, "password": "s3cret!1"})
     return login.json()["access_token"]
 
 
@@ -180,6 +180,25 @@ def test_generate_cv_for_missing_diagnostic_returns_404(client):
 
     response = client.post("/diagnostics/999999/cv", headers=headers)
     assert response.status_code == 404
+
+    _clear_personalization_overrides()
+
+
+def test_cannot_generate_or_download_cv_for_another_users_diagnostic(client):
+    owner_token = _register_and_login(client, "jane@example.com")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    diagnostic_id = _create_diagnostic(client, owner_headers)
+    _override_personalization_deps()
+    client.post(f"/diagnostics/{diagnostic_id}/cv", headers=owner_headers)
+
+    attacker_token = _register_and_login(client, "mallory@example.com")
+    attacker_headers = {"Authorization": f"Bearer {attacker_token}"}
+
+    generate = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=attacker_headers)
+    assert generate.status_code == 404
+
+    download = client.get(f"/diagnostics/{diagnostic_id}/cv", headers=attacker_headers)
+    assert download.status_code == 404
 
     _clear_personalization_overrides()
 

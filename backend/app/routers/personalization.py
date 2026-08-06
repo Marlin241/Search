@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fpdf.errors import FPDFException
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
@@ -91,7 +92,12 @@ def generate_cv(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     needs_review = cv_needs_review(diagnostic.cv_text, rewritten)
-    pdf_bytes = render_cv_pdf(rewritten)
+    try:
+        pdf_bytes = render_cv_pdf(rewritten)
+    except FPDFException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="La génération du PDF a échoué."
+        ) from exc
     key = _storage_key(current_user.id, diagnostic.id, "cv")
 
     try:
@@ -140,7 +146,12 @@ def generate_lettre(
     except PersonalizationError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
-    pdf_bytes = render_cover_letter_pdf(letter)
+    try:
+        pdf_bytes = render_cover_letter_pdf(letter)
+    except FPDFException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="La génération du PDF a échoué."
+        ) from exc
     key = _storage_key(current_user.id, diagnostic.id, "lettre")
 
     try:
@@ -173,7 +184,9 @@ def _download(
     try:
         pdf_bytes = storage.download(document.storage_key)
     except ObjectStorageError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Le téléchargement du document a échoué."
+        ) from exc
 
     return Response(
         content=pdf_bytes,
