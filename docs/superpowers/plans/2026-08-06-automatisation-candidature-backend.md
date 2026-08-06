@@ -2270,7 +2270,7 @@ git commit -m "feat: add applications service to create diagnostics from selecte
 **Interfaces:**
 - Consumes: `create_application`, `ApplicationCreationError`, `DuplicateApplicationError`, `MissingReferenceCvError` (Task 10); `Application` (Task 2); `check_rate_limit`, `lock_user_for_rate_limit`, `RateLimitExceeded` (existing, `app.rate_limit.limiter` — the same diagnostic-creation limit from sous-projet 1, reused as-is: a job-search-triggered diagnostic is still a diagnostic and consumes the same hourly quota, no separate counter)
 - Produces: `ApplicationCreateIn(BaseModel)` — `offer_url: str`, `offer_text: str | None = None`, `source: str`, `company_name: str`, `job_title: str`, `ats_type: str | None = None`
-- Produces: `ApplicationOut(BaseModel)` — `id: int`, `diagnostic_id: int`, `offer_url: str`, `source: str`, `company_name: str`, `job_title: str`, `ats_type: str | None`, `status: str`, `error_message: str | None`, `submitted_at: datetime | None`, `created_at: datetime`, `updated_at: datetime`
+- Produces: `ApplicationOut(BaseModel)` — `id: int`, `diagnostic_id: int`, `offer_url: str`, `source: str`, `company_name: str`, `job_title: str`, `ats_type: str | None`, `status: str`, `error_message: str | None`, `submitted_at: datetime | None`, `created_at: datetime`, `updated_at: datetime`, `diagnostic: DiagnosticReport` (existing schema, `app.schemas.diagnostic` — embedded so the frontend can render the diagnostic without a second request, since there is no standalone `GET /diagnostics/{id}`)
 - Produces: routes `POST /applications`, `GET /applications`, `GET /applications/{id}`, all under `get_current_user`
 
 Reusing `check_rate_limit`/`lock_user_for_rate_limit` here (rather than adding a new counter) means the existing `MAX_DIAGNOSTICS_PER_HOUR` limit from sous-projet 1 now also bounds how many `Application`s a user can create per hour — an intentional simplification: both paths ultimately create one `Diagnostic` row, so one shared quota protects the same LLM cost regardless of which flow triggered it.
@@ -2344,6 +2344,7 @@ def test_create_list_and_get_application(client):
     assert create.status_code == 201
     body = create.json()
     assert body["status"] == "en_cours"
+    assert body["diagnostic"]["missing_keywords"] == ["Docker"]
     application_id = body["id"]
 
     listing = client.get("/applications", headers=headers)
@@ -2465,6 +2466,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.diagnostic import DiagnosticReport
+
 
 class ApplicationCreateIn(BaseModel):
     offer_url: str
@@ -2488,7 +2491,10 @@ class ApplicationOut(BaseModel):
     submitted_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    diagnostic: DiagnosticReport
 ```
+
+`diagnostic` is embedded directly (rather than requiring a second `GET /diagnostics/{id}` round-trip — no such single-diagnostic endpoint exists; `GET /diagnostics` only lists all of a user's diagnostics) so the frontend's `/candidatures` page can render `DiagnosticReportView` (the same component sous-projet 1 already uses) straight from the `POST /applications` and `GET /applications` responses.
 
 `backend/app/routers/applications.py`:
 ```python
@@ -2509,11 +2515,13 @@ from app.models.application import Application
 from app.models.user import User
 from app.rate_limit.limiter import RateLimitExceeded, check_rate_limit, lock_user_for_rate_limit
 from app.schemas.application import ApplicationCreateIn, ApplicationOut
+from app.schemas.diagnostic import DiagnosticReport
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
 def _to_out(application: Application) -> ApplicationOut:
+    diagnostic = application.diagnostic  # lazy-loaded via the ORM relationship (Task 2)
     return ApplicationOut(
         id=application.id,
         diagnostic_id=application.diagnostic_id,
@@ -2527,6 +2535,16 @@ def _to_out(application: Application) -> ApplicationOut:
         submitted_at=application.submitted_at,
         created_at=application.created_at,
         updated_at=application.updated_at,
+        diagnostic=DiagnosticReport(
+            id=diagnostic.id,
+            created_at=diagnostic.created_at,
+            overall_score=diagnostic.overall_score,
+            structural_score=diagnostic.structural_score,
+            structural_issues=diagnostic.structural_issues,
+            semantic_score=diagnostic.semantic_score,
+            missing_keywords=diagnostic.missing_keywords,
+            recommendations=diagnostic.recommendations,
+        ),
     )
 
 
@@ -4206,3 +4224,5 @@ git commit -m "fix: purge Application rows on RGPD diagnostic history deletion"
 **Type consistency:** `Application.status` string constants (`APPLICATION_STATUS_*`, Task 2) are the same names imported and compared against in Tasks 17–18; `FormField`/`DiscoveredForm` (Task 12) are the same shapes threaded unchanged through `HtmlFormAdapter` (Task 12), `GreenhouseAdapter`/`LeverAdapter` (Tasks 14–15), and the router (Task 17); `CandidateProfile.cv_text`/`cv_has_tables`/`cv_has_multi_column`/`cv_has_images`/`cv_detected_sections` (Task 1) are read back with matching names in Task 10's `CVParseResult` reconstruction.
 
 **Not covered by this plan (frontend):** the `/candidatures` search-and-select page, `/profil` page, and `/historique` extension are covered by a separate frontend plan, per the same backend/frontend split used for the diagnostic and personalization sous-projets.
+
+**Post-review correction:** drafting the frontend plan surfaced that `ApplicationOut` needed to embed the full `DiagnosticReport` (Task 11) — there is no standalone `GET /diagnostics/{id}` endpoint, so without this the frontend would have had no way to render a diagnostic for an `Application` it just created. Fixed in Task 11 before the frontend plan was written; no other task depends on the old (narrower) shape.
