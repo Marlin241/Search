@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ApiError, register, login, fetchMe, createDiagnostic, listDiagnostics, deleteAllDiagnostics } from "./api";
+import {
+  ApiError,
+  register,
+  login,
+  fetchMe,
+  createDiagnostic,
+  listDiagnostics,
+  deleteAllDiagnostics,
+  downloadCv,
+  downloadLetter,
+  generateCv,
+  generateLetter,
+} from "./api";
 
 function jsonResponse(body: unknown, status = 200) {
   return {
@@ -7,6 +19,15 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     json: async () => body,
   } as Response;
+}
+
+function blobResponse(content: string, status = 200, contentType = "application/pdf") {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    blob: async () => new Blob([content], { type: contentType }),
+    json: async () => ({ detail: "Erreur" }),
+  } as unknown as Response;
 }
 
 beforeEach(() => {
@@ -109,4 +130,70 @@ it("ApiError is an instance of Error", () => {
   const error = new ApiError(422, "Invalid input");
   expect(error).toBeInstanceOf(Error);
   expect(error.status).toBe(422);
+});
+
+describe("generateCv", () => {
+  it("posts to /diagnostics/:id/cv with the bearer token", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ kind: "cv", needs_review: false, created_at: "2026-08-06T00:00:00Z", updated_at: "2026-08-06T00:00:00Z" }, 201)
+    );
+    const document = await generateCv("tok123", 42);
+    expect(document.kind).toBe("cv");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/diagnostics/42/cv");
+    expect(init?.method).toBe("POST");
+    const headers = init?.headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer tok123");
+  });
+});
+
+describe("generateLetter", () => {
+  it("posts to /diagnostics/:id/lettre", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ kind: "lettre", needs_review: false, created_at: "2026-08-06T00:00:00Z", updated_at: "2026-08-06T00:00:00Z" }, 201)
+    );
+    const document = await generateLetter("tok123", 42);
+    expect(document.kind).toBe("lettre");
+
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/diagnostics/42/lettre");
+  });
+});
+
+describe("downloadCv", () => {
+  it("returns a Blob from /diagnostics/:id/cv", async () => {
+    vi.mocked(fetch).mockResolvedValue(blobResponse("%PDF-1.4 fake"));
+    const blob = await downloadCv("tok123", 42);
+    expect(blob).toBeInstanceOf(Blob);
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/diagnostics/42/cv");
+    const headers = init?.headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer tok123");
+  });
+
+  it("throws ApiError with the parsed detail on failure", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ detail: "Aucun CV optimisé n'a encore été généré pour ce diagnostic." }),
+    } as Response);
+
+    await expect(downloadCv("tok123", 42)).rejects.toMatchObject({
+      status: 404,
+      message: "Aucun CV optimisé n'a encore été généré pour ce diagnostic.",
+    });
+  });
+});
+
+describe("downloadLetter", () => {
+  it("returns a Blob from /diagnostics/:id/lettre", async () => {
+    vi.mocked(fetch).mockResolvedValue(blobResponse("%PDF-1.4 fake"));
+    const blob = await downloadLetter("tok123", 42);
+    expect(blob).toBeInstanceOf(Blob);
+
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/diagnostics/42/lettre");
+  });
 });

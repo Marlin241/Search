@@ -13,3 +13,10 @@ export interface DiagnosticReport {
   missing_keywords: string[];
   recommendations: string[];
 }
+
+export interface PersonalizedDocument {
+  kind: "cv" | "lettre";
+  needs_review: boolean;
+  created_at: string;
+  updated_at: string;
+}

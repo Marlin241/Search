@@ -1,4 +1,4 @@
-import type { DiagnosticReport, User } from "./types";
+import type { DiagnosticReport, PersonalizedDocument, User } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -80,4 +80,36 @@ export function listDiagnostics(token: string): Promise<DiagnosticReport[]> {
 
 export function deleteAllDiagnostics(token: string): Promise<void> {
   return request<void>("/diagnostics", { method: "DELETE" }, token);
+}
+
+async function requestBlob(path: string, token: string): Promise<Blob> {
+  const headers = new Headers();
+  headers.set("Authorization", `Bearer ${token}`);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { headers });
+  } catch {
+    throw new ApiError(0, "Impossible de contacter le serveur.");
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, await parseErrorDetail(response));
+  }
+  return response.blob();
+}
+
+export function generateCv(token: string, diagnosticId: number): Promise<PersonalizedDocument> {
+  return request<PersonalizedDocument>(`/diagnostics/${diagnosticId}/cv`, { method: "POST" }, token);
+}
+
+export function generateLetter(token: string, diagnosticId: number): Promise<PersonalizedDocument> {
+  return request<PersonalizedDocument>(`/diagnostics/${diagnosticId}/lettre`, { method: "POST" }, token);
+}
+
+export function downloadCv(token: string, diagnosticId: number): Promise<Blob> {
+  return requestBlob(`/diagnostics/${diagnosticId}/cv`, token);
+}
+
+export function downloadLetter(token: string, diagnosticId: number): Promise<Blob> {
+  return requestBlob(`/diagnostics/${diagnosticId}/lettre`, token);
 }
