@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,7 @@ from app.database import get_db
 from app.auth.dependencies import get_current_user
 from app.models.user import User
 from app.models.diagnostic import Diagnostic
+from app.models.personalized_document import PersonalizedDocument
 from app.cv_parser.parser import parse_cv, CVParsingError, MAX_CV_SIZE_BYTES
 from app.offer_ingestion.ingestion import get_offer_text, OfferIngestionError
 from app.rules_engine.rules import evaluate_structure
@@ -13,6 +16,10 @@ from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.aggregator.aggregator import build_diagnostic_report
 from app.schemas.diagnostic import DiagnosticReport
 from app.rate_limit.limiter import check_rate_limit, lock_user_for_rate_limit, RateLimitExceeded
+from app.storage.client import ObjectStorage, ObjectStorageError
+from app.storage.dependencies import get_object_storage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
@@ -119,6 +126,38 @@ def list_diagnostics(
 def delete_all_diagnostics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    storage: ObjectStorage = Depends(get_object_storage),
 ) -> None:
+    diagnostic_ids = [
+        row[0] for row in db.query(Diagnostic.id).filter(Diagnostic.user_id == current_user.id).all()
+    ]
+
+    # Collected before deletion, and PersonalizedDocument rows are deleted
+    # explicitly below rather than relying on the FK's ondelete="CASCADE":
+    # this is a bulk `.delete()` query (not per-instance `db.delete(...)`),
+    # which bypasses SQLAlchemy ORM-level relationship cascades, and SQLite
+    # (used in the test suite) doesn't enforce FK-level cascade unless
+    # `PRAGMA foreign_keys=ON` is explicitly set. Explicit deletion works
+    # correctly on both SQLite and production PostgreSQL.
+    documents = (
+        db.query(PersonalizedDocument)
+        .filter(PersonalizedDocument.diagnostic_id.in_(diagnostic_ids))
+        .all()
+    )
+    storage_keys = [document.storage_key for document in documents]
+
+    db.query(PersonalizedDocument).filter(PersonalizedDocument.diagnostic_id.in_(diagnostic_ids)).delete(
+        synchronize_session=False
+    )
     db.query(Diagnostic).filter(Diagnostic.user_id == current_user.id).delete()
     db.commit()
+
+    for key in storage_keys:
+        try:
+            storage.delete(key)
+        except ObjectStorageError:
+            # The DB rows (source of truth for the RGPD purge) are already
+            # gone at this point; a MinIO object left behind by a transient
+            # storage failure is logged for manual follow-up rather than
+            # failing the whole purge request.
+            logger.warning("Failed to delete MinIO object %s during RGPD purge", key)

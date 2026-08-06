@@ -6,7 +6,12 @@ from app.cv_parser.parser import MAX_CV_SIZE_BYTES
 from app.llm_analyzer.analyzer import SemanticReport
 from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.main import app
+from app.models.personalized_document import PersonalizedDocument
+from app.personalization.dependencies import get_cv_rewriter
+from app.personalization.schemas import CvExperienceEntry, RewrittenCv
 from app.rate_limit.limiter import MAX_DIAGNOSTICS_PER_HOUR
+from app.storage.client import ObjectStorage, ObjectStorageError
+from app.storage.dependencies import get_object_storage
 
 
 class FakeAnalyzer:
@@ -183,3 +188,59 @@ def test_list_diagnostics_includes_id_and_created_at_newest_first(client):
     assert all("created_at" in d for d in listed)
 
     app.dependency_overrides.pop(get_semantic_analyzer, None)
+
+
+class _FakeCvRewriter:
+    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
+        return RewrittenCv(
+            summary="Résumé.",
+            experience=[CvExperienceEntry(title="Dev", company="Acme", dates="2020-2022", bullets=["Bullet."])],
+            education=["Master"],
+            skills=["Python"],
+        )
+
+
+class _FakeObjectStorage(ObjectStorage):
+    def __init__(self):
+        self._objects: dict[str, bytes] = {}
+
+    def upload(self, key: str, content: bytes) -> None:
+        self._objects[key] = content
+
+    def download(self, key: str) -> bytes:
+        if key not in self._objects:
+            raise ObjectStorageError(f"missing key {key}")
+        return self._objects[key]
+
+    def delete(self, key: str) -> None:
+        self._objects.pop(key, None)
+
+
+def test_delete_all_diagnostics_also_purges_personalized_documents(client, db_session):
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+    fake_storage = _FakeObjectStorage()
+    app.dependency_overrides[get_object_storage] = lambda: fake_storage
+    app.dependency_overrides[get_cv_rewriter] = lambda: _FakeCvRewriter()
+
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    diagnostic_id = client.post(
+        "/diagnostics",
+        headers=headers,
+        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        data={"offer_text": "We need a Python developer."},
+    ).json()["id"]
+
+    client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
+    assert len(fake_storage._objects) == 1
+
+    deleted = client.delete("/diagnostics", headers=headers)
+    assert deleted.status_code == 204
+
+    assert db_session.query(PersonalizedDocument).count() == 0
+    assert len(fake_storage._objects) == 0
+
+    app.dependency_overrides.pop(get_semantic_analyzer, None)
+    app.dependency_overrides.pop(get_object_storage, None)
+    app.dependency_overrides.pop(get_cv_rewriter, None)
