@@ -7,8 +7,9 @@ import { CVDropzone } from "@/components/CVDropzone";
 import { OfferInput, EMPTY_OFFER_VALUE, type OfferInputValue } from "@/components/OfferInput";
 import { DiagnosticReportView } from "@/components/DiagnosticReportView";
 import { ErrorBanner } from "@/components/ErrorBanner";
+import { PersonalizedDocumentCard } from "@/components/PersonalizedDocumentCard";
 import { toBannerContent, isSessionExpired, type BannerContent } from "@/lib/errors";
-import { createDiagnostic } from "@/lib/api";
+import { createDiagnostic, downloadCv, downloadLetter, generateCv, generateLetter } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import type { DiagnosticReport } from "@/lib/types";
 
@@ -76,8 +77,26 @@ function DiagnosticPageContent() {
       </div>
 
       {report && (
-        <div className="mt-10">
+        <div className="mt-10 flex flex-col gap-6">
           <DiagnosticReportView report={report} />
+          {token && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <PersonalizedDocumentCard
+                title="CV optimisé"
+                generatedLabel="Générer CV optimisé"
+                onGenerate={() => generateCv(token, report.id)}
+                onDownload={() => downloadCv(token, report.id)}
+                downloadFilename="cv_optimise.pdf"
+              />
+              <PersonalizedDocumentCard
+                title="Lettre de motivation"
+                generatedLabel="Générer lettre de motivation"
+                onGenerate={() => generateLetter(token, report.id)}
+                onDownload={() => downloadLetter(token, report.id)}
+                downloadFilename="lettre_motivation.pdf"
+              />
+            </div>
+          )}
         </div>
       )}
     </main>
