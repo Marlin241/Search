@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.models.application import APPLICATION_STATUS_EN_COURS, Application
@@ -86,6 +87,9 @@ def test_unique_constraint_on_user_id_and_offer_url(db_session):
 
 
 def test_deleting_diagnostic_cascades_to_application(db_session):
+    # Enable foreign key constraints in SQLite
+    db_session.execute(text("PRAGMA foreign_keys=ON"))
+
     diagnostic = _make_diagnostic(db_session)
     application = Application(
         user_id=diagnostic.user_id,
