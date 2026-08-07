@@ -1,0 +1,91 @@
+import httpx
+import pytest
+import respx
+
+from app.job_search.errors import JobSearchSourceError
+from app.job_search.greenhouse import GreenhouseJobBoardClient
+from app.job_search.schemas import SearchCriteria
+
+
+@respx.mock
+def test_search_returns_normalized_listings_for_followed_companies():
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "title": "Développeur Python",
+                        "location": {"name": "Paris"},
+                        "content": "<p>Nous recherchons un <b>développeur Python</b>.</p>",
+                        "absolute_url": "https://boards.greenhouse.io/acme/jobs/1",
+                    },
+                    {
+                        "title": "Chef de projet",
+                        "location": {"name": "Lyon"},
+                        "content": "<p>Gestion de projet.</p>",
+                        "absolute_url": "https://boards.greenhouse.io/acme/jobs/2",
+                    },
+                ]
+            },
+        )
+    )
+
+    client = GreenhouseJobBoardClient()
+    listings = client.search(SearchCriteria(keywords="python", followed_companies=["acme"]))
+
+    assert len(listings) == 1
+    assert listings[0].title == "Développeur Python"
+    assert listings[0].ats_type == "greenhouse"
+    assert "développeur Python" in listings[0].snippet
+    assert "<b>" not in listings[0].snippet
+
+
+@respx.mock
+def test_search_with_no_keyword_returns_all_jobs():
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(200, json={"jobs": [{"title": "Chef de projet", "absolute_url": "https://x"}]})
+    )
+
+    client = GreenhouseJobBoardClient()
+    listings = client.search(SearchCriteria(keywords="", followed_companies=["acme"]))
+
+    assert len(listings) == 1
+
+
+@respx.mock
+def test_search_raises_on_http_error():
+    respx.get("https://boards-api.greenhouse.io/v1/boards/unknown-co/jobs").mock(return_value=httpx.Response(404))
+
+    client = GreenhouseJobBoardClient()
+    with pytest.raises(JobSearchSourceError):
+        client.search(SearchCriteria(keywords="python", followed_companies=["unknown-co"]))
+
+
+def test_search_with_no_followed_companies_returns_empty_list():
+    client = GreenhouseJobBoardClient()
+    assert client.search(SearchCriteria(keywords="python", followed_companies=[])) == []
+
+
+@respx.mock
+def test_search_raises_on_location_field_wrong_shape():
+    """Test for wrong-shaped-but-valid-JSON: location is a string instead of an object"""
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "title": "Développeur Python",
+                        "location": "Paris",  # Wrong type: should be {"name": "..."}
+                        "content": "<p>Test</p>",
+                        "absolute_url": "https://boards.greenhouse.io/acme/jobs/1",
+                    }
+                ]
+            },
+        )
+    )
+
+    client = GreenhouseJobBoardClient()
+    with pytest.raises(JobSearchSourceError):
+        client.search(SearchCriteria(keywords="python", followed_companies=["acme"]))
