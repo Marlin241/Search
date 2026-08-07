@@ -1,0 +1,2 @@
+class ATSAdapterError(Exception):
+    pass
