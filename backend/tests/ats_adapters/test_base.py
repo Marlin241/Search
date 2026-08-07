@@ -1,3 +1,6 @@
+import socket
+from unittest.mock import patch
+
 import httpx
 import pytest
 import respx
@@ -189,3 +192,72 @@ def test_submit_raises_on_http_error():
 
     with pytest.raises(ATSAdapterError):
         _TestAdapter().submit(filled, cv_pdf=b"%PDF", lettre_pdf=b"%PDF")
+
+
+# --- SSRF protection ---------------------------------------------------
+#
+# discover_form() and submit() must validate their target URL before
+# issuing any request, the same way offer_ingestion.scraper.scrape_offer
+# does, and must translate rejections into ATSAdapterError (the type
+# documented for this module) rather than leaking scraper's ScrapingError.
+
+
+def test_discover_form_rejects_non_http_scheme():
+    # No respx mock is set up: if the code tried to make a network call,
+    # respx would not be active here and this would attempt a real file
+    # read / crash instead of raising ATSAdapterError cleanly.
+    with pytest.raises(ATSAdapterError):
+        _TestAdapter().discover_form("file:///etc/passwd", _profile(), email="jane@example.com")
+
+
+@respx.mock
+@pytest.mark.parametrize("url", ["http://127.0.0.1/", "http://localhost/"])
+def test_discover_form_rejects_loopback_address(url):
+    # Real DNS/hosts resolution: 127.0.0.1 and localhost genuinely resolve
+    # to loopback on any machine. Deliberately no respx route is registered,
+    # so if validation failed to block the request, respx would raise
+    # AllMockedAssertionError instead of ATSAdapterError, failing this test
+    # loudly rather than silently passing.
+    with pytest.raises(ATSAdapterError):
+        _TestAdapter().discover_form(url, _profile(), email="jane@example.com")
+
+
+@respx.mock
+def test_discover_form_rejects_shared_address_space():
+    # RFC 6598 Carrier-Grade NAT / Shared Address Space (100.64.0.0/10).
+    # Not a real DNS name, so we mock socket.getaddrinfo to resolve it into
+    # that range, same technique as offer_ingestion's scraper tests.
+    fake_addrinfo = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.0.1", 80)),
+    ]
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo):
+        with pytest.raises(ATSAdapterError):
+            _TestAdapter().discover_form("http://cgnat.example.com/", _profile(), email="jane@example.com")
+
+
+def _filled_form(submit_url: str) -> DiscoveredForm:
+    return DiscoveredForm(submit_url=submit_url, hidden_fields={}, fields=[])
+
+
+def test_submit_rejects_non_http_scheme():
+    with pytest.raises(ATSAdapterError):
+        _TestAdapter().submit(_filled_form("file:///etc/passwd"), cv_pdf=b"%PDF", lettre_pdf=b"%PDF")
+
+
+@respx.mock
+@pytest.mark.parametrize("url", ["http://127.0.0.1/", "http://localhost/"])
+def test_submit_rejects_loopback_address(url):
+    with pytest.raises(ATSAdapterError):
+        _TestAdapter().submit(_filled_form(url), cv_pdf=b"%PDF", lettre_pdf=b"%PDF")
+
+
+@respx.mock
+def test_submit_rejects_shared_address_space():
+    fake_addrinfo = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.0.1", 80)),
+    ]
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo):
+        with pytest.raises(ATSAdapterError):
+            _TestAdapter().submit(
+                _filled_form("http://cgnat.example.com/"), cv_pdf=b"%PDF", lettre_pdf=b"%PDF"
+            )

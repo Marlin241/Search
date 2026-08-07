@@ -6,6 +6,18 @@ from bs4 import BeautifulSoup
 from app.ats_adapters.errors import ATSAdapterError
 from app.ats_adapters.schemas import DiscoveredForm, FormField
 from app.models.candidate_profile import CandidateProfile
+from app.offer_ingestion.scraper import ScrapingError, _validate_url
+
+
+def _validate_url_for_ats(url: str) -> None:
+    """Reuse offer_ingestion.scraper's SSRF validation (scheme allowlist +
+    DNS-resolved private/internal address rejection), but re-raise as
+    ATSAdapterError so callers of this module only ever see that error
+    type, per its documented contract."""
+    try:
+        _validate_url(url)
+    except ScrapingError as exc:
+        raise ATSAdapterError(f"URL non autorisée: {exc}") from exc
 
 
 class HtmlFormAdapter:
@@ -30,6 +42,7 @@ class HtmlFormAdapter:
         self._http = http_client or httpx.Client(timeout=15.0)
 
     def discover_form(self, offer_url: str, profile: CandidateProfile, email: str) -> DiscoveredForm:
+        _validate_url_for_ats(offer_url)
         try:
             response = self._http.get(offer_url)
             response.raise_for_status()
@@ -133,6 +146,7 @@ class HtmlFormAdapter:
         if self.cover_letter_field_names:
             files[self.cover_letter_field_names[0]] = ("lettre.pdf", lettre_pdf, "application/pdf")
 
+        _validate_url_for_ats(filled_form.submit_url)
         try:
             response = self._http.post(filled_form.submit_url, data=data, files=files)
             response.raise_for_status()
