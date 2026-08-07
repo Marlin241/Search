@@ -1,6 +1,11 @@
+import socket
+from unittest.mock import patch
+
 import httpx
+import pytest
 import respx
 
+from app.ats_adapters.errors import ATSAdapterError
 from app.ats_adapters.greenhouse import GreenhouseAdapter
 from app.ats_adapters.schemas import DiscoveredForm
 from app.models.candidate_profile import CandidateProfile
@@ -122,3 +127,74 @@ def test_submit_attaches_cv_and_lettre_under_greenhouse_field_names():
     assert "job_application[cover_letter]" in parts
     assert b"%PDF-lettre" in parts["job_application[cover_letter]"]
     assert b"%PDF-cv" not in parts["job_application[cover_letter]"]
+
+
+# A public, non-private address, so `_validate_url_for_ats`'s SSRF check
+# passes and these tests isolate the host-allowlist check alone (rather
+# than accidentally passing because the fake hostname doesn't resolve).
+_PUBLIC_ADDRINFO = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
+
+
+@respx.mock
+def test_discover_form_rejects_a_non_greenhouse_host():
+    # Finding 6: ats_type and offer_url are both unvalidated free-form client
+    # input, so without a host allowlist a client could set
+    # ats_type="greenhouse" on an attacker-controlled public URL and have the
+    # server fetch it - and later POST the user's CV/lettre to it. The SSRF
+    # check alone does not stop this: the target is public, not internal.
+    route = respx.get("https://attacker.example.com/harvest").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_HTML)
+    )
+
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
+        with pytest.raises(ATSAdapterError):
+            GreenhouseAdapter().discover_form(
+                "https://attacker.example.com/harvest", _profile(), email="jane@example.com"
+            )
+
+    assert not route.called
+
+
+@respx.mock
+def test_discover_form_rejects_a_lookalike_greenhouse_host():
+    # "notgreenhouse.io" ends with the literal string "greenhouse.io" but is
+    # a different registrable domain - the allowlist must match on a label
+    # boundary, not a bare string suffix.
+    route = respx.get("https://notgreenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_HTML)
+    )
+
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
+        with pytest.raises(ATSAdapterError):
+            GreenhouseAdapter().discover_form(
+                "https://notgreenhouse.io/acme/jobs/123", _profile(), email="jane@example.com"
+            )
+
+    assert not route.called
+
+
+@respx.mock
+def test_submit_rejects_a_non_greenhouse_submit_url():
+    # The submit URL comes from the fetched page's <form action>, so it is
+    # validated independently of the offer URL.
+    route = respx.post("https://attacker.example.com/harvest").mock(return_value=httpx.Response(200))
+    filled = DiscoveredForm(submit_url="https://attacker.example.com/harvest", hidden_fields={}, fields=[])
+
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
+        with pytest.raises(ATSAdapterError):
+            GreenhouseAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
+
+    assert not route.called
+
+
+@respx.mock
+def test_discover_form_accepts_a_greenhouse_subdomain():
+    respx.get("https://job-boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_HTML)
+    )
+
+    form = GreenhouseAdapter().discover_form(
+        "https://job-boards.greenhouse.io/acme/jobs/123", _profile(), email="jane@example.com"
+    )
+
+    assert form.submit_url == "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"

@@ -11,3 +11,4 @@ class LeverAdapter(HtmlFormAdapter):
     }
     resume_field_names = ["resume"]
     cover_letter_field_names = ["coverLetter"]
+    allowed_host_suffixes = ["lever.co"]

@@ -1,4 +1,4 @@
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -24,7 +24,7 @@ class HtmlFormAdapter:
     """Generic adapter for ATS platforms (Greenhouse, Lever) that embed a
     single standard HTML application form on the offer's page.
 
-    Subclasses set three class attributes to specialize this for their
+    Subclasses set four class attributes to specialize this for their
     platform's field naming convention - no other code is platform-specific:
 
     - `standard_field_aliases`: maps a CandidateProfile concept
@@ -32,17 +32,50 @@ class HtmlFormAdapter:
       the HTML field's `name` attribute (case-insensitive).
     - `resume_field_names` / `cover_letter_field_names`: the file input
       `name` attribute(s) the CV/lettre PDFs are attached under on submit.
+    - `allowed_host_suffixes`: the domains this adapter is allowed to talk
+      to (see `_validate_host_allowed`). Empty means unrestricted, which is
+      only appropriate for the generic base class and its tests.
     """
 
     standard_field_aliases: dict[str, list[str]] = {}
     resume_field_names: list[str] = []
     cover_letter_field_names: list[str] = []
+    allowed_host_suffixes: list[str] = []
 
     def __init__(self, http_client: httpx.Client | None = None):
         self._http = http_client or httpx.Client(timeout=15.0)
 
+    def _validate_host_allowed(self, url: str) -> None:
+        """Reject URLs whose host isn't on this adapter's platform allowlist.
+
+        `ats_type` and `offer_url` are both unvalidated free-form client
+        input, so without this a client could pair ats_type="greenhouse"
+        with any URL and have the server fetch it - and then POST the user's
+        CV and lettre to whatever form it found there. That target can be a
+        perfectly public attacker-controlled host, which the SSRF check in
+        `_validate_url_for_ats` (private/internal addresses only) does not
+        and cannot cover; the two checks are complementary and both run.
+
+        Matching is on a label boundary (exact host, or host ending in
+        "." + suffix), not a bare string suffix, so a lookalike registrable
+        domain such as "notgreenhouse.io" is rejected rather than accepted
+        for merely ending in "greenhouse.io".
+        """
+        if not self.allowed_host_suffixes:
+            return  # unrestricted: the generic base adapter and its tests
+        host = (urlsplit(url).hostname or "").lower()
+        for suffix in self.allowed_host_suffixes:
+            normalized = suffix.lower().lstrip(".")
+            if host == normalized or host.endswith(f".{normalized}"):
+                return
+        raise ATSAdapterError(
+            f"URL non autorisée pour cette plateforme: '{host}' n'appartient pas à "
+            f"{', '.join(self.allowed_host_suffixes)}."
+        )
+
     def discover_form(self, offer_url: str, profile: CandidateProfile, email: str) -> DiscoveredForm:
         _validate_url_for_ats(offer_url)
+        self._validate_host_allowed(offer_url)
         try:
             response = self._http.get(offer_url)
             response.raise_for_status()
@@ -146,7 +179,11 @@ class HtmlFormAdapter:
         if self.cover_letter_field_names:
             files[self.cover_letter_field_names[0]] = ("lettre.pdf", lettre_pdf, "application/pdf")
 
+        # The submit URL comes from the fetched page's <form action>, so it
+        # is validated in its own right rather than trusted because the
+        # offer URL passed.
         _validate_url_for_ats(filled_form.submit_url)
+        self._validate_host_allowed(filled_form.submit_url)
         try:
             response = self._http.post(filled_form.submit_url, data=data, files=files)
             response.raise_for_status()

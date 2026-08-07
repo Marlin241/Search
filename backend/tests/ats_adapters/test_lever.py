@@ -1,6 +1,11 @@
+import socket
+from unittest.mock import patch
+
 import httpx
+import pytest
 import respx
 
+from app.ats_adapters.errors import ATSAdapterError
 from app.ats_adapters.lever import LeverAdapter
 from app.ats_adapters.schemas import DiscoveredForm
 from app.models.candidate_profile import CandidateProfile
@@ -123,3 +128,48 @@ def test_submit_attaches_cv_and_lettre_under_lever_field_names():
     assert "coverLetter" in parts
     assert b"%PDF-lettre" in parts["coverLetter"]
     assert b"%PDF-cv" not in parts["coverLetter"]
+
+
+# See the equivalent constant in test_greenhouse.py: a public address so
+# the SSRF check passes and only the host-allowlist check can reject.
+_PUBLIC_ADDRINFO = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
+
+
+@respx.mock
+def test_discover_form_rejects_a_non_lever_host():
+    route = respx.get("https://attacker.example.com/harvest").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_HTML)
+    )
+
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
+        with pytest.raises(ATSAdapterError):
+            LeverAdapter().discover_form(
+                "https://attacker.example.com/harvest", _profile(), email="jane@example.com"
+            )
+
+    assert not route.called
+
+
+@respx.mock
+def test_discover_form_rejects_a_lookalike_lever_host():
+    route = respx.get("https://notlever.co/acme/abc123").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_HTML)
+    )
+
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
+        with pytest.raises(ATSAdapterError):
+            LeverAdapter().discover_form("https://notlever.co/acme/abc123", _profile(), email="jane@example.com")
+
+    assert not route.called
+
+
+@respx.mock
+def test_submit_rejects_a_non_lever_submit_url():
+    route = respx.post("https://attacker.example.com/harvest").mock(return_value=httpx.Response(200))
+    filled = DiscoveredForm(submit_url="https://attacker.example.com/harvest", hidden_fields={}, fields=[])
+
+    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
+        with pytest.raises(ATSAdapterError):
+            LeverAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
+
+    assert not route.called
