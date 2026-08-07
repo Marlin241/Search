@@ -67,3 +67,8 @@ def test_submit_attaches_cv_and_lettre_under_greenhouse_field_names():
     GreenhouseAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
 
     assert route.called
+    sent_body = route.calls[0].request.content
+    assert b'name="job_application[resume]"' in sent_body
+    assert b'name="job_application[cover_letter]"' in sent_body
+    assert b"%PDF-cv" in sent_body
+    assert b"%PDF-lettre" in sent_body
