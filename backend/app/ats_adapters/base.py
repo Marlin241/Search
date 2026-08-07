@@ -82,7 +82,7 @@ class HtmlFormAdapter:
     def _prefill_from_profile(
         self, field_name: str, profile: CandidateProfile, email: str
     ) -> tuple[str | None, bool]:
-        name_parts = profile.full_name.split(" ") if profile.full_name else []
+        name_parts = profile.full_name.split() if profile.full_name else []
         profile_values = {
             "full_name": profile.full_name or None,
             "first_name": name_parts[0] if name_parts else None,
@@ -94,10 +94,32 @@ class HtmlFormAdapter:
             "portfolio": profile.portfolio_url,
         }
         lowered_field_name = field_name.lower()
+
+        # Consider every (concept, alias) pair whose alias substring-matches
+        # the field name AND whose concept actually has a fillable value -
+        # a concept that matches but has no data (missing from
+        # profile_values, or None there) must never count as a match, or
+        # the field would end up blank (value=None) yet marked as
+        # confidently filled (is_custom=False), hiding it from review.
+        # Among the remaining candidates, prefer the most specific one (the
+        # longest alias string) so a broad alias (e.g. "name") never
+        # shadows a more specific one (e.g. "first_name") regardless of
+        # declaration order in the subclass's alias table. Ties keep the
+        # first-declared candidate.
+        best_alias_len = -1
+        best_value: str | None = None
         for concept, aliases in self.standard_field_aliases.items():
-            if any(alias in lowered_field_name for alias in aliases):
-                return profile_values.get(concept), True
-        return None, False
+            value = profile_values.get(concept)
+            if value is None:
+                continue
+            for alias in aliases:
+                if alias in lowered_field_name and len(alias) > best_alias_len:
+                    best_alias_len = len(alias)
+                    best_value = value
+
+        if best_alias_len == -1:
+            return None, False
+        return best_value, True
 
     def submit(self, filled_form: DiscoveredForm, cv_pdf: bytes, lettre_pdf: bytes) -> None:
         data = dict(filled_form.hidden_fields)

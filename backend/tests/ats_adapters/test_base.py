@@ -61,7 +61,85 @@ def test_discover_form_splits_standard_and_custom_fields():
 
     custom_field = next(f for f in form.fields if f.name == "custom_why")
     assert custom_field.is_custom is True
+    assert custom_field.value is None
     assert custom_field.label == "Why this role?"
+
+
+@respx.mock
+def test_discover_form_label_falls_back_to_field_name_when_no_label():
+    html = """
+    <html><body>
+    <form action="/submit" method="post">
+      <input type="text" name="mystery_field" />
+    </form>
+    </body></html>
+    """
+    respx.get("https://example.com/apply").mock(return_value=httpx.Response(200, text=html))
+
+    form = _TestAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+
+    field = next(f for f in form.fields if f.name == "mystery_field")
+    assert field.label == "mystery_field"
+
+
+@respx.mock
+def test_prefill_prefers_most_specific_alias_match():
+    # "full_name" is aliased to the broad substring "name", which would
+    # also match a field named "first_name" if matching stopped at the
+    # first matching concept (dict order). The base adapter must instead
+    # prefer the more specific "first_name" alias regardless of which
+    # concept was declared first in the alias table.
+    class _AmbiguousAdapter(HtmlFormAdapter):
+        standard_field_aliases = {
+            "full_name": ["name"],
+            "first_name": ["first_name"],
+        }
+        resume_field_names = ["resume"]
+        cover_letter_field_names = ["cover_letter"]
+
+    html = """
+    <html><body>
+    <form action="/submit" method="post">
+      <input type="text" name="first_name" />
+    </form>
+    </body></html>
+    """
+    respx.get("https://example.com/apply").mock(return_value=httpx.Response(200, text=html))
+
+    form = _AmbiguousAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+
+    field = next(f for f in form.fields if f.name == "first_name")
+    assert field.value == "Jane"  # first_name concept wins, not the full "Jane Doe"
+    assert field.is_custom is False
+
+
+@respx.mock
+def test_prefill_treats_matched_but_unmapped_concept_as_custom():
+    # The alias table matches this field to the "work_authorization"
+    # concept, but _prefill_from_profile has no entry for that concept -
+    # the field must come back blank AND marked custom, never blank with
+    # is_custom=False (which would silently hide it from manual review).
+    class _UnmappedConceptAdapter(HtmlFormAdapter):
+        standard_field_aliases = {
+            "work_authorization": ["auth"],
+        }
+        resume_field_names = ["resume"]
+        cover_letter_field_names = ["cover_letter"]
+
+    html = """
+    <html><body>
+    <form action="/submit" method="post">
+      <input type="text" name="auth_status" />
+    </form>
+    </body></html>
+    """
+    respx.get("https://example.com/apply").mock(return_value=httpx.Response(200, text=html))
+
+    form = _UnmappedConceptAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+
+    field = next(f for f in form.fields if f.name == "auth_status")
+    assert field.value is None
+    assert field.is_custom is True
 
 
 @respx.mock
