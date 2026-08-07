@@ -86,7 +86,7 @@ export function SearchCriteriaForm({ value, onChange, onSearch, isSearching }: S
         Télétravail uniquement
       </label>
       <label className="flex flex-col gap-1 text-sm text-slate-700">
-        Termes à exclure (séparés par des virgules)
+        Mots-clés à exclure (séparés par des virgules)
         <input
           type="text"
           value={value.excludeKeywords}
@@ -107,7 +107,7 @@ export function SearchCriteriaForm({ value, onChange, onSearch, isSearching }: S
       <button
         type="button"
         onClick={onSearch}
-        disabled={isSearching}
+        disabled={isSearching || value.keywords.trim().length === 0}
         className="w-fit rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
       >
         {isSearching ? "Recherche en cours..." : "Rechercher"}

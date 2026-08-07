@@ -12,14 +12,14 @@ describe("SearchCriteriaForm", () => {
     render(
       <SearchCriteriaForm value={EMPTY_SEARCH_CRITERIA_FORM_VALUE} onChange={onChange} onSearch={vi.fn()} isSearching={false} />
     );
-    fireEvent.change(screen.getByLabelText(/mots-clés/i), { target: { value: "python" } });
+    fireEvent.change(screen.getByLabelText("Mots-clés", { exact: true }), { target: { value: "python" } });
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_SEARCH_CRITERIA_FORM_VALUE, keywords: "python" });
   });
 
   it("calls onSearch when the search button is clicked", () => {
     const onSearch = vi.fn();
     render(
-      <SearchCriteriaForm value={EMPTY_SEARCH_CRITERIA_FORM_VALUE} onChange={vi.fn()} onSearch={onSearch} isSearching={false} />
+      <SearchCriteriaForm value={{ ...EMPTY_SEARCH_CRITERIA_FORM_VALUE, keywords: "python" }} onChange={vi.fn()} onSearch={onSearch} isSearching={false} />
     );
     fireEvent.click(screen.getByRole("button", { name: /rechercher/i }));
     expect(onSearch).toHaveBeenCalled();
