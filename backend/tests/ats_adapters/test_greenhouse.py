@@ -5,6 +5,43 @@ from app.ats_adapters.greenhouse import GreenhouseAdapter
 from app.ats_adapters.schemas import DiscoveredForm
 from app.models.candidate_profile import CandidateProfile
 
+
+def _parse_multipart_parts(content: bytes, boundary: str) -> dict[str, bytes]:
+    """Parse multipart form data into a dict mapping field names to their content.
+
+    Args:
+        content: Raw multipart request body
+        boundary: Multipart boundary (without dashes)
+
+    Returns:
+        Dict mapping field names (extracted from name="...") to part content
+    """
+    boundary_bytes = b"--" + boundary.encode()
+    parts = {}
+
+    for part_data in content.split(boundary_bytes):
+        if not part_data or part_data.startswith(b"--"):
+            continue
+
+        # Split headers from body (separated by double CRLF)
+        if b"\r\n\r\n" in part_data:
+            headers_section, body = part_data.split(b"\r\n\r\n", 1)
+        else:
+            continue
+
+        # Parse Content-Disposition header to extract field name
+        headers_str = headers_section.decode("utf-8", errors="ignore")
+        if 'name="' in headers_str:
+            # Extract field name from: name="field_name"
+            start = headers_str.find('name="') + 6
+            end = headers_str.find('"', start)
+            field_name = headers_str[start:end]
+
+            # Store the body content (strip trailing CRLF)
+            parts[field_name] = body.rstrip(b"\r\n")
+
+    return parts
+
 _SAMPLE_HTML = """
 <html><body>
 <form action="https://boards-api.greenhouse.io/v1/boards/acme/jobs/123" method="post">
@@ -67,8 +104,21 @@ def test_submit_attaches_cv_and_lettre_under_greenhouse_field_names():
     GreenhouseAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
 
     assert route.called
+
+    # Extract multipart boundary from Content-Type header
+    content_type = route.calls[0].request.headers["content-type"]
+    boundary = content_type.split("boundary=")[1]
+
+    # Parse multipart body to get field-to-content mapping
     sent_body = route.calls[0].request.content
-    assert b'name="job_application[resume]"' in sent_body
-    assert b'name="job_application[cover_letter]"' in sent_body
-    assert b"%PDF-cv" in sent_body
-    assert b"%PDF-lettre" in sent_body
+    parts = _parse_multipart_parts(sent_body, boundary)
+
+    # Verify CV is attached under correct Greenhouse field name
+    assert "job_application[resume]" in parts
+    assert b"%PDF-cv" in parts["job_application[resume]"]
+    assert b"%PDF-lettre" not in parts["job_application[resume]"]
+
+    # Verify cover letter is attached under correct Greenhouse field name
+    assert "job_application[cover_letter]" in parts
+    assert b"%PDF-lettre" in parts["job_application[cover_letter]"]
+    assert b"%PDF-cv" not in parts["job_application[cover_letter]"]
