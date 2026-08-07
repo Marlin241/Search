@@ -32,9 +32,9 @@ def _clean_cv_docx_bytes() -> bytes:
     return buffer.getvalue()
 
 
-def _register_and_login(client) -> str:
-    client.post("/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"})
-    login = client.post("/auth/login", data={"username": "jane@example.com", "password": "s3cret!1"})
+def _register_and_login(client, email: str = "jane@example.com") -> str:
+    client.post("/auth/register", json={"email": email, "password": "s3cret!1"})
+    login = client.post("/auth/login", data={"username": email, "password": "s3cret!1"})
     return login.json()["access_token"]
 
 
@@ -286,3 +286,83 @@ def test_delete_all_diagnostics_also_purges_applications(client, db_session):
 
     assert response.status_code == 204
     assert db_session.query(Application).count() == 0
+
+
+def test_delete_all_diagnostics_does_not_purge_other_users_applications(client, db_session):
+    from app.models.application import APPLICATION_STATUS_EN_COURS, Application
+    from app.models.user import User
+
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+
+    owner_token = _register_and_login(client, "owner@example.com")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    owner_diagnostic_id = client.post(
+        "/diagnostics",
+        headers=owner_headers,
+        files={
+            "cv_file": (
+                "cv.docx", _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+        data={"offer_text": "Nous recherchons un développeur Python."},
+    ).json()["id"]
+
+    other_token = _register_and_login(client, "other@example.com")
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+    other_diagnostic_id = client.post(
+        "/diagnostics",
+        headers=other_headers,
+        files={
+            "cv_file": (
+                "cv.docx", _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+        data={"offer_text": "Nous recherchons un développeur Java."},
+    ).json()["id"]
+
+    owner = db_session.query(User).filter(User.email == "owner@example.com").first()
+    other = db_session.query(User).filter(User.email == "other@example.com").first()
+
+    db_session.add(
+        Application(
+            user_id=owner.id,
+            diagnostic_id=owner_diagnostic_id,
+            offer_url="https://example.com/job/owner",
+            source="manual",
+            company_name="Acme",
+            job_title="Dev",
+            ats_type=None,
+            status=APPLICATION_STATUS_EN_COURS,
+        )
+    )
+    other_application = Application(
+        user_id=other.id,
+        diagnostic_id=other_diagnostic_id,
+        offer_url="https://example.com/job/other",
+        source="manual",
+        company_name="Other Co",
+        job_title="Backend Dev",
+        ats_type=None,
+        status=APPLICATION_STATUS_EN_COURS,
+    )
+    db_session.add(other_application)
+    db_session.commit()
+    other_application_id = other_application.id
+
+    response = client.delete("/diagnostics", headers=owner_headers)
+
+    assert response.status_code == 204
+    # Only the requesting user's own Application row was purged.
+    assert db_session.query(Application).filter(Application.user_id == owner.id).count() == 0
+    # The other user's Application, attached to a different diagnostic,
+    # must survive untouched.
+    surviving = db_session.query(Application).filter(Application.id == other_application_id).first()
+    assert surviving is not None
+    assert surviving.user_id == other.id
+
+    # And it's still visible to that other user through the normal API.
+    other_get = client.get("/applications", headers=other_headers)
+    assert other_get.status_code == 200
+    assert len(other_get.json()) == 1
