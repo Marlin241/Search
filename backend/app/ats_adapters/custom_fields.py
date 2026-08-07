@@ -77,6 +77,14 @@ class CustomFieldAnswerer:
                 response = self._client.messages.create(
                     model=self._model,
                     max_tokens=1024,
+                    # claude-sonnet-5 runs adaptive thinking by default when
+                    # `thinking` is omitted, and max_tokens caps thinking +
+                    # response combined - which could silently truncate a
+                    # forced tool_use JSON payload. This call is
+                    # deterministic structured extraction, not open-ended
+                    # reasoning, so thinking is disabled: max_tokens is then
+                    # dedicated entirely to the response.
+                    thinking={"type": "disabled"},
                     tools=[_CUSTOM_FIELDS_TOOL],
                     tool_choice={"type": "tool", "name": _CUSTOM_FIELDS_TOOL["name"]},
                     messages=[{"role": "user", "content": prompt}],
@@ -85,7 +93,11 @@ class CustomFieldAnswerer:
                 if tool_use is None:
                     raise CustomFieldAnsweringError("No tool_use block in Claude response")
                 parsed = _CustomFieldAnswers.model_validate(tool_use.input)
-                return {a.field_name: a.answer for a in parsed.answers if a.confident and a.answer.strip()}
+                return {
+                    a.field_name: a.answer.strip()
+                    for a in parsed.answers
+                    if a.confident and a.answer.strip()
+                }
             except (ValidationError, CustomFieldAnsweringError, anthropic.APIError) as exc:
                 last_error = exc
                 continue
