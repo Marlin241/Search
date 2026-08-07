@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.aggregator.aggregator import build_diagnostic_report
@@ -93,6 +94,20 @@ def create_application(
         status=APPLICATION_STATUS_EN_COURS,
     )
     db.add(application)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        # The pre-check above is a fast-path only: it can't see a competing
+        # request's row that was inserted concurrently between that SELECT
+        # and this commit. The `uq_application_user_offer_url` unique
+        # constraint is the actual source of truth for dedup, so a
+        # constraint violation at commit time is translated into the same
+        # DuplicateApplicationError the pre-check raises, rather than
+        # letting a raw IntegrityError escape to callers that don't know
+        # how to handle it.
+        db.rollback()
+        raise DuplicateApplicationError(
+            "Vous avez déjà une candidature enregistrée pour cette offre."
+        ) from exc
     db.refresh(application)
     return application

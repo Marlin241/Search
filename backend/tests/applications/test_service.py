@@ -76,6 +76,7 @@ def test_create_application_raises_without_reference_cv(db_session):
     user = User(email="noprofile@example.com", hashed_password="hashed")
     db_session.add(user)
     db_session.commit()
+    analyzer = FakeAnalyzer()
 
     with pytest.raises(MissingReferenceCvError):
         create_application(
@@ -87,8 +88,9 @@ def test_create_application_raises_without_reference_cv(db_session):
             company_name="Acme",
             job_title="Dev",
             ats_type=None,
-            analyzer=FakeAnalyzer(),
+            analyzer=analyzer,
         )
+    assert analyzer.calls == 0  # missing-profile check never reaches the LLM
 
 
 def test_create_application_raises_on_duplicate_offer_url(db_session):
@@ -155,4 +157,63 @@ def test_create_application_wraps_offer_ingestion_error(db_session):
             job_title="Dev",
             ats_type=None,
             analyzer=FakeAnalyzer(),
+        )
+
+
+def test_create_application_wraps_commit_time_duplicate_race(db_session):
+    """Simulates the TOCTOU race between the dedup pre-check and the final
+    commit: a competing Application row for the same (user_id, offer_url) is
+    added on the session but deliberately left uncommitted before calling
+    create_application. The db_session fixture is configured with
+    autoflush=False (see conftest.py), so the pre-check's SELECT does not see
+    the pending row -- exactly like a concurrent request's in-flight,
+    uncommitted transaction would be invisible to this session. The pending
+    row still gets flushed to the database alongside create_application's own
+    writes (via its explicit db.flush() before building Application), so the
+    `uq_application_user_offer_url` unique constraint fires at
+    create_application's own db.commit(). That commit-time IntegrityError
+    must be translated into DuplicateApplicationError, not escape raw.
+    """
+    user = _make_user_with_profile(db_session)
+    analyzer = FakeAnalyzer()
+    offer_url = "https://example.com/job/race"
+
+    competing_diagnostic = Diagnostic(
+        user_id=user.id,
+        cv_text="CV",
+        offer_text="Offer",
+        overall_score=50,
+        structural_score=50,
+        structural_issues=[],
+        semantic_score=50,
+        missing_keywords=[],
+        recommendations=[],
+    )
+    db_session.add(competing_diagnostic)
+    db_session.flush()  # only to assign competing_diagnostic.id; still uncommitted
+
+    competing_application = Application(
+        user_id=user.id,
+        diagnostic_id=competing_diagnostic.id,
+        offer_url=offer_url,
+        source="manual",
+        company_name="Acme",
+        job_title="Dev",
+        status="en_cours",
+    )
+    db_session.add(competing_application)
+    # Deliberately not committed: stands in for a concurrent request's
+    # in-flight transaction that create_application's pre-check cannot see.
+
+    with pytest.raises(DuplicateApplicationError):
+        create_application(
+            db_session,
+            user_id=user.id,
+            offer_url=offer_url,
+            offer_text_override="Offre.",
+            source="manual",
+            company_name="Acme",
+            job_title="Dev",
+            ats_type=None,
+            analyzer=analyzer,
         )
