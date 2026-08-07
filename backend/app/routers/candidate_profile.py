@@ -68,6 +68,27 @@ def upsert_profile(
     return _to_out(profile)
 
 
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def delete_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """RGPD purge of the candidate profile - the most personal data the app
+    holds (full reference CV text, phone, address).
+
+    Deliberately a separate action from `DELETE /diagnostics`, which purges
+    diagnostics/documents/applications and never touches the profile: a user
+    may well want to clear their diagnostic history while keeping the
+    profile for future searches, or the reverse. Idempotent (204 even with
+    no profile stored) so a client retrying the purge never sees a spurious
+    404 - "no profile stored" is the outcome the caller asked for.
+    """
+    profile = _get_profile(db, current_user.id)
+    if profile is not None:
+        db.delete(profile)
+        db.commit()
+
+
 @router.post("/cv", response_model=CandidateProfileOut)
 def upload_reference_cv(
     cv_file: UploadFile = File(...),
