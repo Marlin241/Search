@@ -32,6 +32,8 @@ describe("TopNav", () => {
     useAuthMock.mockReturnValue({ user: { id: 1, email: "jane@example.com" }, logout: logoutMock });
     render(<TopNav />);
     expect(screen.getByText("Historique")).toBeInTheDocument();
+    expect(screen.getByText("Candidatures")).toBeInTheDocument();
+    expect(screen.getByText("Profil")).toBeInTheDocument();
     expect(screen.getByText("jane@example.com")).toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Se déconnecter"));

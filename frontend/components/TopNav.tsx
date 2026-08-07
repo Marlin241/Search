@@ -32,6 +32,12 @@ export function TopNav() {
         <Link href="/historique" className={pathname === "/historique" ? "font-semibold text-blue-600" : ""}>
           Historique
         </Link>
+        <Link href="/candidatures" className={pathname === "/candidatures" ? "font-semibold text-blue-600" : ""}>
+          Candidatures
+        </Link>
+        <Link href="/profil" className={pathname === "/profil" ? "font-semibold text-blue-600" : ""}>
+          Profil
+        </Link>
         <span>{user.email}</span>
         <button type="button" onClick={handleLogout} className="font-semibold text-slate-600">
           Se déconnecter
