@@ -5,6 +5,7 @@ from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.candidate_profile import CandidateProfile
 from app.models.application import Application
 from app.models.job_search_request_log import JobSearchRequestLog
+from app.models.prefilled_form_request_log import PrefilledFormRequestLog
 
 __all__ = [
     "User",
@@ -14,4 +15,5 @@ __all__ = [
     "CandidateProfile",
     "Application",
     "JobSearchRequestLog",
+    "PrefilledFormRequestLog",
 ]

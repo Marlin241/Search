@@ -132,3 +132,50 @@ def test_job_search_blocks_at_limit(db_session):
 
     with pytest.raises(RateLimitExceeded):
         check_job_search_rate_limit(db_session, user.id)
+
+
+from app.models.prefilled_form_request_log import PrefilledFormRequestLog
+from app.rate_limit.limiter import (
+    MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR,
+    check_prefilled_form_rate_limit,
+)
+
+
+def _add_prefilled_form_logs(db_session, user_id: int, count: int) -> None:
+    for _ in range(count):
+        db_session.add(PrefilledFormRequestLog(user_id=user_id))
+    db_session.commit()
+
+
+def test_prefilled_form_allows_under_limit(db_session):
+    user = _make_user(db_session)
+    _add_prefilled_form_logs(db_session, user.id, MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR - 1)
+    check_prefilled_form_rate_limit(db_session, user.id)  # should not raise
+
+
+def test_prefilled_form_blocks_at_limit(db_session):
+    user = _make_user(db_session)
+    _add_prefilled_form_logs(db_session, user.id, MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR)
+    import pytest
+
+    with pytest.raises(RateLimitExceeded):
+        check_prefilled_form_rate_limit(db_session, user.id)
+
+
+def test_prefilled_form_rate_limit_is_independent_of_the_other_counters(db_session):
+    user = _make_user(db_session)
+    _add_diagnostics(db_session, user.id, MAX_DIAGNOSTICS_PER_HOUR)
+    _add_personalization_logs(db_session, user.id, MAX_PERSONALIZATIONS_PER_HOUR)
+    _add_job_search_logs(db_session, user.id, MAX_SEARCHES_PER_HOUR)
+
+    # Every other counter is maxed out; the prefilled-form counter has its own.
+    check_prefilled_form_rate_limit(db_session, user.id)  # should not raise
+
+
+def test_other_rate_limits_are_unaffected_by_prefilled_form_logs(db_session):
+    user = _make_user(db_session)
+    _add_prefilled_form_logs(db_session, user.id, MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR)
+
+    check_rate_limit(db_session, user.id)  # should not raise
+    check_personalization_rate_limit(db_session, user.id)  # should not raise
+    check_job_search_rate_limit(db_session, user.id)  # should not raise

@@ -90,3 +90,27 @@ def check_job_search_rate_limit(db: Session, user_id: int) -> None:
         raise RateLimitExceeded(
             f"Limite de {MAX_SEARCHES_PER_HOUR} recherches par heure atteinte. Réessaie plus tard."
         )
+
+
+from app.models.prefilled_form_request_log import PrefilledFormRequestLog
+
+MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR = 10
+
+
+def check_prefilled_form_rate_limit(db: Session, user_id: int) -> None:
+    """Caps GET /applications/{id}/prefilled-form, which runs the
+    CustomFieldAnswerer LLM on every call. Set to the same 10/h as the
+    diagnostic and personalization limits (rather than job search's 20/h)
+    because it is an LLM-cost limit, not a third-party free-tier quota."""
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    count = db.scalar(
+        select(func.count()).select_from(PrefilledFormRequestLog).where(
+            PrefilledFormRequestLog.user_id == user_id,
+            PrefilledFormRequestLog.created_at >= one_hour_ago,
+        )
+    )
+    if count is not None and count >= MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR:
+        raise RateLimitExceeded(
+            f"Limite de {MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR} prévisualisations de formulaire "
+            "par heure atteinte. Réessaie plus tard."
+        )
