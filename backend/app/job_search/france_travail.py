@@ -31,7 +31,7 @@ class FranceTravailClient:
 
         try:
             return response.json()["access_token"]
-        except (ValueError, KeyError) as exc:
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
             raise JobSearchSourceError("France Travail: réponse d'authentification invalide.") from exc
 
     def search(self, criteria: SearchCriteria) -> list[JobListing]:
@@ -54,18 +54,19 @@ class FranceTravailClient:
 
         try:
             payload = response.json()
-        except ValueError as exc:
-            raise JobSearchSourceError("France Travail: réponse invalide (pas du JSON).") from exc
+            listings = [
+                JobListing(
+                    title=offre.get("intitule", ""),
+                    company=(offre.get("entreprise") or {}).get("nom", ""),
+                    location=(offre.get("lieuTravail") or {}).get("libelle"),
+                    snippet=(offre.get("description") or "")[:500],
+                    url=(offre.get("origineOffre") or {}).get("urlOrigine", ""),
+                    source="france_travail",
+                    ats_type=None,
+                )
+                for offre in payload.get("resultats", [])
+            ]
+        except (ValueError, KeyError, TypeError, AttributeError) as exc:
+            raise JobSearchSourceError("France Travail: réponse invalide.") from exc
 
-        return [
-            JobListing(
-                title=offre.get("intitule", ""),
-                company=(offre.get("entreprise") or {}).get("nom", ""),
-                location=(offre.get("lieuTravail") or {}).get("libelle"),
-                snippet=(offre.get("description") or "")[:500],
-                url=(offre.get("origineOffre") or {}).get("urlOrigine", ""),
-                source="france_travail",
-                ats_type=None,
-            )
-            for offre in payload.get("resultats", [])
-        ]
+        return listings

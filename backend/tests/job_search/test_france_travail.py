@@ -64,3 +64,48 @@ def test_search_raises_on_invalid_json():
     client = FranceTravailClient(client_id="id", client_secret="secret")
     with pytest.raises(JobSearchSourceError):
         client.search(SearchCriteria(keywords="python"))
+
+
+@respx.mock
+def test_search_raises_on_token_response_wrong_shape():
+    # Token response is valid JSON but is an array instead of an object
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=["not", "an", "object"]))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    with pytest.raises(JobSearchSourceError):
+        client.search(SearchCriteria(keywords="python"))
+
+
+@respx.mock
+def test_search_raises_on_search_response_not_object():
+    # Search response is valid JSON but is an array instead of an object
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=[{"title": "job"}]))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    with pytest.raises(JobSearchSourceError):
+        client.search(SearchCriteria(keywords="python"))
+
+
+@respx.mock
+def test_search_raises_on_search_response_wrong_field_type():
+    # Search response has entreprise as string instead of object
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "resultats": [
+                    {
+                        "intitule": "Développeur",
+                        "entreprise": "not an object",  # Wrong type: should be {"nom": "..."}
+                        "lieuTravail": {"libelle": "Paris"},
+                    }
+                ]
+            },
+        )
+    )
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    with pytest.raises(JobSearchSourceError):
+        client.search(SearchCriteria(keywords="python"))
