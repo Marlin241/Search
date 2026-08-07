@@ -244,3 +244,45 @@ def test_delete_all_diagnostics_also_purges_personalized_documents(client, db_se
     app.dependency_overrides.pop(get_semantic_analyzer, None)
     app.dependency_overrides.pop(get_object_storage, None)
     app.dependency_overrides.pop(get_cv_rewriter, None)
+
+
+def test_delete_all_diagnostics_also_purges_applications(client, db_session):
+    from app.models.application import APPLICATION_STATUS_EN_COURS, Application
+    from app.models.user import User
+
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_response = client.post(
+        "/diagnostics",
+        headers=headers,
+        files={
+            "cv_file": (
+                "cv.docx", _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+        data={"offer_text": "Nous recherchons un développeur Python."},
+    )
+    diagnostic_id = create_response.json()["id"]
+
+    user = db_session.query(User).filter(User.email == "jane@example.com").first()
+    db_session.add(
+        Application(
+            user_id=user.id,
+            diagnostic_id=diagnostic_id,
+            offer_url="https://example.com/job/1",
+            source="manual",
+            company_name="Acme",
+            job_title="Dev",
+            ats_type=None,
+            status=APPLICATION_STATUS_EN_COURS,
+        )
+    )
+    db_session.commit()
+
+    response = client.delete("/diagnostics", headers=headers)
+
+    assert response.status_code == 204
+    assert db_session.query(Application).count() == 0

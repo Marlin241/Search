@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.auth.dependencies import get_current_user
 from app.models.user import User
+from app.models.application import Application
 from app.models.diagnostic import Diagnostic
 from app.models.personalized_document import PersonalizedDocument
 from app.cv_parser.parser import parse_cv, CVParsingError, MAX_CV_SIZE_BYTES
@@ -145,6 +146,15 @@ def delete_all_diagnostics(
         .all()
     )
     storage_keys = [document.storage_key for document in documents]
+
+    # Application rows need the same explicit bulk deletion as
+    # PersonalizedDocument above, and for the same reason: this endpoint
+    # uses bulk `.delete()` queries, which bypass SQLAlchemy ORM-level
+    # relationship cascades, and SQLite (used in the test suite) doesn't
+    # enforce FK-level ondelete="CASCADE" unless PRAGMA foreign_keys=ON is
+    # explicitly set. Deleted before PersonalizedDocument/Diagnostic so no
+    # FK is ever left dangling mid-purge on backends that do enforce it.
+    db.query(Application).filter(Application.diagnostic_id.in_(diagnostic_ids)).delete(synchronize_session=False)
 
     db.query(PersonalizedDocument).filter(PersonalizedDocument.diagnostic_id.in_(diagnostic_ids)).delete(
         synchronize_session=False
