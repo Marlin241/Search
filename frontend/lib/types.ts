@@ -20,3 +20,26 @@ export interface PersonalizedDocument {
   created_at: string;
   updated_at: string;
 }
+
+export interface CandidateProfile {
+  full_name: string;
+  phone: string;
+  address: string | null;
+  linkedin_url: string | null;
+  portfolio_url: string | null;
+  work_authorization: string;
+  salary_expectation: string | null;
+  cv_filename: string | null;
+  has_cv: boolean;
+  updated_at: string;
+}
+
+export interface CandidateProfileInput {
+  full_name: string;
+  phone: string;
+  address: string | null;
+  linkedin_url: string | null;
+  portfolio_url: string | null;
+  work_authorization: string;
+  salary_expectation: string | null;
+}

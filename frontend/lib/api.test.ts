@@ -11,6 +11,9 @@ import {
   downloadLetter,
   generateCv,
   generateLetter,
+  getCandidateProfile,
+  updateCandidateProfile,
+  uploadReferenceCv,
 } from "./api";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -195,5 +198,90 @@ describe("downloadLetter", () => {
 
     const [url] = vi.mocked(fetch).mock.calls[0];
     expect(url).toContain("/diagnostics/42/lettre");
+  });
+});
+
+describe("getCandidateProfile", () => {
+  it("gets /profile with the auth header", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        full_name: "Jane Doe",
+        phone: "0612345678",
+        address: null,
+        linkedin_url: null,
+        portfolio_url: null,
+        work_authorization: "FR/UE",
+        salary_expectation: null,
+        cv_filename: null,
+        has_cv: false,
+        updated_at: "2026-08-06T00:00:00Z",
+      })
+    );
+    const profile = await getCandidateProfile("tok");
+    expect(profile.full_name).toBe("Jane Doe");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/profile");
+    expect((init?.headers as Headers).get("Authorization")).toBe("Bearer tok");
+  });
+});
+
+describe("updateCandidateProfile", () => {
+  it("puts JSON to /profile", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        full_name: "Jane Doe",
+        phone: "0612345678",
+        address: null,
+        linkedin_url: null,
+        portfolio_url: null,
+        work_authorization: "FR/UE",
+        salary_expectation: null,
+        cv_filename: null,
+        has_cv: false,
+        updated_at: "2026-08-06T00:00:00Z",
+      })
+    );
+    await updateCandidateProfile("tok", {
+      full_name: "Jane Doe",
+      phone: "0612345678",
+      address: null,
+      linkedin_url: null,
+      portfolio_url: null,
+      work_authorization: "FR/UE",
+      salary_expectation: null,
+    });
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/profile");
+    expect(init?.method).toBe("PUT");
+    expect(JSON.parse(init?.body as string).full_name).toBe("Jane Doe");
+  });
+});
+
+describe("uploadReferenceCv", () => {
+  it("posts the file as multipart form data to /profile/cv", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        full_name: "",
+        phone: "",
+        address: null,
+        linkedin_url: null,
+        portfolio_url: null,
+        work_authorization: "",
+        salary_expectation: null,
+        cv_filename: "cv.pdf",
+        has_cv: true,
+        updated_at: "2026-08-06T00:00:00Z",
+      })
+    );
+    const file = new File(["%PDF-1.4"], "cv.pdf", { type: "application/pdf" });
+
+    const profile = await uploadReferenceCv("tok", file);
+
+    expect(profile.has_cv).toBe(true);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/profile/cv");
+    expect(init?.body).toBeInstanceOf(FormData);
   });
 });

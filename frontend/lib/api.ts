@@ -1,4 +1,4 @@
-import type { DiagnosticReport, PersonalizedDocument, User } from "./types";
+import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -112,4 +112,22 @@ export function downloadCv(token: string, diagnosticId: number): Promise<Blob> {
 
 export function downloadLetter(token: string, diagnosticId: number): Promise<Blob> {
   return requestBlob(`/diagnostics/${diagnosticId}/lettre`, token);
+}
+
+export function getCandidateProfile(token: string): Promise<CandidateProfile> {
+  return request<CandidateProfile>("/profile", { method: "GET" }, token);
+}
+
+export function updateCandidateProfile(token: string, payload: CandidateProfileInput): Promise<CandidateProfile> {
+  return request<CandidateProfile>(
+    "/profile",
+    { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export function uploadReferenceCv(token: string, file: File): Promise<CandidateProfile> {
+  const formData = new FormData();
+  formData.append("cv_file", file);
+  return request<CandidateProfile>("/profile/cv", { method: "POST", body: formData }, token);
 }
