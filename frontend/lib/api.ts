@@ -1,4 +1,4 @@
-import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User } from "./types";
+import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -130,4 +130,12 @@ export function uploadReferenceCv(token: string, file: File): Promise<CandidateP
   const formData = new FormData();
   formData.append("cv_file", file);
   return request<CandidateProfile>("/profile/cv", { method: "POST", body: formData }, token);
+}
+
+export function searchJobs(token: string, criteria: SearchCriteria): Promise<JobSearchResult> {
+  return request<JobSearchResult>(
+    "/job-search/search",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(criteria) },
+    token
+  );
 }

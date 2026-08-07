@@ -14,6 +14,7 @@ import {
   getCandidateProfile,
   updateCandidateProfile,
   uploadReferenceCv,
+  searchJobs,
 } from "./api";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -283,5 +284,39 @@ describe("uploadReferenceCv", () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toContain("/profile/cv");
     expect(init?.body).toBeInstanceOf(FormData);
+  });
+});
+
+describe("searchJobs", () => {
+  it("posts criteria to /job-search/search and returns listings", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        listings: [
+          {
+            title: "Développeur Python",
+            company: "Acme",
+            location: "Paris",
+            snippet: "...",
+            url: "https://example.com/1",
+            source: "adzuna",
+            ats_type: null,
+          },
+        ],
+        unavailable_sources: ["france_travail"],
+      })
+    );
+
+    const result = await searchJobs("tok", {
+      keywords: "python",
+      exclude_keywords: [],
+      followed_companies: [],
+    });
+
+    expect(result.listings).toHaveLength(1);
+    expect(result.unavailable_sources).toEqual(["france_travail"]);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/job-search/search");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body as string).keywords).toBe("python");
   });
 });

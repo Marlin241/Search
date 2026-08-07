@@ -43,3 +43,27 @@ export interface CandidateProfileInput {
   work_authorization: string;
   salary_expectation: string | null;
 }
+
+export interface SearchCriteria {
+  keywords: string;
+  location?: string;
+  contract_type?: string;
+  remote?: boolean;
+  exclude_keywords: string[];
+  followed_companies: string[];
+}
+
+export interface JobListing {
+  title: string;
+  company: string;
+  location: string | null;
+  snippet: string;
+  url: string;
+  source: string;
+  ats_type: string | null;
+}
+
+export interface JobSearchResult {
+  listings: JobListing[];
+  unavailable_sources: string[];
+}
