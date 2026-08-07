@@ -107,3 +107,28 @@ def test_diagnostic_and_personalization_rate_limits_are_independent(db_session):
     _add_diagnostics(db_session, user.id, MAX_DIAGNOSTICS_PER_HOUR)
     # The diagnostic limit is maxed out, but personalization has its own counter.
     check_personalization_rate_limit(db_session, user.id)  # should not raise
+
+
+from app.models.job_search_request_log import JobSearchRequestLog
+from app.rate_limit.limiter import MAX_SEARCHES_PER_HOUR, check_job_search_rate_limit
+
+
+def _add_job_search_logs(db_session, user_id: int, count: int) -> None:
+    for _ in range(count):
+        db_session.add(JobSearchRequestLog(user_id=user_id))
+    db_session.commit()
+
+
+def test_job_search_allows_under_limit(db_session):
+    user = _make_user(db_session)
+    _add_job_search_logs(db_session, user.id, MAX_SEARCHES_PER_HOUR - 1)
+    check_job_search_rate_limit(db_session, user.id)  # should not raise
+
+
+def test_job_search_blocks_at_limit(db_session):
+    user = _make_user(db_session)
+    _add_job_search_logs(db_session, user.id, MAX_SEARCHES_PER_HOUR)
+    import pytest
+
+    with pytest.raises(RateLimitExceeded):
+        check_job_search_rate_limit(db_session, user.id)

@@ -71,3 +71,22 @@ def check_personalization_rate_limit(db: Session, user_id: int) -> None:
         raise RateLimitExceeded(
             f"Limite de {MAX_PERSONALIZATIONS_PER_HOUR} générations par heure atteinte. Réessaie plus tard."
         )
+
+
+from app.models.job_search_request_log import JobSearchRequestLog
+
+MAX_SEARCHES_PER_HOUR = 20
+
+
+def check_job_search_rate_limit(db: Session, user_id: int) -> None:
+    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    count = db.scalar(
+        select(func.count()).select_from(JobSearchRequestLog).where(
+            JobSearchRequestLog.user_id == user_id,
+            JobSearchRequestLog.created_at >= one_hour_ago,
+        )
+    )
+    if count is not None and count >= MAX_SEARCHES_PER_HOUR:
+        raise RateLimitExceeded(
+            f"Limite de {MAX_SEARCHES_PER_HOUR} recherches par heure atteinte. Réessaie plus tard."
+        )

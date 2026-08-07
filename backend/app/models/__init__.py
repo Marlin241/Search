@@ -4,6 +4,7 @@ from app.models.personalized_document import PersonalizedDocument
 from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.candidate_profile import CandidateProfile
 from app.models.application import Application
+from app.models.job_search_request_log import JobSearchRequestLog
 
 __all__ = [
     "User",
@@ -12,4 +13,5 @@ __all__ = [
     "PersonalizationRequestLog",
     "CandidateProfile",
     "Application",
+    "JobSearchRequestLog",
 ]
