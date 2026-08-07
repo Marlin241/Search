@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.applications.service import (
@@ -27,7 +28,6 @@ from app.models.application import (
     Application,
 )
 from app.models.candidate_profile import CandidateProfile
-from app.models.diagnostic import Diagnostic
 from app.models.personalized_document import PersonalizedDocument
 from app.models.user import User
 from app.rate_limit.limiter import RateLimitExceeded, check_rate_limit, lock_user_for_rate_limit
@@ -144,7 +144,12 @@ def get_prefilled_form(
     custom_field_answerer=Depends(get_custom_field_answerer),
 ) -> PrefilledFormOut:
     application = get_owned_application(db, application_id, current_user.id)
-    if application.ats_type is None:
+    # get_ats_adapter returns None both when ats_type is None and when it's a
+    # non-None value with no registered adapter (e.g. an ats_type set by a
+    # future ingestion path that isn't in the registry yet) - both cases mean
+    # "nothing we can auto-submit through", so both are handled identically.
+    adapter = get_ats_adapter(application.ats_type)
+    if adapter is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Cette offre n'est pas éligible à la soumission automatique.",
@@ -158,13 +163,12 @@ def get_prefilled_form(
             detail=f"Complétez votre profil avant de continuer: {', '.join(missing)}",
         )
 
-    adapter = get_ats_adapter(application.ats_type)
     try:
         form = adapter.discover_form(application.offer_url, profile, current_user.email)
     except ATSAdapterError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
-    diagnostic = db.query(Diagnostic).filter(Diagnostic.id == application.diagnostic_id).first()
+    diagnostic = application.diagnostic
     custom_fields = [f for f in form.fields if f.is_custom]
     try:
         answers = custom_field_answerer.answer(custom_fields, diagnostic.cv_text, diagnostic.offer_text)
@@ -175,6 +179,30 @@ def get_prefilled_form(
 
     filled_fields = [f.model_copy(update={"value": answers.get(f.name, f.value)}) for f in form.fields]
     return PrefilledFormOut(fields=filled_fields)
+
+
+def _lock_application_for_update(db: Session, application_id: int) -> None:
+    """Take a row lock on the Application for the rest of the request.
+
+    Mirrors `lock_user_for_rate_limit` (app/rate_limit/limiter.py): without
+    this, the `status != en_cours` check below is a plain read with no lock,
+    and status is only written *after* the network submit call - so two
+    concurrent `POST .../confirm` requests for the same application could
+    both observe `en_cours`, both call `adapter.submit(...)`, and both post a
+    real application to the employer's ATS. That would silently violate the
+    "never resubmit" constraint this endpoint is built around.
+
+    PostgreSQL supports `SELECT ... FOR UPDATE` row-level locking; SQLite
+    (used in this project's test suite) does not support meaningful
+    row-level locking, so on SQLite this is a no-op. That's safe because the
+    test suite never issues concurrent requests against the same SQLite
+    connection/session, and production runs on PostgreSQL, where the lock
+    genuinely applies.
+    """
+    query = select(Application.id).where(Application.id == application_id)
+    if db.get_bind().dialect.name != "sqlite":
+        query = query.with_for_update()
+    db.execute(query)
 
 
 def _get_ready_personalized_documents(db: Session, diagnostic_id: int) -> tuple[PersonalizedDocument, PersonalizedDocument] | None:
@@ -202,10 +230,19 @@ def confirm_application(
     storage: ObjectStorage = Depends(get_object_storage),
 ) -> ApplicationOut:
     application = get_owned_application(db, application_id, current_user.id)
+    # Lock the row, then refresh from the DB so the status check below sees
+    # the latest committed value even if a concurrent confirm request for
+    # the same application just released the lock by committing (Postgres).
+    _lock_application_for_update(db, application.id)
+    db.refresh(application)
     if application.status != APPLICATION_STATUS_EN_COURS:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cette candidature a déjà été traitée.")
 
-    if application.ats_type is None:
+    # get_ats_adapter returns None both when ats_type is None and when it's a
+    # non-None value with no registered adapter - both cases mean "nothing we
+    # can auto-submit through", so both fall into the manual-submission path.
+    adapter = get_ats_adapter(application.ats_type)
+    if adapter is None:
         application.status = APPLICATION_STATUS_A_SOUMETTRE_MANUELLEMENT
         db.commit()
         db.refresh(application)
@@ -233,7 +270,6 @@ def confirm_application(
         )
     cv_document, lettre_document = documents
 
-    adapter = get_ats_adapter(application.ats_type)
     try:
         # Re-discovered rather than reusing the GET .../prefilled-form
         # result: the hidden CSRF/session token there may no longer be

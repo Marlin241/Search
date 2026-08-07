@@ -198,7 +198,7 @@ def test_confirm_application_auto_submits_for_ats_offer(client):
 
 
 @respx.mock
-def test_confirm_application_records_failure_status_on_submission_error(client):
+def test_confirm_application_records_failure_status_on_submission_error(client, db_session):
     _override_common_dependencies()
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
@@ -210,6 +210,13 @@ def test_confirm_application_records_failure_status_on_submission_error(client):
     response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
 
     assert response.status_code == 503
+    # The `client` fixture shares one db_session across every request in
+    # this test, so without this, the follow-up GET below would just
+    # re-read the same in-memory identity-mapped object `confirm` already
+    # mutated in Python - a completely inert check for whether the failure
+    # status was actually committed to the database. expire_all() forces
+    # the next access to hit the DB for real.
+    db_session.expire_all()
     detail = client.get(f"/applications/{application_id}", headers=headers).json()
     assert detail["status"] == "echec_soumission"
     assert detail["error_message"] is not None
@@ -270,3 +277,62 @@ def test_mark_sent_manually_rejects_wrong_state(client):
 
     response = client.post(f"/applications/{application_id}/mark-sent", headers=headers)
     assert response.status_code == 409
+
+
+def test_prefilled_form_and_confirm_handle_unknown_ats_type_gracefully(client):
+    # ats_type is an unvalidated free-form string on ApplicationCreateIn - an
+    # application can end up with an ats_type that isn't in the adapter
+    # registry (e.g. "workday", which has no adapter implemented). Both
+    # endpoints must treat "no adapter available" the same as "no ats_type
+    # at all" rather than crashing on a None adapter.
+    _override_common_dependencies()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    _setup_profile(client, headers)
+    created = client.post(
+        "/applications", headers=headers,
+        json={
+            "offer_url": "https://workday.example.com/jobs/123",
+            "offer_text": "Offre.",
+            "source": "workday",
+            "company_name": "Acme",
+            "job_title": "Dev",
+            "ats_type": "workday",
+        },
+    )
+    application_id = created.json()["id"]
+
+    prefilled_response = client.get(f"/applications/{application_id}/prefilled-form", headers=headers)
+    assert prefilled_response.status_code == 409
+
+    confirm_response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={})
+    assert confirm_response.status_code == 200
+    assert confirm_response.json()["status"] == "a_soumettre_manuellement"
+
+
+@respx.mock
+def test_confirm_application_second_attempt_after_success_is_rejected(client):
+    # Proves the status-check-then-transition ordering: once the first
+    # confirm has succeeded (status is no longer en_cours), a second confirm
+    # attempt on the same application must be rejected rather than
+    # resubmitting to the employer's ATS. This can't exercise genuine
+    # multi-threaded concurrency against SQLite, but it does prove that the
+    # row-lock-then-refresh in confirm_application picks up the committed
+    # status change rather than reusing a stale read.
+    _override_common_dependencies()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+
+    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+    first = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    assert first.status_code == 200
+    assert first.json()["status"] == "soumise_auto"
+    assert submit_route.call_count == 1
+
+    second = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+
+    assert second.status_code == 409
+    assert submit_route.call_count == 1
