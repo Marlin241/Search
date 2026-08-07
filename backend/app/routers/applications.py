@@ -29,8 +29,14 @@ from app.models.application import (
 )
 from app.models.candidate_profile import CandidateProfile
 from app.models.personalized_document import PersonalizedDocument
+from app.models.prefilled_form_request_log import PrefilledFormRequestLog
 from app.models.user import User
-from app.rate_limit.limiter import RateLimitExceeded, check_rate_limit, lock_user_for_rate_limit
+from app.rate_limit.limiter import (
+    RateLimitExceeded,
+    check_prefilled_form_rate_limit,
+    check_rate_limit,
+    lock_user_for_rate_limit,
+)
 from app.schemas.application import ApplicationCreateIn, ApplicationOut, ConfirmApplicationIn, PrefilledFormOut
 from app.schemas.diagnostic import DiagnosticReport
 from app.storage.client import ObjectStorage, ObjectStorageError
@@ -143,6 +149,18 @@ def get_prefilled_form(
     current_user: User = Depends(get_current_user),
     custom_field_answerer=Depends(get_custom_field_answerer),
 ) -> PrefilledFormOut:
+    # Same lock-then-check ordering as every other rate-limited endpoint
+    # (see app/rate_limit/limiter.py): the lock serializes concurrent
+    # requests from this user so they can't all pass the count check before
+    # any of their PrefilledFormRequestLog rows exist. Checked up front,
+    # before any of the expensive work (page fetch + CustomFieldAnswerer
+    # LLM call) below.
+    lock_user_for_rate_limit(db, current_user.id)
+    try:
+        check_prefilled_form_rate_limit(db, current_user.id)
+    except RateLimitExceeded as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+
     application = get_owned_application(db, application_id, current_user.id)
     # get_ats_adapter returns None both when ats_type is None and when it's a
     # non-None value with no registered adapter (e.g. an ats_type set by a
@@ -178,6 +196,14 @@ def get_prefilled_form(
         answers = {}
 
     filled_fields = [f.model_copy(update={"value": answers.get(f.name, f.value)}) for f in form.fields]
+
+    # Logged only once the preview is actually about to be returned, so a
+    # request that failed earlier (409/422/503) - and therefore never ran
+    # the LLM - doesn't consume a slot of the user's hourly quota. Same
+    # convention as the personalization endpoints.
+    db.add(PrefilledFormRequestLog(user_id=current_user.id))
+    db.commit()
+
     return PrefilledFormOut(fields=filled_fields)
 
 
@@ -235,7 +261,16 @@ def confirm_application(
     # the same application just released the lock by committing (Postgres).
     _lock_application_for_update(db, application.id)
     db.refresh(application)
-    if application.status != APPLICATION_STATUS_EN_COURS:
+    # `echec_soumission` is a valid starting state alongside `en_cours`: a
+    # failed submission (e.g. a transient network blip) would otherwise be a
+    # permanent dead end, since mark-sent requires
+    # `a_soumettre_manuellement`, there is no delete endpoint, and the
+    # (user_id, offer_url) unique constraint blocks re-creating the
+    # candidature. This does not weaken the "no automatic retry"
+    # constraint - the retry is explicitly user-initiated, never silent.
+    # The three remaining statuses stay rejected: `a_soumettre_manuellement`
+    # is mark-sent's business, and the two `soumise_*` statuses are terminal.
+    if application.status not in (APPLICATION_STATUS_EN_COURS, APPLICATION_STATUS_ECHEC_SOUMISSION):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cette candidature a déjà été traitée.")
 
     # get_ats_adapter returns None both when ats_type is None and when it's a
@@ -270,6 +305,23 @@ def confirm_application(
         )
     cv_document, lettre_document = documents
 
+    # `needs_review` is the anti-hallucination flag set at generation time by
+    # personalization.verification.cv_needs_review: it means the rewritten CV
+    # mentions employers, schools, or dates absent from the reference CV.
+    # Auto-submission posts that CV straight to a real employer, so a flagged
+    # CV is blocked here until the user reviews or regenerates it. Only
+    # reached on the ats_type-eligible path (the adapter-is-None branch has
+    # already returned above): in assisted mode the user submits manually
+    # after seeing the "à vérifier" badge, so no backend block is warranted.
+    if cv_document.needs_review:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Ce CV contient des éléments à vérifier avant l'envoi automatique — "
+                "relisez-le ou régénérez-le depuis le diagnostic."
+            ),
+        )
+
     try:
         # Re-discovered rather than reusing the GET .../prefilled-form
         # result: the hidden CSRF/session token there may no longer be
@@ -294,6 +346,9 @@ def confirm_application(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     application.status = APPLICATION_STATUS_SOUMISE_AUTO
+    # Cleared so a successful retry after an `echec_soumission` doesn't leave
+    # the previous attempt's error text hanging off a submitted candidature.
+    application.error_message = None
     application.submitted_at = datetime.utcnow()
     db.commit()
     db.refresh(application)

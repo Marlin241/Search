@@ -9,8 +9,11 @@ from app.ats_adapters.dependencies import get_custom_field_answerer
 from app.llm_analyzer.analyzer import SemanticReport
 from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.main import app
+from app.models.prefilled_form_request_log import PrefilledFormRequestLog
+from app.models.user import User
 from app.personalization.dependencies import get_cover_letter_generator, get_cv_rewriter
 from app.personalization.schemas import CoverLetter, CvExperienceEntry, RewrittenCv
+from app.rate_limit.limiter import MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
 
@@ -40,6 +43,27 @@ class FakeCvRewriter:
         return RewrittenCv(
             summary="Résumé.",
             experience=[CvExperienceEntry(title="Dev", company="Acme", dates="2020-2022", bullets=["A conçu des API."])],
+            education=["Master"],
+            skills=["Python"],
+        )
+
+
+class FakeHallucinatingCvRewriter:
+    """Returns a rewritten CV mentioning an employer and dates that are
+    absent from the reference CV, so `cv_needs_review` flags it - the
+    anti-hallucination guard from sous-projet 3."""
+
+    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
+        return RewrittenCv(
+            summary="Résumé.",
+            experience=[
+                CvExperienceEntry(
+                    title="Dev",
+                    company="Globex Corporation",
+                    dates="1998-1999",
+                    bullets=["A dirigé Globex Corporation."],
+                )
+            ],
             education=["Master"],
             skills=["Python"],
         )
@@ -336,3 +360,163 @@ def test_confirm_application_second_attempt_after_success_is_rejected(client):
 
     assert second.status_code == 409
     assert submit_route.call_count == 1
+
+
+@respx.mock
+def test_confirm_application_can_be_retried_after_a_failed_submission(client):
+    # Finding 2: `echec_soumission` used to be a permanent dead end - confirm
+    # required `en_cours`, mark-sent required `a_soumettre_manuellement`, and
+    # the (user_id, offer_url) unique constraint blocked re-creating. A
+    # transient network blip during submit therefore stranded the candidature
+    # forever. Retrying is user-initiated, so it does not violate the
+    # "no automatic retry" constraint.
+    _override_common_dependencies()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(
+        side_effect=[httpx.Response(500), httpx.Response(200)]
+    )
+
+    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+
+    first = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    assert first.status_code == 503
+    assert client.get(f"/applications/{application_id}", headers=headers).json()["status"] == "echec_soumission"
+
+    second = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+
+    assert second.status_code == 200
+    assert second.json()["status"] == "soumise_auto"
+    assert second.json()["error_message"] is None
+    assert submit_route.call_count == 2
+
+
+def test_confirm_application_rejects_retry_from_terminal_statuses(client):
+    # The retry allowance of Finding 2 is narrow: only `echec_soumission`
+    # joins `en_cours` as a valid starting state. `a_soumettre_manuellement`
+    # must still be rejected (it is handled by mark-sent, not confirm).
+    _override_common_dependencies()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    _setup_profile(client, headers)
+    created = client.post(
+        "/applications", headers=headers,
+        json={
+            "offer_url": "https://www.linkedin.com/jobs/view/123",
+            "offer_text": "Offre.",
+            "source": "manual",
+            "company_name": "Acme",
+            "job_title": "Dev",
+        },
+    )
+    application_id = created.json()["id"]
+    assert client.post(f"/applications/{application_id}/confirm", headers=headers, json={}).status_code == 200
+
+    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={})
+
+    assert response.status_code == 409
+
+
+@respx.mock
+def test_confirm_application_blocks_auto_submit_when_cv_needs_review(client):
+    # Finding 5: `needs_review` is the anti-hallucination flag - a CV that
+    # mentions employers/schools/dates absent from the reference CV must
+    # never be auto-submitted to a real employer unreviewed.
+    _override_common_dependencies()
+    app.dependency_overrides[get_cv_rewriter] = lambda: FakeHallucinatingCvRewriter()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+
+    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+
+    assert response.status_code == 422
+    assert "vérifier" in response.json()["detail"]
+    assert not submit_route.called
+    assert client.get(f"/applications/{application_id}", headers=headers).json()["status"] == "en_cours"
+
+
+@respx.mock
+def test_confirm_application_proceeds_when_cv_does_not_need_review(client):
+    _override_common_dependencies()  # the default FakeCvRewriter stays faithful to the reference CV
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+
+    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "soumise_auto"
+    assert submit_route.called
+
+
+def test_confirm_application_does_not_block_assisted_mode_when_cv_needs_review(client):
+    # Assisted mode (no ats_type) never posts to an employer from the
+    # backend - the user submits manually after seeing the "needs review"
+    # badge - so the needs_review block must not apply there.
+    _override_common_dependencies()
+    app.dependency_overrides[get_cv_rewriter] = lambda: FakeHallucinatingCvRewriter()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    _setup_profile(client, headers)
+    created = client.post(
+        "/applications", headers=headers,
+        json={
+            "offer_url": "https://www.linkedin.com/jobs/view/123",
+            "offer_text": "Offre.",
+            "source": "manual",
+            "company_name": "Acme",
+            "job_title": "Dev",
+        },
+    )
+    application_id = created.json()["id"]
+    diagnostic_id = created.json()["diagnostic_id"]
+    client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
+    client.post(f"/diagnostics/{diagnostic_id}/lettre", headers=headers)
+
+    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "a_soumettre_manuellement"
+
+
+@respx.mock
+def test_get_prefilled_form_is_rate_limited(client, db_session):
+    # Finding 3: this is an LLM-calling endpoint (CustomFieldAnswerer) and
+    # was the only one with no rate-limit counter of its own.
+    _override_common_dependencies()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+
+    user_id = db_session.query(User).filter(User.email == "jane@example.com").first().id
+    for _ in range(MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR):
+        db_session.add(PrefilledFormRequestLog(user_id=user_id))
+    db_session.commit()
+
+    response = client.get(f"/applications/{application_id}/prefilled-form", headers=headers)
+
+    assert response.status_code == 429
+
+
+@respx.mock
+def test_get_prefilled_form_records_one_request_log_per_call(client, db_session):
+    _override_common_dependencies()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+
+    assert client.get(f"/applications/{application_id}/prefilled-form", headers=headers).status_code == 200
+    assert client.get(f"/applications/{application_id}/prefilled-form", headers=headers).status_code == 200
+
+    assert db_session.query(PrefilledFormRequestLog).count() == 2
