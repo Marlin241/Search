@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     minio_bucket: str = "personalization"
     france_travail_client_id: str = ""
     france_travail_client_secret: str = ""
+    adzuna_app_id: str = ""
+    adzuna_app_key: str = ""
+    adzuna_country: str = "fr"
 
 
 @lru_cache
