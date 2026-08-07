@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.ats_adapters.schemas import FormField
 from app.schemas.diagnostic import DiagnosticReport
 
 
@@ -28,3 +29,11 @@ class ApplicationOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     diagnostic: DiagnosticReport
+
+
+class PrefilledFormOut(BaseModel):
+    fields: list[FormField]
+
+
+class ConfirmApplicationIn(BaseModel):
+    fields: list[FormField] | None = None

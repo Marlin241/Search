@@ -111,3 +111,16 @@ def create_application(
         ) from exc
     db.refresh(application)
     return application
+
+
+def missing_required_profile_fields(profile: CandidateProfile | None) -> list[str]:
+    if profile is None:
+        return ["full_name", "phone", "work_authorization"]
+    missing = []
+    if not profile.full_name:
+        missing.append("full_name")
+    if not profile.phone:
+        missing.append("phone")
+    if not profile.work_authorization:
+        missing.append("work_authorization")
+    return missing
