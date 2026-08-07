@@ -458,6 +458,55 @@ def test_confirm_application_proceeds_when_cv_does_not_need_review(client):
     assert submit_route.called
 
 
+@respx.mock
+def test_confirm_application_override_needs_review_allows_auto_submit(client):
+    # The user has manually read the flagged CV and judged it fine: passing
+    # override_needs_review=True must let the auto-submit path through even
+    # though needs_review is still True on the document.
+    _override_common_dependencies()
+    app.dependency_overrides[get_cv_rewriter] = lambda: FakeHallucinatingCvRewriter()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+
+    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+    response = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"], "override_needs_review": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "soumise_auto"
+    assert submit_route.called
+
+
+@respx.mock
+def test_confirm_application_override_needs_review_is_noop_when_not_flagged(client):
+    # override_needs_review=True with a CV that doesn't need review must not
+    # change behavior - it's an override of the block, not a bypass of
+    # anything else.
+    _override_common_dependencies()  # the default FakeCvRewriter stays faithful to the reference CV
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+
+    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+    response = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"], "override_needs_review": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "soumise_auto"
+    assert submit_route.called
+
+
 def test_confirm_application_does_not_block_assisted_mode_when_cv_needs_review(client):
     # Assisted mode (no ats_type) never posts to an employer from the
     # backend - the user submits manually after seeing the "needs review"

@@ -313,7 +313,10 @@ def confirm_application(
     # reached on the ats_type-eligible path (the adapter-is-None branch has
     # already returned above): in assisted mode the user submits manually
     # after seeing the "à vérifier" badge, so no backend block is warranted.
-    if cv_document.needs_review:
+    # `override_needs_review` is an explicit opt-in for an informed user who
+    # has read the flagged CV and judges it fine - it only lifts this block,
+    # nothing else, and is a no-op when needs_review is already False.
+    if cv_document.needs_review and not payload.override_needs_review:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(

@@ -37,3 +37,9 @@ class PrefilledFormOut(BaseModel):
 
 class ConfirmApplicationIn(BaseModel):
     fields: list[FormField] | None = None
+    # Explicit opt-in to proceed with auto-submit even though the
+    # personalized CV's `needs_review` anti-hallucination flag is set. False
+    # by default so the 422 block in confirm_application stays the default
+    # behavior; the user must consciously pass True after reviewing the CV
+    # themselves. A no-op when needs_review is False.
+    override_needs_review: bool = False
