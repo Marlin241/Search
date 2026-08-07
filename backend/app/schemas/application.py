@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.ats_adapters.schemas import FormField
 from app.schemas.diagnostic import DiagnosticReport
@@ -37,9 +37,12 @@ class PrefilledFormOut(BaseModel):
 
 class ConfirmApplicationIn(BaseModel):
     fields: list[FormField] | None = None
-    # Explicit opt-in to proceed with auto-submit even though the
-    # personalized CV's `needs_review` anti-hallucination flag is set. False
-    # by default so the 422 block in confirm_application stays the default
-    # behavior; the user must consciously pass True after reviewing the CV
-    # themselves. A no-op when needs_review is False.
-    override_needs_review: bool = False
+    override_needs_review: bool | None = Field(
+        default=False,
+        description=(
+            "Explicit opt-in to auto-submit a CV flagged needs_review "
+            "(the anti-hallucination check). Omit or leave false/null to "
+            "keep the default block; has no effect when needs_review is "
+            "already false."
+        ),
+    )

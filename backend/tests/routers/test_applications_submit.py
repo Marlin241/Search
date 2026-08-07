@@ -507,6 +507,37 @@ def test_confirm_application_override_needs_review_is_noop_when_not_flagged(clie
     assert submit_route.called
 
 
+@respx.mock
+def test_confirm_application_override_needs_review_does_not_bypass_other_guards(client):
+    # override_needs_review must lift *only* the needs_review block. Proving
+    # this requires tripping a *different* guard while the override is set,
+    # and confirming that guard still fires - a happy-path override run
+    # (as in the two tests above) can't distinguish "scoped override" from
+    # "override disables all checks", since no other guard is triggered.
+    _override_common_dependencies()
+    app.dependency_overrides[get_cv_rewriter] = lambda: FakeHallucinatingCvRewriter()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    application_id = _setup_ready_ats_application(client, headers)
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+
+    client.get(f"/applications/{application_id}/prefilled-form", headers=headers)
+    # Trip the separate "fields are required" guard (payload.fields is None)
+    # while also passing override_needs_review=True: the override must not
+    # paper over this unrelated 422.
+    response = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"override_needs_review": True},
+    )
+
+    assert response.status_code == 422
+    assert "champs du formulaire" in response.json()["detail"]
+    assert not submit_route.called
+    assert client.get(f"/applications/{application_id}", headers=headers).json()["status"] == "en_cours"
+
+
 def test_confirm_application_does_not_block_assisted_mode_when_cv_needs_review(client):
     # Assisted mode (no ats_type) never posts to an employer from the
     # backend - the user submits manually after seeing the "needs review"

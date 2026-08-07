@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -41,6 +42,8 @@ from app.schemas.application import ApplicationCreateIn, ApplicationOut, Confirm
 from app.schemas.diagnostic import DiagnosticReport
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -323,6 +326,13 @@ def confirm_application(
                 "Ce CV contient des éléments à vérifier avant l'envoi automatique — "
                 "relisez-le ou régénérez-le depuis le diagnostic."
             ),
+        )
+
+    if cv_document.needs_review and payload.override_needs_review:
+        logger.info(
+            "Application %s auto-submitted with needs_review override by user %s",
+            application.id,
+            current_user.id,
         )
 
     try:
