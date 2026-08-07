@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     minio_access_key: str = "minioadmin"
     minio_secret_key: str = "minioadmin"
     minio_bucket: str = "personalization"
+    france_travail_client_id: str = ""
+    france_travail_client_secret: str = ""
 
 
 @lru_cache
