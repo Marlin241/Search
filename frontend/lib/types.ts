@@ -67,3 +67,42 @@ export interface JobSearchResult {
   listings: JobListing[];
   unavailable_sources: string[];
 }
+
+export interface Application {
+  id: number;
+  diagnostic_id: number;
+  offer_url: string;
+  source: string;
+  company_name: string;
+  job_title: string;
+  ats_type: string | null;
+  status: "en_cours" | "soumise_auto" | "a_soumettre_manuellement" | "soumise_manuelle_confirmee" | "echec_soumission";
+  error_message: string | null;
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  diagnostic: DiagnosticReport;
+}
+
+export interface ApplicationCreateInput {
+  offer_url: string;
+  offer_text?: string;
+  source: string;
+  company_name: string;
+  job_title: string;
+  ats_type?: string | null;
+}
+
+export interface FormField {
+  name: string;
+  label: string;
+  field_type: string;
+  required: boolean;
+  options: string[] | null;
+  value: string | null;
+  is_custom: boolean;
+}
+
+export interface PrefilledForm {
+  fields: FormField[];
+}

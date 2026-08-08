@@ -15,6 +15,12 @@ import {
   updateCandidateProfile,
   uploadReferenceCv,
   searchJobs,
+  createApplication,
+  listApplications,
+  getApplication,
+  getPrefilledForm,
+  confirmApplication,
+  markApplicationSentManually,
 } from "./api";
 
 function jsonResponse(body: unknown, status = 200) {
@@ -318,5 +324,125 @@ describe("searchJobs", () => {
     expect(url).toContain("/job-search/search");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(init?.body as string).keywords).toBe("python");
+  });
+});
+
+const sampleDiagnostic = {
+  id: 1,
+  created_at: "2026-08-06T00:00:00Z",
+  overall_score: 70,
+  structural_score: 80,
+  structural_issues: [],
+  semantic_score: 60,
+  missing_keywords: ["Docker"],
+  recommendations: ["Add Docker"],
+};
+
+const sampleApplication = {
+  id: 1,
+  diagnostic_id: 1,
+  offer_url: "https://example.com/job/1",
+  source: "manual",
+  company_name: "Acme",
+  job_title: "Développeur",
+  ats_type: null,
+  status: "en_cours",
+  error_message: null,
+  submitted_at: null,
+  created_at: "2026-08-06T00:00:00Z",
+  updated_at: "2026-08-06T00:00:00Z",
+  diagnostic: sampleDiagnostic,
+};
+
+describe("createApplication", () => {
+  it("posts JSON to /applications", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(sampleApplication, 201));
+    const application = await createApplication("tok", {
+      offer_url: "https://example.com/job/1",
+      offer_text: "Offre.",
+      source: "manual",
+      company_name: "Acme",
+      job_title: "Développeur",
+    });
+    expect(application.status).toBe("en_cours");
+    expect(application.diagnostic.missing_keywords).toEqual(["Docker"]);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/applications");
+    expect(init?.method).toBe("POST");
+  });
+});
+
+describe("listApplications", () => {
+  it("gets /applications", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse([sampleApplication]));
+    const applications = await listApplications("tok");
+    expect(applications).toHaveLength(1);
+  });
+});
+
+describe("getApplication", () => {
+  it("gets /applications/:id", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse(sampleApplication));
+    const application = await getApplication("tok", 1);
+    expect(application.id).toBe(1);
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/applications/1");
+  });
+});
+
+describe("getPrefilledForm", () => {
+  it("gets /applications/:id/prefilled-form", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        fields: [
+          { name: "first_name", label: "First name", field_type: "text", required: true, options: null, value: "Jane", is_custom: false },
+        ],
+      })
+    );
+    const form = await getPrefilledForm("tok", 1);
+    expect(form.fields[0].value).toBe("Jane");
+    const [url] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/applications/1/prefilled-form");
+  });
+});
+
+describe("confirmApplication", () => {
+  it("posts fields (or null) to /applications/:id/confirm", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ ...sampleApplication, status: "soumise_auto" }));
+    const application = await confirmApplication("tok", 1, [
+      { name: "first_name", label: "First name", field_type: "text", required: true, options: null, value: "Jane", is_custom: false },
+    ]);
+    expect(application.status).toBe("soumise_auto");
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/applications/1/confirm");
+    expect(JSON.parse(init?.body as string).fields[0].name).toBe("first_name");
+  });
+
+  it("sends null fields when called without any (assisted mode)", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ ...sampleApplication, status: "a_soumettre_manuellement" }));
+    await confirmApplication("tok", 1);
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(JSON.parse(init?.body as string).fields).toBeNull();
+  });
+
+  it("sends override_needs_review: true when explicitly requested", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ ...sampleApplication, status: "soumise_auto" }));
+    const fields = [
+      { name: "first_name", label: "First name", field_type: "text", required: true, options: null, value: "Jane", is_custom: false },
+    ];
+    await confirmApplication("tok", 1, fields, true);
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(JSON.parse(init?.body as string).override_needs_review).toBe(true);
+  });
+});
+
+describe("markApplicationSentManually", () => {
+  it("posts to /applications/:id/mark-sent", async () => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ ...sampleApplication, status: "soumise_manuelle_confirmee" }));
+    const application = await markApplicationSentManually("tok", 1);
+    expect(application.status).toBe("soumise_manuelle_confirmee");
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/applications/1/mark-sent");
+    expect(init?.method).toBe("POST");
   });
 });

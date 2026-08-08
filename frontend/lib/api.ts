@@ -1,4 +1,4 @@
-import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult } from "./types";
+import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult, Application, ApplicationCreateInput, FormField, PrefilledForm } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -138,4 +138,45 @@ export function searchJobs(token: string, criteria: SearchCriteria): Promise<Job
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(criteria) },
     token
   );
+}
+
+export function createApplication(token: string, payload: ApplicationCreateInput): Promise<Application> {
+  return request<Application>(
+    "/applications",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export function listApplications(token: string): Promise<Application[]> {
+  return request<Application[]>("/applications", { method: "GET" }, token);
+}
+
+export function getApplication(token: string, id: number): Promise<Application> {
+  return request<Application>(`/applications/${id}`, { method: "GET" }, token);
+}
+
+export function getPrefilledForm(token: string, applicationId: number): Promise<PrefilledForm> {
+  return request<PrefilledForm>(`/applications/${applicationId}/prefilled-form`, { method: "GET" }, token);
+}
+
+export function confirmApplication(
+  token: string,
+  applicationId: number,
+  fields?: FormField[],
+  overrideNeedsReview?: boolean
+): Promise<Application> {
+  return request<Application>(
+    `/applications/${applicationId}/confirm`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: fields ?? null, override_needs_review: overrideNeedsReview ?? false }),
+    },
+    token
+  );
+}
+
+export function markApplicationSentManually(token: string, applicationId: number): Promise<Application> {
+  return request<Application>(`/applications/${applicationId}/mark-sent`, { method: "POST" }, token);
 }
