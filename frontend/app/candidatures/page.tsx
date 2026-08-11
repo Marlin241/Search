@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import {
@@ -14,6 +14,7 @@ import { ApplicationCard } from "@/components/ApplicationCard";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { toBannerContent, isSessionExpired, type BannerContent } from "@/lib/errors";
 import { searchJobs, createApplication } from "@/lib/api";
+import { pollJobSearchDiscovery } from "@/lib/discoveryPolling";
 import { useAuth } from "@/context/AuthContext";
 import type { Application, JobListing, JobSearchResult } from "@/lib/types";
 
@@ -34,6 +35,8 @@ function CandidaturesPageContent() {
   const [banner, setBanner] = useState<BannerContent | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const cancelPollRef = useRef<(() => void) | null>(null);
 
   function handleAuthError(error: unknown): boolean {
     if (isSessionExpired(error)) {
@@ -48,9 +51,22 @@ function CandidaturesPageContent() {
     if (!token) return;
     setBanner(null);
     setIsSearching(true);
+    cancelPollRef.current?.();
+    setIsDiscovering(false);
     try {
       const result = await searchJobs(token, toSearchCriteria(criteria));
       setSearchResult(result);
+      if (result.discovery_pending) {
+        setIsDiscovering(true);
+        cancelPollRef.current = pollJobSearchDiscovery(
+          token,
+          result.search_id,
+          (newListings) => {
+            setSearchResult((prev) => (prev ? { ...prev, listings: [...prev.listings, ...newListings] } : prev));
+          },
+          () => setIsDiscovering(false)
+        );
+      }
     } catch (error) {
       if (!handleAuthError(error)) setBanner(toBannerContent(error));
     } finally {
@@ -100,6 +116,10 @@ function CandidaturesPageContent() {
       <div className="mt-6">
         <SearchCriteriaForm value={criteria} onChange={setCriteria} onSearch={handleSearch} isSearching={isSearching} />
       </div>
+
+      {isDiscovering && (
+        <p className="mt-3 text-sm text-slate-500">Recherche en cours sur les sites des entreprises...</p>
+      )}
 
       {banner && (
         <div className="mt-4">
