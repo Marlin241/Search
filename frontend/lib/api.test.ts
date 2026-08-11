@@ -15,6 +15,7 @@ import {
   updateCandidateProfile,
   uploadReferenceCv,
   searchJobs,
+  fetchJobSearchDiscovery,
   createApplication,
   listApplications,
   getApplication,
@@ -309,21 +310,53 @@ describe("searchJobs", () => {
           },
         ],
         unavailable_sources: ["france_travail"],
+        search_id: "search-1",
+        discovery_pending: false,
       })
     );
 
     const result = await searchJobs("tok", {
       keywords: "python",
       exclude_keywords: [],
-      followed_companies: [],
     });
 
     expect(result.listings).toHaveLength(1);
     expect(result.unavailable_sources).toEqual(["france_travail"]);
+    expect(result.search_id).toBe("search-1");
+    expect(result.discovery_pending).toBe(false);
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toContain("/job-search/search");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(init?.body as string).keywords).toBe("python");
+  });
+});
+
+describe("fetchJobSearchDiscovery", () => {
+  it("gets the discovery status and new listings for a search", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({
+        done: true,
+        new_listings: [
+          {
+            title: "Ingénieur backend",
+            company: "Acme",
+            location: null,
+            snippet: "",
+            url: "https://example.com/2",
+            source: "greenhouse",
+            ats_type: "greenhouse",
+          },
+        ],
+      })
+    );
+
+    const result = await fetchJobSearchDiscovery("tok", "search-1");
+
+    expect(result.done).toBe(true);
+    expect(result.new_listings).toHaveLength(1);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toContain("/job-search/search/search-1/discovery");
+    expect(init?.method).toBe("GET");
   });
 });
 

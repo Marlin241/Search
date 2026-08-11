@@ -1,4 +1,4 @@
-import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult, Application, ApplicationCreateInput, FormField, PrefilledForm } from "./types";
+import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult, JobSearchDiscoveryResult, Application, ApplicationCreateInput, FormField, PrefilledForm } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -138,6 +138,10 @@ export function searchJobs(token: string, criteria: SearchCriteria): Promise<Job
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(criteria) },
     token
   );
+}
+
+export function fetchJobSearchDiscovery(token: string, searchId: string): Promise<JobSearchDiscoveryResult> {
+  return request<JobSearchDiscoveryResult>(`/job-search/search/${searchId}/discovery`, { method: "GET" }, token);
 }
 
 export function createApplication(token: string, payload: ApplicationCreateInput): Promise<Application> {

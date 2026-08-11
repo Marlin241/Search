@@ -65,6 +65,13 @@ export interface JobListing {
 export interface JobSearchResult {
   listings: JobListing[];
   unavailable_sources: string[];
+  search_id: string;
+  discovery_pending: boolean;
+}
+
+export interface JobSearchDiscoveryResult {
+  done: boolean;
+  new_listings: JobListing[];
 }
 
 export interface Application {
