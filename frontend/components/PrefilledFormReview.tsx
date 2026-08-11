@@ -21,29 +21,48 @@ export function PrefilledFormReview({ fields, onConfirm, onCancel, isConfirming 
     <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
       <p className="text-sm font-semibold text-slate-900">Relisez et complétez le formulaire avant l&apos;envoi</p>
       <div className="mt-3 flex flex-col gap-3">
-        {values.map((field) => (
-          <label key={field.name} className="flex flex-col gap-1 text-sm text-slate-700">
-            <span>
-              {field.label}
-              {field.is_custom && <span className="ml-2 text-xs text-blue-600">(généré par l&apos;IA — à vérifier)</span>}
-            </span>
-            {field.field_type === "textarea" ? (
-              <textarea
-                value={field.value ?? ""}
-                onChange={(event) => updateValue(field.name, event.target.value)}
-                rows={3}
-                className="rounded-md border border-slate-300 px-3 py-2"
-              />
-            ) : (
-              <input
-                type="text"
-                value={field.value ?? ""}
-                onChange={(event) => updateValue(field.name, event.target.value)}
-                className="rounded-md border border-slate-300 px-3 py-2"
-              />
-            )}
-          </label>
-        ))}
+        {values.map((field) => {
+          const needsCompletion = field.required && !field.value;
+          return (
+            <label key={field.name} className="flex flex-col gap-1 text-sm text-slate-700">
+              <span>
+                {field.label}
+                {field.is_custom && <span className="ml-2 text-xs text-blue-600">(généré par l&apos;IA — à vérifier)</span>}
+                {needsCompletion && <span className="ml-2 text-xs font-semibold text-red-600">(à compléter)</span>}
+              </span>
+              {field.field_type === "textarea" ? (
+                <textarea
+                  value={field.value ?? ""}
+                  onChange={(event) => updateValue(field.name, event.target.value)}
+                  rows={3}
+                  className="rounded-md border border-slate-300 px-3 py-2"
+                />
+              ) : field.field_type === "select" ? (
+                <select
+                  value={field.value ?? ""}
+                  onChange={(event) => updateValue(field.name, event.target.value)}
+                  className="rounded-md border border-slate-300 px-3 py-2"
+                >
+                  <option value="" disabled hidden>
+                    Sélectionnez…
+                  </option>
+                  {(field.options ?? []).map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={field.value ?? ""}
+                  onChange={(event) => updateValue(field.name, event.target.value)}
+                  className="rounded-md border border-slate-300 px-3 py-2"
+                />
+              )}
+            </label>
+          );
+        })}
       </div>
       <div className="mt-4 flex gap-2">
         <button
