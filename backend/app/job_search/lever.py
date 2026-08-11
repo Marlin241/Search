@@ -8,11 +8,11 @@ class LeverJobBoardClient:
     def __init__(self, http_client: httpx.Client | None = None):
         self._http = http_client or httpx.Client(timeout=10.0)
 
-    def search(self, criteria: SearchCriteria) -> list[JobListing]:
+    def search(self, criteria: SearchCriteria, company_slugs: list[str]) -> list[JobListing]:
         listings: list[JobListing] = []
         keyword = criteria.keywords.lower()
 
-        for company_slug in criteria.followed_companies:
+        for company_slug in company_slugs:
             url = f"https://api.lever.co/v0/postings/{company_slug}"
             try:
                 response = self._http.get(url, params={"mode": "json"})

@@ -8,7 +8,7 @@ from app.job_search.schemas import SearchCriteria
 
 
 @respx.mock
-def test_search_returns_normalized_listings_for_followed_companies():
+def test_search_returns_normalized_listings_for_given_companies():
     respx.get("https://api.lever.co/v0/postings/acme").mock(
         return_value=httpx.Response(
             200,
@@ -30,7 +30,7 @@ def test_search_returns_normalized_listings_for_followed_companies():
     )
 
     client = LeverJobBoardClient()
-    listings = client.search(SearchCriteria(keywords="python", followed_companies=["acme"]))
+    listings = client.search(SearchCriteria(keywords="python"), ["acme"])
 
     assert len(listings) == 1
     assert listings[0].title == "Développeur Python"
@@ -55,7 +55,7 @@ def test_search_with_no_keyword_returns_all_jobs():
     )
 
     client = LeverJobBoardClient()
-    listings = client.search(SearchCriteria(keywords="", followed_companies=["acme"]))
+    listings = client.search(SearchCriteria(keywords=""), ["acme"])
 
     assert len(listings) == 1
 
@@ -66,12 +66,12 @@ def test_search_raises_on_http_error():
 
     client = LeverJobBoardClient()
     with pytest.raises(JobSearchSourceError):
-        client.search(SearchCriteria(keywords="python", followed_companies=["unknown-co"]))
+        client.search(SearchCriteria(keywords="python"), ["unknown-co"])
 
 
-def test_search_with_no_followed_companies_returns_empty_list():
+def test_search_with_no_company_slugs_returns_empty_list():
     client = LeverJobBoardClient()
-    assert client.search(SearchCriteria(keywords="python", followed_companies=[])) == []
+    assert client.search(SearchCriteria(keywords="python"), []) == []
 
 
 @respx.mock
@@ -93,4 +93,4 @@ def test_search_raises_on_categories_field_wrong_shape():
 
     client = LeverJobBoardClient()
     with pytest.raises(JobSearchSourceError):
-        client.search(SearchCriteria(keywords="python", followed_companies=["acme"]))
+        client.search(SearchCriteria(keywords="python"), ["acme"])
