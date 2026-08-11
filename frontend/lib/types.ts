@@ -50,7 +50,6 @@ export interface SearchCriteria {
   contract_type?: string;
   remote?: boolean;
   exclude_keywords: string[];
-  followed_companies: string[];
 }
 
 export interface JobListing {

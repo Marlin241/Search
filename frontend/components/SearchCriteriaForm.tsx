@@ -8,7 +8,6 @@ export interface SearchCriteriaFormValue {
   contractType: string;
   remote: boolean;
   excludeKeywords: string;
-  followedCompanies: string;
 }
 
 export const EMPTY_SEARCH_CRITERIA_FORM_VALUE: SearchCriteriaFormValue = {
@@ -17,7 +16,6 @@ export const EMPTY_SEARCH_CRITERIA_FORM_VALUE: SearchCriteriaFormValue = {
   contractType: "",
   remote: false,
   excludeKeywords: "",
-  followedCompanies: "",
 };
 
 function splitCommaList(raw: string): string[] {
@@ -34,7 +32,6 @@ export function toSearchCriteria(value: SearchCriteriaFormValue): SearchCriteria
     contract_type: value.contractType.trim() || undefined,
     remote: value.remote || undefined,
     exclude_keywords: splitCommaList(value.excludeKeywords),
-    followed_companies: splitCommaList(value.followedCompanies),
   };
 }
 
@@ -91,16 +88,6 @@ export function SearchCriteriaForm({ value, onChange, onSearch, isSearching }: S
           type="text"
           value={value.excludeKeywords}
           onChange={(event) => onChange({ ...value, excludeKeywords: event.target.value })}
-          className="rounded-md border border-slate-300 px-3 py-2"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700">
-        Entreprises à suivre sur Greenhouse/Lever (séparées par des virgules)
-        <input
-          type="text"
-          value={value.followedCompanies}
-          onChange={(event) => onChange({ ...value, followedCompanies: event.target.value })}
-          placeholder="ex: acme, globex"
           className="rounded-md border border-slate-300 px-3 py-2"
         />
       </label>

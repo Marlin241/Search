@@ -41,15 +41,13 @@ describe("SearchCriteriaForm", () => {
 });
 
 describe("toSearchCriteria", () => {
-  it("splits comma-separated fields into trimmed arrays", () => {
+  it("splits comma-separated exclude keywords into a trimmed array", () => {
     const result = toSearchCriteria({
       ...EMPTY_SEARCH_CRITERIA_FORM_VALUE,
       keywords: "python",
       excludeKeywords: "stage, junior",
-      followedCompanies: "acme, globex",
     });
     expect(result.exclude_keywords).toEqual(["stage", "junior"]);
-    expect(result.followed_companies).toEqual(["acme", "globex"]);
   });
 
   it("omits empty optional fields", () => {
