@@ -7,7 +7,6 @@ class SearchCriteria(BaseModel):
     contract_type: str | None = None
     remote: bool | None = None
     exclude_keywords: list[str] = []
-    followed_companies: list[str] = []
 
 
 class JobListing(BaseModel):

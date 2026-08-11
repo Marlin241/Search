@@ -5,7 +5,6 @@ def test_search_criteria_defaults():
     criteria = SearchCriteria(keywords="développeur python")
     assert criteria.location is None
     assert criteria.exclude_keywords == []
-    assert criteria.followed_companies == []
 
 
 def test_job_listing_requires_core_fields():
