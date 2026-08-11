@@ -154,6 +154,51 @@ describe("ApplicationCard", () => {
     expect(screen.getByText("Le serveur a refusé la soumission.")).toBeInTheDocument();
   });
 
+  it("allows retrying from a failed submission (echec_soumission) via a re-enabled confirm button", async () => {
+    const onUpdated = vi.fn();
+    vi.mocked(api.confirmApplication).mockResolvedValue(
+      makeApplication({ status: "soumise_auto" })
+    );
+    render(
+      <ApplicationCard
+        application={makeApplication({ status: "echec_soumission", error_message: "Le serveur a refusé la soumission." })}
+        token="tok"
+        onUpdated={onUpdated}
+      />
+    );
+
+    const retryButton = screen.getByRole("button", { name: /réessayer l'envoi/i });
+    expect(retryButton).toBeEnabled();
+    // The manual-submission block (offer link + mark-sent button) must not
+    // also render for echec_soumission - it's gated on a_soumettre_manuellement.
+    expect(screen.queryByRole("link", { name: /ouvrir la page de candidature/i })).not.toBeInTheDocument();
+
+    fireEvent.click(retryButton);
+
+    await waitFor(() => expect(api.confirmApplication).toHaveBeenCalledWith("tok", 1, undefined, false));
+    expect(onUpdated).toHaveBeenCalledWith(expect.objectContaining({ status: "soumise_auto" }));
+  });
+
+  it("shows 'Préparation du formulaire...' while retrying an ATS-eligible failed submission", async () => {
+    vi.mocked(api.getPrefilledForm).mockResolvedValue({
+      fields: [
+        { name: "first_name", label: "First name", field_type: "text", required: true, options: null, value: "Jane", is_custom: false },
+      ],
+    });
+    render(
+      <ApplicationCard
+        application={makeApplication({ status: "echec_soumission", ats_type: "greenhouse", error_message: "Panne." })}
+        token="tok"
+        onUpdated={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /réessayer l'envoi/i }));
+
+    expect(await screen.findByLabelText(/first name/i)).toHaveValue("Jane");
+    expect(api.getPrefilledForm).toHaveBeenCalledWith("tok", 1);
+  });
+
   // --- Deviation 1: 429 rate limit on getPrefilledForm (regression lock) ---
   it("shows a warning banner when the prefilled-form fetch is rate-limited (429)", async () => {
     vi.mocked(api.getPrefilledForm).mockRejectedValue(

@@ -186,16 +186,22 @@ export function ApplicationCard({ application, token, onUpdated }: ApplicationCa
         </div>
       )}
 
-      {!needsReviewBlock && application.status === "en_cours" && !prefilledFields && (
-        <button
-          type="button"
-          onClick={handleConfirmClick}
-          disabled={isLoadingForm}
-          className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {isLoadingForm ? "Préparation du formulaire..." : "Confirmer la candidature"}
-        </button>
-      )}
+      {!needsReviewBlock &&
+        (application.status === "en_cours" || application.status === "echec_soumission") &&
+        !prefilledFields && (
+          <button
+            type="button"
+            onClick={handleConfirmClick}
+            disabled={isLoadingForm}
+            className="mt-4 rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {isLoadingForm
+              ? "Préparation du formulaire..."
+              : application.status === "echec_soumission"
+                ? "Réessayer l'envoi"
+                : "Confirmer la candidature"}
+          </button>
+        )}
 
       {!needsReviewBlock && prefilledFields && (
         <div className="mt-4">

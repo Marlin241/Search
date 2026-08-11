@@ -31,6 +31,13 @@ describe("SearchCriteriaForm", () => {
     );
     expect(screen.getByRole("button", { name: /recherche en cours/i })).toBeDisabled();
   });
+
+  it("disables the search button while the keywords field is empty", () => {
+    render(
+      <SearchCriteriaForm value={EMPTY_SEARCH_CRITERIA_FORM_VALUE} onChange={vi.fn()} onSearch={vi.fn()} isSearching={false} />
+    );
+    expect(screen.getByRole("button", { name: /rechercher/i })).toBeDisabled();
+  });
 });
 
 describe("toSearchCriteria", () => {

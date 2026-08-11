@@ -67,7 +67,6 @@ function CandidaturesPageContent() {
       try {
         const application = await createApplication(token, {
           offer_url: listing.url,
-          offer_text: listing.snippet,
           source: listing.source,
           company_name: listing.company,
           job_title: listing.title,
