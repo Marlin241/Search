@@ -1,5 +1,10 @@
+import httpx
+import respx
+
 from app.job_search.dependencies import get_job_search_clients
 from app.job_search.errors import JobSearchSourceError
+from app.job_search.greenhouse import GreenhouseJobBoardClient
+from app.job_search.lever import LeverJobBoardClient
 from app.job_search.schemas import JobListing
 from app.main import app
 from app.rate_limit.limiter import MAX_SEARCHES_PER_HOUR
@@ -12,6 +17,27 @@ def _register_and_login(client, email: str = "jane@example.com") -> str:
 
 
 class FakeWorkingClient:
+    """Used by tests that don't care about company discovery. `company` is
+    deliberately blank — extract_unique_companies() skips blank names — so
+    these tests never trigger the background discovery path (which would
+    otherwise make real, unmocked HTTP calls to Greenhouse/Lever). Tests that
+    DO want to exercise discovery use CompanyMentioningClient below."""
+
+    def search(self, criteria):
+        return [
+            JobListing(
+                title="Développeur Python",
+                company="",
+                location="Paris",
+                snippet="...",
+                url="https://example.com/1",
+                source="fake",
+                ats_type=None,
+            )
+        ]
+
+
+class CompanyMentioningClient:
     def search(self, criteria):
         return [
             JobListing(
@@ -31,11 +57,31 @@ class FakeFailingClient:
         raise JobSearchSourceError("down")
 
 
-def test_search_returns_listings_and_unavailable_sources(client):
-    app.dependency_overrides[get_job_search_clients] = lambda: {
-        "france_travail": FakeWorkingClient(),
-        "adzuna": FakeFailingClient(),
+class EmptyGreenhouseOrLeverClient:
+    def search(self, criteria, company_slugs):
+        return []
+
+
+class EmptyPrimaryClient:
+    def search(self, criteria):
+        return []
+
+
+def _default_clients(overrides: dict[str, object]) -> dict[str, object]:
+    base: dict[str, object] = {
+        "france_travail": EmptyPrimaryClient(),
+        "adzuna": EmptyPrimaryClient(),
+        "greenhouse": EmptyGreenhouseOrLeverClient(),
+        "lever": EmptyGreenhouseOrLeverClient(),
     }
+    base.update(overrides)
+    return base
+
+
+def test_search_returns_listings_and_unavailable_sources(client):
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": FakeWorkingClient(), "adzuna": FakeFailingClient()}
+    )
     token = _register_and_login(client)
 
     response = client.post(
@@ -48,16 +94,17 @@ def test_search_returns_listings_and_unavailable_sources(client):
     body = response.json()
     assert len(body["listings"]) == 1
     assert body["unavailable_sources"] == ["adzuna"]
+    assert "search_id" in body
 
 
 def test_search_requires_auth(client):
-    app.dependency_overrides[get_job_search_clients] = lambda: {"france_travail": FakeWorkingClient()}
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": FakeWorkingClient()})
     response = client.post("/job-search/search", json={"keywords": "python"})
     assert response.status_code == 401
 
 
 def test_search_rate_limited_after_max_per_hour(client):
-    app.dependency_overrides[get_job_search_clients] = lambda: {"france_travail": FakeWorkingClient()}
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": FakeWorkingClient()})
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -67,3 +114,76 @@ def test_search_rate_limited_after_max_per_hour(client):
 
     response = client.post("/job-search/search", headers=headers, json={"keywords": "python"})
     assert response.status_code == 429
+
+
+def test_search_with_no_companies_in_results_is_not_discovery_pending(client):
+    class NoCompanyClient:
+        def search(self, criteria):
+            return []
+
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": NoCompanyClient()})
+    token = _register_and_login(client)
+
+    response = client.post(
+        "/job-search/search", headers={"Authorization": f"Bearer {token}"}, json={"keywords": "python"}
+    )
+
+    assert response.json()["discovery_pending"] is False
+
+
+@respx.mock
+def test_search_discovers_unknown_company_and_polling_returns_new_listing(client):
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "title": "Ingénieur backend Python",
+                        "location": {"name": "Paris"},
+                        "content": "<p>Poste Acme.</p>",
+                        "absolute_url": "https://boards.greenhouse.io/acme/jobs/1",
+                    }
+                ]
+            },
+        )
+    )
+
+    app.dependency_overrides[get_job_search_clients] = lambda: {
+        "france_travail": CompanyMentioningClient(),
+        "adzuna": EmptyPrimaryClient(),
+        "greenhouse": GreenhouseJobBoardClient(),
+        "lever": LeverJobBoardClient(),
+    }
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post("/job-search/search", headers=headers, json={"keywords": "python"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["discovery_pending"] is True
+    search_id = body["search_id"]
+
+    poll = client.get(f"/job-search/search/{search_id}/discovery", headers=headers)
+    assert poll.status_code == 200
+    poll_body = poll.json()
+    assert poll_body["done"] is True
+    assert len(poll_body["new_listings"]) == 1
+    assert poll_body["new_listings"][0]["title"] == "Ingénieur backend Python"
+
+
+def test_get_discovery_for_unknown_search_id_returns_done_true(client):
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": FakeWorkingClient()})
+    token = _register_and_login(client)
+
+    response = client.get(
+        "/job-search/search/does-not-exist/discovery", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"done": True, "new_listings": []}
+
+
+def test_get_discovery_requires_auth(client):
+    response = client.get("/job-search/search/some-id/discovery")
+    assert response.status_code == 401

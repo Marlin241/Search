@@ -47,6 +47,13 @@ def client(db_session, monkeypatch):
     # on startup. Point it at the same isolated in-memory engine db_session uses,
     # instead of the real (unreachable in tests) DATABASE_URL-configured engine.
     monkeypatch.setattr(database, "engine", db_session.get_bind())
+    # Background tasks (e.g. app.job_search.background_discovery.run_discovery)
+    # can't use the request-scoped db_session/override_get_db above — they run
+    # after the response, via their own database.SessionLocal() call. Rebind it
+    # to the same in-memory test engine (StaticPool keeps it on the same
+    # underlying connection as db_session) so it doesn't try to reach the
+    # unused DATABASE_URL from the environment.
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
