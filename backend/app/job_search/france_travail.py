@@ -1,3 +1,5 @@
+import re
+
 import httpx
 
 from app.job_search.errors import JobSearchSourceError
@@ -5,6 +7,10 @@ from app.job_search.schemas import JobListing, SearchCriteria
 
 TOKEN_URL = "https://entreprise.pole-emploi.fr/connexion/oauth2/access_token?realm=/partenaire"
 SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
+COMMUNES_URL = "https://geo.api.gouv.fr/communes"
+
+_INSEE_CODE_RE = re.compile(r"^\d{5}$")
+_NATIONWIDE_LOCATIONS = {"france"}
 
 
 class FranceTravailClient:
@@ -34,6 +40,31 @@ class FranceTravailClient:
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             raise JobSearchSourceError("France Travail: réponse d'authentification invalide.") from exc
 
+    def _resolve_commune_code(self, location: str) -> str | None:
+        # The France Travail API only accepts INSEE commune codes, not free-text
+        # place names, so a plain city name typed by the user has to be geocoded
+        # first. If no commune can be resolved (unrecognized name, "France" for a
+        # nationwide search, or the geocoding service being unreachable), the
+        # location filter is simply dropped rather than failing the whole search.
+        location = location.strip()
+        if not location or location.casefold() in _NATIONWIDE_LOCATIONS:
+            return None
+        if _INSEE_CODE_RE.match(location):
+            return location
+
+        try:
+            response = self._http.get(
+                COMMUNES_URL, params={"nom": location, "fields": "code", "boost": "population", "limit": 1}
+            )
+            response.raise_for_status()
+            results = response.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+
+        if not isinstance(results, list) or not results:
+            return None
+        return results[0].get("code")
+
     def search(self, criteria: SearchCriteria) -> list[JobListing]:
         # No token caching in this version: search is on-demand and
         # rate-limited (Task 9), so re-authenticating on every call trades a
@@ -42,7 +73,9 @@ class FranceTravailClient:
 
         params: dict[str, str] = {"motsCles": criteria.keywords}
         if criteria.location:
-            params["commune"] = criteria.location
+            commune_code = self._resolve_commune_code(criteria.location)
+            if commune_code:
+                params["commune"] = commune_code
         if criteria.contract_type:
             params["typeContrat"] = criteria.contract_type
 

@@ -3,7 +3,7 @@ import pytest
 import respx
 
 from app.job_search.errors import JobSearchSourceError
-from app.job_search.france_travail import TOKEN_URL, SEARCH_URL, FranceTravailClient
+from app.job_search.france_travail import COMMUNES_URL, TOKEN_URL, SEARCH_URL, FranceTravailClient
 from app.job_search.schemas import SearchCriteria
 
 
@@ -85,6 +85,67 @@ def test_search_raises_on_search_response_not_object():
     client = FranceTravailClient(client_id="id", client_secret="secret")
     with pytest.raises(JobSearchSourceError):
         client.search(SearchCriteria(keywords="python"))
+
+
+@respx.mock
+def test_search_resolves_city_name_to_commune_code():
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    geocode_route = respx.get(COMMUNES_URL).mock(return_value=httpx.Response(200, json=[{"code": "75056"}]))
+    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    client.search(SearchCriteria(keywords="python", location="Paris"))
+
+    assert geocode_route.calls[0].request.url.params["nom"] == "Paris"
+    assert search_route.calls[0].request.url.params["commune"] == "75056"
+
+
+@respx.mock
+def test_search_treats_france_as_nationwide():
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    client.search(SearchCriteria(keywords="python", location="France"))
+
+    assert "commune" not in search_route.calls[0].request.url.params
+
+
+@respx.mock
+def test_search_accepts_insee_code_directly():
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    geocode_route = respx.get(COMMUNES_URL).mock(return_value=httpx.Response(200, json=[]))
+    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    client.search(SearchCriteria(keywords="python", location="75056"))
+
+    assert not geocode_route.calls
+    assert search_route.calls[0].request.url.params["commune"] == "75056"
+
+
+@respx.mock
+def test_search_drops_location_filter_when_city_not_found():
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.get(COMMUNES_URL).mock(return_value=httpx.Response(200, json=[]))
+    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    client.search(SearchCriteria(keywords="python", location="Villequinexistepas"))
+
+    assert "commune" not in search_route.calls[0].request.url.params
+
+
+@respx.mock
+def test_search_drops_location_filter_when_geocoding_service_unreachable():
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.get(COMMUNES_URL).mock(return_value=httpx.Response(500))
+    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    client.search(SearchCriteria(keywords="python", location="Paris"))
+
+    assert "commune" not in search_route.calls[0].request.url.params
 
 
 @respx.mock
