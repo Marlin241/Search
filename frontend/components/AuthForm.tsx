@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { ApiError } from "@/lib/api";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Field";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -38,44 +40,33 @@ export function AuthForm({ mode, onModeChange, onSubmit }: AuthFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold text-slate-900">{mode === "login" ? "Connexion" : "Inscription"}</h1>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Diagnostic ATS</p>
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+          {mode === "login" ? "Connexion" : "Inscription"}
+        </h1>
+      </div>
       {formError && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
           {formError}
         </p>
       )}
-      <label className="flex flex-col gap-1 text-sm text-slate-700">
+      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
         Email
-        <input
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-          className="rounded-md border border-slate-300 px-3 py-2"
-        />
-        {emailError && <span className="text-sm text-red-600">{emailError}</span>}
+        <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        {emailError && <span className="text-sm text-red-600 dark:text-red-400">{emailError}</span>}
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700">
+      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
         Mot de passe
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-          className="rounded-md border border-slate-300 px-3 py-2"
-        />
+        <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
       </label>
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded-md bg-blue-500 px-4 py-2 font-semibold text-white disabled:opacity-50"
-      >
+      <Button type="submit" isLoading={isSubmitting}>
         {mode === "login" ? "Se connecter" : "Créer mon compte"}
-      </button>
+      </Button>
       <button
         type="button"
         onClick={() => onModeChange(mode === "login" ? "register" : "login")}
-        className="text-sm text-blue-600 underline"
+        className="text-sm font-semibold text-amber-700 underline dark:text-amber-400"
       >
         {mode === "login" ? "Pas de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
       </button>
