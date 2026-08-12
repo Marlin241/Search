@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.auth-bg-grid {
+  background-image:
+    radial-gradient(circle at 30% 20%, rgba(251, 191, 36, 0.12), transparent 45%),
+    linear-gradient(#1c2433 1px, transparent 1px),
+    linear-gradient(90deg, #1c2433 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+}
