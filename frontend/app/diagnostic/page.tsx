@@ -8,6 +8,7 @@ import { OfferInput, EMPTY_OFFER_VALUE, type OfferInputValue } from "@/component
 import { DiagnosticReportView } from "@/components/DiagnosticReportView";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { PersonalizedDocumentCard } from "@/components/PersonalizedDocumentCard";
+import { Button } from "@/components/ui/Button";
 import { toBannerContent, isSessionExpired, type BannerContent } from "@/lib/errors";
 import { createDiagnostic, downloadCv, downloadLetter, generateCv, generateLetter } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -56,9 +57,10 @@ function DiagnosticPageContent() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="text-xl font-bold text-slate-900">Analyser un CV</h1>
-      <p className="mt-1 text-sm text-slate-600">
+    <main className="mx-auto max-w-2xl px-8 py-10">
+      <p className="text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Diagnostic</p>
+      <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">Analyser un CV</h1>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Uploadez votre CV et l&apos;offre visée pour comprendre ce qui bloque côté ATS.
       </p>
 
@@ -66,14 +68,9 @@ function DiagnosticPageContent() {
         <CVDropzone file={file} onFileSelected={setFile} />
         <OfferInput value={offer} onChange={setOffer} />
         {banner && <ErrorBanner content={banner} />}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit || isSubmitting}
-          className="rounded-md bg-blue-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
-        >
+        <Button onClick={handleSubmit} disabled={!canSubmit} isLoading={isSubmitting} className="w-fit">
           {isSubmitting ? "Analyse en cours, ça prend quelques secondes..." : "Analyser mon CV"}
-        </button>
+        </Button>
       </div>
 
       {report && (
