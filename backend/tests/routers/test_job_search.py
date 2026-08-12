@@ -172,6 +172,69 @@ def test_search_discovers_unknown_company_and_polling_returns_new_listing(client
     assert poll_body["new_listings"][0]["title"] == "Ingénieur backend Python"
 
 
+@respx.mock
+def test_search_with_dakar_location_returns_waves_real_listing_synchronously(client):
+    respx.get("https://boards-api.greenhouse.io/v1/boards/wavemm1/jobs").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "title": "Customer Support Team Lead",
+                        "location": {"name": "Dakar, Senegal"},
+                        "content": "<p>Poste Wave.</p>",
+                        "absolute_url": "https://www.wave.com/en/careers/job/1",
+                    }
+                ]
+            },
+        )
+    )
+    respx.get(url__regex=r"https://boards-api\.greenhouse\.io/v1/boards/(?!wavemm1)[a-z0-9-]+/jobs").mock(
+        return_value=httpx.Response(404)
+    )
+    respx.get(url__regex=r"https://api\.lever\.co/v0/postings/[a-z0-9-]+").mock(return_value=httpx.Response(404))
+
+    app.dependency_overrides[get_job_search_clients] = lambda: {
+        "france_travail": EmptyPrimaryClient(),
+        "adzuna": EmptyPrimaryClient(),
+        "greenhouse": GreenhouseJobBoardClient(),
+        "lever": LeverJobBoardClient(),
+    }
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/job-search/search",
+        headers=headers,
+        json={"keywords": "Support", "location": "Dakar"},
+    )
+
+    assert response.status_code == 200
+    titles = [listing["title"] for listing in response.json()["listings"]]
+    assert "Customer Support Team Lead" in titles
+
+
+@respx.mock
+def test_search_with_dakar_location_triggers_discovery_from_seed_companies_even_with_no_primary_results(client):
+    respx.get(url__regex=r"https://boards-api\.greenhouse\.io/v1/boards/.+/jobs").mock(
+        return_value=httpx.Response(404)
+    )
+    respx.get(url__regex=r"https://api\.lever\.co/v0/postings/.+").mock(return_value=httpx.Response(404))
+
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({})
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/job-search/search",
+        headers=headers,
+        json={"keywords": "python", "location": "Dakar"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["discovery_pending"] is True
+
+
 def test_get_discovery_for_unknown_search_id_returns_done_true(client):
     app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": FakeWorkingClient()})
     token = _register_and_login(client)

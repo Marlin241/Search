@@ -11,6 +11,7 @@ from app.job_search.dependencies import get_job_search_clients
 from app.job_search.discovery import MAX_COMPANIES_PER_DISCOVERY, extract_unique_companies
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.seed_companies import cache_known_seed_mappings, get_seed_companies
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.user import User
 from app.rate_limit.limiter import (
@@ -53,9 +54,14 @@ def search(
     db.add(JobSearchRequestLog(user_id=current_user.id))
     db.commit()
 
+    cache_known_seed_mappings(db, criteria.location)
+    candidate_companies = list(
+        dict.fromkeys(extract_unique_companies(listings) + get_seed_companies(criteria.location))
+    )
+
     known_listings: list[JobListing] = []
     unknown_companies: list[str] = []
-    for company_name in extract_unique_companies(listings):
+    for company_name in candidate_companies:
         mapping = get_cached_mapping(db, company_name)
         if mapping is None:
             unknown_companies.append(company_name)
