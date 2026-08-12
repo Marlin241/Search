@@ -77,7 +77,10 @@ class FranceTravailClient:
             if commune_code:
                 params["commune"] = commune_code
         if criteria.contract_type:
-            params["typeContrat"] = criteria.contract_type
+            # France Travail's typeContrat codes are uppercase (CDI, CDD, ...);
+            # a lowercase value like "cdi" is rejected with a 400, so normalize
+            # whatever casing the user typed.
+            params["typeContrat"] = criteria.contract_type.upper()
 
         try:
             response = self._http.get(SEARCH_URL, params=params, headers={"Authorization": f"Bearer {token}"})

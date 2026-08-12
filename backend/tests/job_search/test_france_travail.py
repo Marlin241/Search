@@ -38,6 +38,17 @@ def test_search_returns_normalized_listings():
 
 
 @respx.mock
+def test_search_uppercases_contract_type():
+    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    client.search(SearchCriteria(keywords="python", contract_type="cdi"))
+
+    assert search_route.calls[0].request.url.params["typeContrat"] == "CDI"
+
+
+@respx.mock
 def test_search_raises_on_auth_failure():
     respx.post(TOKEN_URL).mock(return_value=httpx.Response(401, json={"error": "invalid_client"}))
 
