@@ -1,5 +1,8 @@
 "use client";
 
+import { Card } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Field";
 import type { SearchCriteria } from "@/lib/types";
 
 export interface SearchCriteriaFormValue {
@@ -44,61 +47,53 @@ interface SearchCriteriaFormProps {
 
 export function SearchCriteriaForm({ value, onChange, onSearch, isSearching }: SearchCriteriaFormProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-white p-4 shadow-sm">
-      <label className="flex flex-col gap-1 text-sm text-slate-700">
+    <Card className="flex flex-col gap-4 p-4">
+      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
         Mots-clés
-        <input
+        <Input
           type="text"
           value={value.keywords}
           onChange={(event) => onChange({ ...value, keywords: event.target.value })}
           placeholder="ex: développeur python"
-          className="rounded-md border border-slate-300 px-3 py-2"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700">
+      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
         Localisation
-        <input
+        <Input
           type="text"
           value={value.location}
           onChange={(event) => onChange({ ...value, location: event.target.value })}
-          className="rounded-md border border-slate-300 px-3 py-2"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700">
+      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
         Type de contrat
-        <input
+        <Input
           type="text"
           value={value.contractType}
           onChange={(event) => onChange({ ...value, contractType: event.target.value })}
           placeholder="ex: CDI"
-          className="rounded-md border border-slate-300 px-3 py-2"
         />
       </label>
-      <label className="flex items-center gap-2 text-sm text-slate-700">
+      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
         <input
           type="checkbox"
           checked={value.remote}
           onChange={(event) => onChange({ ...value, remote: event.target.checked })}
+          className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-ink-800"
         />
         Télétravail uniquement
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700">
+      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
         Mots-clés à exclure (séparés par des virgules)
-        <input
+        <Input
           type="text"
           value={value.excludeKeywords}
           onChange={(event) => onChange({ ...value, excludeKeywords: event.target.value })}
-          className="rounded-md border border-slate-300 px-3 py-2"
         />
       </label>
-      <button
-        type="button"
-        onClick={onSearch}
-        disabled={isSearching || value.keywords.trim().length === 0}
-        className="w-fit rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-      >
+      <Button onClick={onSearch} disabled={value.keywords.trim().length === 0} isLoading={isSearching} className="w-fit">
         {isSearching ? "Recherche en cours..." : "Rechercher"}
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }
