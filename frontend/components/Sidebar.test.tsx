@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TopNav } from "./TopNav";
+import { Sidebar } from "./Sidebar";
 
 const replaceMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -20,17 +20,17 @@ beforeEach(() => {
   useAuthMock.mockReset();
 });
 
-describe("TopNav", () => {
-  it("shows only the logo when logged out", () => {
+describe("Sidebar", () => {
+  it("shows only the brand when logged out", () => {
     useAuthMock.mockReturnValue({ user: null, logout: logoutMock });
-    render(<TopNav />);
-    expect(screen.getByText("📄 Diagnostic ATS")).toBeInTheDocument();
+    render(<Sidebar />);
+    expect(screen.getByText("Diagnostic ATS")).toBeInTheDocument();
     expect(screen.queryByText("Historique")).not.toBeInTheDocument();
   });
 
   it("shows nav links, email, and logs out when logged in", () => {
     useAuthMock.mockReturnValue({ user: { id: 1, email: "jane@example.com" }, logout: logoutMock });
-    render(<TopNav />);
+    render(<Sidebar />);
     expect(screen.getByText("Historique")).toBeInTheDocument();
     expect(screen.getByText("Candidatures")).toBeInTheDocument();
     expect(screen.getByText("Profil")).toBeInTheDocument();
