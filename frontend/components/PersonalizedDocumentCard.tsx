@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ErrorBanner } from "./ErrorBanner";
+import { Card } from "./ui/Card";
+import { Button } from "./ui/Button";
 import { toBannerContent, type BannerContent } from "@/lib/errors";
 import type { PersonalizedDocument } from "@/lib/types";
 
@@ -53,8 +55,8 @@ export function PersonalizedDocumentCard({
   }
 
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold text-slate-900">{title}</p>
+    <Card className="p-4">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{title}</p>
 
       {banner && (
         <div className="mt-2">
@@ -63,45 +65,31 @@ export function PersonalizedDocumentCard({
       )}
 
       {!generatedDocument && (
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={isGenerating}
-          className="mt-2 rounded-md bg-blue-500 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
+        <Button onClick={handleGenerate} isLoading={isGenerating} size="sm" className="mt-2">
           {isGenerating ? "Génération en cours..." : generatedLabel}
-        </button>
+        </Button>
       )}
 
       {generatedDocument && (
         <div className="mt-2 flex flex-col gap-2">
-          <p className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
             Relisez ce document avant de l&apos;envoyer.
           </p>
           {generatedDocument.needs_review && (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
               À vérifier : ce document pourrait contenir des éléments absents de votre CV d&apos;origine.
             </p>
           )}
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="rounded-md bg-blue-500 px-3 py-2 text-sm font-semibold text-white"
-            >
+            <Button onClick={handleDownload} size="sm">
               Télécharger
-            </button>
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={isGenerating}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button onClick={handleGenerate} isLoading={isGenerating} variant="secondary" size="sm">
               {isGenerating ? "Génération en cours..." : "Régénérer"}
-            </button>
+            </Button>
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
