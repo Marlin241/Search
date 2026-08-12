@@ -1,5 +1,8 @@
 "use client";
 
+import { Card } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Field";
 import type { CandidateProfileInput } from "@/lib/types";
 
 export interface CandidateProfileFormValue {
@@ -53,27 +56,21 @@ const FIELDS: Array<{ key: keyof CandidateProfileFormValue; label: string; requi
 
 export function CandidateProfileForm({ value, onChange, onSubmit, isSubmitting }: CandidateProfileFormProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-white p-4 shadow-sm">
+    <Card className="flex flex-col gap-4 p-4">
       {FIELDS.map(({ key, label, required }) => (
-        <label key={key} className="flex flex-col gap-1 text-sm text-slate-700">
+        <label key={key} className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
           {label}
-          <input
+          <Input
             type="text"
             value={value[key]}
             required={required}
             onChange={(event) => onChange({ ...value, [key]: event.target.value })}
-            className="rounded-md border border-slate-300 px-3 py-2"
           />
         </label>
       ))}
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={isSubmitting}
-        className="w-fit rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-      >
+      <Button onClick={onSubmit} isLoading={isSubmitting} className="w-fit">
         {isSubmitting ? "Enregistrement..." : "Enregistrer"}
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }
