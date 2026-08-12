@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type DragEvent, type ChangeEvent } from "react";
+import { Upload } from "lucide-react";
 import { validateCvFile } from "@/lib/validation";
 
 interface CVDropzoneProps {
@@ -34,12 +35,13 @@ export function CVDropzone({ file, onFileSelected }: CVDropzoneProps) {
         onClick={() => inputRef.current?.click()}
         onDragOver={(event) => event.preventDefault()}
         onDrop={handleDrop}
-        className="cursor-pointer rounded-xl border-2 border-dashed border-blue-200 bg-white p-7 text-center"
+        className="cursor-pointer rounded-xl border-2 border-dashed border-slate-300 bg-white p-7 text-center transition-colors hover:border-amber-400 dark:border-ink-800 dark:bg-ink-900 dark:hover:border-amber-500"
       >
-        <p className="text-sm font-semibold text-slate-900">
+        <Upload className="mx-auto h-6 w-6 text-slate-400 dark:text-slate-500" aria-hidden="true" />
+        <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-50">
           {file ? file.name : "Glissez votre CV ici ou cliquez pour parcourir"}
         </p>
-        <p className="mt-1 text-xs text-slate-500">PDF ou DOCX, 5 Mo max</p>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">PDF ou DOCX, 5 Mo max</p>
         <input
           ref={inputRef}
           type="file"
@@ -50,7 +52,7 @@ export function CVDropzone({ file, onFileSelected }: CVDropzoneProps) {
         />
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600">
+        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
           {error}
         </p>
       )}
