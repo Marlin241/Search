@@ -106,9 +106,12 @@ function CandidaturesPageContent() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="text-xl font-bold text-slate-900">Trouver et postuler à des offres</h1>
-      <p className="mt-1 text-sm text-slate-600">
+    <main className="mx-auto max-w-2xl px-8 py-10">
+      <p className="text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Candidatures</p>
+      <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+        Trouver et postuler à des offres
+      </h1>
+      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
         Définissez vos critères, sélectionnez les offres qui vous intéressent, puis relisez chaque candidature avant
         l&apos;envoi.
       </p>
@@ -118,7 +121,9 @@ function CandidaturesPageContent() {
       </div>
 
       {isDiscovering && (
-        <p className="mt-3 text-sm text-slate-500">Recherche en cours sur les sites des entreprises...</p>
+        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+          Recherche en cours sur les sites des entreprises...
+        </p>
       )}
 
       {banner && (
@@ -140,7 +145,7 @@ function CandidaturesPageContent() {
 
       {applications.length > 0 && token && (
         <div className="mt-10 flex flex-col gap-6">
-          <h2 className="text-lg font-bold text-slate-900">Vos candidatures</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">Vos candidatures</h2>
           {applications.map((application) => (
             <ApplicationCard
               key={application.id}
