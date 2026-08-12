@@ -4,6 +4,7 @@ from app.config import get_settings
 from app.job_search.adzuna import AdzunaClient
 from app.job_search.france_travail import FranceTravailClient
 from app.job_search.greenhouse import GreenhouseJobBoardClient
+from app.job_search.la_bonne_alternance import LaBonneAlternanceClient
 from app.job_search.lever import LeverJobBoardClient
 
 
@@ -20,6 +21,7 @@ def get_job_search_clients() -> dict[str, object]:
             app_key=settings.adzuna_app_key,
             country=settings.adzuna_country,
         ),
+        "la_bonne_alternance": LaBonneAlternanceClient(api_key=settings.la_bonne_alternance_api_key),
         "greenhouse": GreenhouseJobBoardClient(),
         "lever": LeverJobBoardClient(),
     }

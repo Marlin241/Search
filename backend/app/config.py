@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     adzuna_app_id: str = ""
     adzuna_app_key: str = ""
     adzuna_country: str = "fr"
+    la_bonne_alternance_api_key: str = ""
 
 
 @lru_cache

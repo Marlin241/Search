@@ -71,6 +71,7 @@ def _default_clients(overrides: dict[str, object]) -> dict[str, object]:
     base: dict[str, object] = {
         "france_travail": EmptyPrimaryClient(),
         "adzuna": EmptyPrimaryClient(),
+        "la_bonne_alternance": EmptyPrimaryClient(),
         "greenhouse": EmptyGreenhouseOrLeverClient(),
         "lever": EmptyGreenhouseOrLeverClient(),
     }
@@ -152,6 +153,7 @@ def test_search_discovers_unknown_company_and_polling_returns_new_listing(client
     app.dependency_overrides[get_job_search_clients] = lambda: {
         "france_travail": CompanyMentioningClient(),
         "adzuna": EmptyPrimaryClient(),
+        "la_bonne_alternance": EmptyPrimaryClient(),
         "greenhouse": GreenhouseJobBoardClient(),
         "lever": LeverJobBoardClient(),
     }
@@ -197,6 +199,7 @@ def test_search_with_dakar_location_returns_waves_real_listing_synchronously(cli
     app.dependency_overrides[get_job_search_clients] = lambda: {
         "france_travail": EmptyPrimaryClient(),
         "adzuna": EmptyPrimaryClient(),
+        "la_bonne_alternance": EmptyPrimaryClient(),
         "greenhouse": GreenhouseJobBoardClient(),
         "lever": LeverJobBoardClient(),
     }

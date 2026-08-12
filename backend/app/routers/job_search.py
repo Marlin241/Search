@@ -48,7 +48,11 @@ def search(
     except RateLimitExceeded as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
 
-    primary_clients = {"france_travail": clients["france_travail"], "adzuna": clients["adzuna"]}
+    primary_clients = {
+        "france_travail": clients["france_travail"],
+        "adzuna": clients["adzuna"],
+        "la_bonne_alternance": clients["la_bonne_alternance"],
+    }
     listings, unavailable_sources = search_jobs(criteria, primary_clients)
 
     db.add(JobSearchRequestLog(user_id=current_user.id))
