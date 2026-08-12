@@ -1,6 +1,7 @@
 import httpx
 
 from app.job_search.errors import JobSearchSourceError
+from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
 
 
@@ -10,7 +11,7 @@ class LeverJobBoardClient:
 
     def search(self, criteria: SearchCriteria, company_slugs: list[str]) -> list[JobListing]:
         listings: list[JobListing] = []
-        keyword = criteria.keywords.lower()
+        keyword = criteria.keywords
 
         for company_slug in company_slugs:
             url = f"https://api.lever.co/v0/postings/{company_slug}"
@@ -24,7 +25,7 @@ class LeverJobBoardClient:
                 postings = response.json()
                 for posting in postings:
                     title = posting.get("text", "")
-                    if keyword and keyword not in title.lower():
+                    if not keyword_matches_title(keyword, title):
                         continue
                     categories = posting.get("categories") or {}
                     listings.append(

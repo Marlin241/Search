@@ -61,6 +61,34 @@ def test_search_with_no_keyword_returns_all_jobs():
 
 
 @respx.mock
+def test_search_matches_french_keyword_against_english_only_title():
+    respx.get("https://api.lever.co/v0/postings/acme").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "text": "Software Engineer",
+                    "categories": {"location": "Remote"},
+                    "descriptionPlain": "Test",
+                    "hostedUrl": "https://jobs.lever.co/acme/1",
+                },
+                {
+                    "text": "Accountant",
+                    "categories": {"location": "Dakar"},
+                    "descriptionPlain": "Test",
+                    "hostedUrl": "https://jobs.lever.co/acme/2",
+                },
+            ],
+        )
+    )
+
+    client = LeverJobBoardClient()
+    listings = client.search(SearchCriteria(keywords="développeur"), ["acme"])
+
+    assert [listing.title for listing in listings] == ["Software Engineer"]
+
+
+@respx.mock
 def test_search_raises_on_http_error():
     respx.get("https://api.lever.co/v0/postings/unknown-co").mock(return_value=httpx.Response(404))
 

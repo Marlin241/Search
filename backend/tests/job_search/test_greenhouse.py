@@ -54,6 +54,36 @@ def test_search_with_no_keyword_returns_all_jobs():
 
 
 @respx.mock
+def test_search_matches_french_keyword_against_english_only_title():
+    respx.get("https://boards-api.greenhouse.io/v1/boards/wavemm1/jobs").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "title": "Endpoint Engineer",
+                        "location": {"name": "Remote"},
+                        "content": "<p>...</p>",
+                        "absolute_url": "https://boards.greenhouse.io/wavemm1/jobs/1",
+                    },
+                    {
+                        "title": "Accountant",
+                        "location": {"name": "Dakar, Senegal"},
+                        "content": "<p>...</p>",
+                        "absolute_url": "https://boards.greenhouse.io/wavemm1/jobs/2",
+                    },
+                ]
+            },
+        )
+    )
+
+    client = GreenhouseJobBoardClient()
+    listings = client.search(SearchCriteria(keywords="ingénieur"), ["wavemm1"])
+
+    assert [listing.title for listing in listings] == ["Endpoint Engineer"]
+
+
+@respx.mock
 def test_search_raises_on_http_error():
     respx.get("https://boards-api.greenhouse.io/v1/boards/unknown-co/jobs").mock(return_value=httpx.Response(404))
 

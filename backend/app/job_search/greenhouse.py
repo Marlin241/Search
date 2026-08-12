@@ -2,6 +2,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.job_search.errors import JobSearchSourceError
+from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
 
 
@@ -15,7 +16,7 @@ class GreenhouseJobBoardClient:
 
     def search(self, criteria: SearchCriteria, company_slugs: list[str]) -> list[JobListing]:
         listings: list[JobListing] = []
-        keyword = criteria.keywords.lower()
+        keyword = criteria.keywords
 
         for company_slug in company_slugs:
             url = f"https://boards-api.greenhouse.io/v1/boards/{company_slug}/jobs"
@@ -29,7 +30,7 @@ class GreenhouseJobBoardClient:
                 payload = response.json()
                 for job in payload.get("jobs", []):
                     title = job.get("title", "")
-                    if keyword and keyword not in title.lower():
+                    if not keyword_matches_title(keyword, title):
                         continue
                     listings.append(
                         JobListing(
