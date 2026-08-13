@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app import database
 from app.routers import auth, applications, candidate_profile, diagnostics, job_search, personalization
-import app.models  # noqa: F401 register models on Base
+from app import models  # noqa: F401 register models on Base
 
 settings = get_settings()
 

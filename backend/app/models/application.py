@@ -1,9 +1,13 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.diagnostic import Diagnostic
 
 APPLICATION_STATUS_EN_COURS = "en_cours"
 APPLICATION_STATUS_SOUMISE_AUTO = "soumise_auto"
