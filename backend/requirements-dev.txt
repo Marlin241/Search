@@ -2,3 +2,8 @@
 pytest
 respx
 pillow
+ruff
+mypy
+bandit
+pip-audit
+pre-commit
