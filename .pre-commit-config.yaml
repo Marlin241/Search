@@ -1,0 +1,39 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (backend)
+        entry: bash -c 'cd backend && venv/bin/ruff check --fix app'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format (backend)
+        entry: bash -c 'cd backend && venv/bin/ruff format app'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: mypy
+        name: mypy (backend)
+        entry: bash -c 'cd backend && venv/bin/mypy app'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: bandit
+        name: bandit (backend, rapport non bloquant pour l'instant)
+        entry: bash -c 'cd backend && venv/bin/bandit -r app -c pyproject.toml || true'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+        verbose: true
+
+      - id: pip-audit
+        name: pip-audit (backend, rapport non bloquant pour l'instant)
+        entry: bash -c 'cd backend && venv/bin/pip-audit -r requirements.txt || true'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+        verbose: true
