@@ -13,3 +13,23 @@ class JobSearchResponse(BaseModel):
 class JobSearchDiscoveryResponse(BaseModel):
     done: bool
     new_listings: list[JobListing]
+
+
+class SavedSearchIn(BaseModel):
+    keywords: str
+    location: str | None = None
+    contract_type: str | None = None
+    remote: bool | None = None
+    exclude_keywords: list[str] = []
+    timezone: str = "Europe/Paris"
+    enabled: bool = True
+
+
+class SavedSearchOut(BaseModel):
+    keywords: str
+    location: str | None
+    contract_type: str | None
+    remote: bool | None
+    exclude_keywords: list[str]
+    timezone: str
+    enabled: bool

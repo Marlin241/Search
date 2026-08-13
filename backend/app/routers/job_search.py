@@ -1,4 +1,5 @@
 from typing import cast
+from zoneinfo import available_timezones
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -27,13 +28,19 @@ from app.job_search.schemas import (
 )
 from app.job_search.seed_companies import cache_known_seed_mappings, get_seed_companies
 from app.models.job_search_request_log import JobSearchRequestLog
+from app.models.saved_search import SavedSearch
 from app.models.user import User
 from app.rate_limit.limiter import (
     RateLimitExceeded,
     check_job_search_rate_limit,
     lock_user_for_rate_limit,
 )
-from app.schemas.job_search import JobSearchDiscoveryResponse, JobSearchResponse
+from app.schemas.job_search import (
+    JobSearchDiscoveryResponse,
+    JobSearchResponse,
+    SavedSearchIn,
+    SavedSearchOut,
+)
 
 router = APIRouter(prefix="/job-search", tags=["job_search"])
 
@@ -133,3 +140,62 @@ def get_discovery(
 ) -> JobSearchDiscoveryResponse:
     done, new_listings = get_discovery_result(search_id, current_user.id)
     return JobSearchDiscoveryResponse(done=done, new_listings=new_listings)
+
+
+def _to_saved_search_out(saved_search: SavedSearch) -> SavedSearchOut:
+    return SavedSearchOut(
+        keywords=saved_search.keywords,
+        location=saved_search.location,
+        contract_type=saved_search.contract_type,
+        remote=saved_search.remote,
+        exclude_keywords=saved_search.exclude_keywords,
+        timezone=saved_search.timezone,
+        enabled=saved_search.enabled,
+    )
+
+
+@router.get("/saved-search", response_model=SavedSearchOut)
+def get_saved_search(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SavedSearchOut:
+    saved_search = (
+        db.query(SavedSearch).filter(SavedSearch.user_id == current_user.id).first()
+    )
+    if saved_search is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Aucune recherche sauvegardée.",
+        )
+    return _to_saved_search_out(saved_search)
+
+
+@router.put("/saved-search", response_model=SavedSearchOut)
+def put_saved_search(
+    payload: SavedSearchIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SavedSearchOut:
+    if payload.timezone not in available_timezones():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Fuseau horaire invalide.",
+        )
+
+    saved_search = (
+        db.query(SavedSearch).filter(SavedSearch.user_id == current_user.id).first()
+    )
+    if saved_search is None:
+        saved_search = SavedSearch(user_id=current_user.id)
+        db.add(saved_search)
+
+    saved_search.keywords = payload.keywords
+    saved_search.location = payload.location
+    saved_search.contract_type = payload.contract_type
+    saved_search.remote = payload.remote
+    saved_search.exclude_keywords = payload.exclude_keywords
+    saved_search.timezone = payload.timezone
+    saved_search.enabled = payload.enabled
+    db.commit()
+    db.refresh(saved_search)
+    return _to_saved_search_out(saved_search)
