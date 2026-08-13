@@ -183,6 +183,7 @@ def get_prefilled_form(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Complétez votre profil avant de continuer: {', '.join(missing)}",
         )
+    assert profile is not None  # missing_required_profile_fields(None) always returns non-empty
 
     try:
         form = adapter.discover_form(application.offer_url, profile, current_user.email)
@@ -299,6 +300,7 @@ def confirm_application(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Complétez votre profil avant de continuer: {', '.join(missing)}",
         )
+    assert profile is not None  # missing_required_profile_fields(None) always returns non-empty
 
     documents = _get_ready_personalized_documents(db, application.diagnostic_id)
     if documents is None:
