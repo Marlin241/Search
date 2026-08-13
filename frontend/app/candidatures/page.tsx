@@ -10,6 +10,7 @@ import {
   type SearchCriteriaFormValue,
 } from "@/components/SearchCriteriaForm";
 import { JobListingsList } from "@/components/JobListingsList";
+import { SavedSearchPanel } from "@/components/SavedSearchPanel";
 import { ApplicationCard } from "@/components/ApplicationCard";
 import { ErrorBanner } from "@/components/ErrorBanner";
 import { toBannerContent, isSessionExpired, type BannerContent } from "@/lib/errors";
@@ -119,6 +120,12 @@ function CandidaturesPageContent() {
       <div className="mt-6">
         <SearchCriteriaForm value={criteria} onChange={setCriteria} onSearch={handleSearch} isSearching={isSearching} />
       </div>
+
+      {token && (
+        <div className="mt-4">
+          <SavedSearchPanel token={token} criteria={criteria} />
+        </div>
+      )}
 
       {isDiscovering && (
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
