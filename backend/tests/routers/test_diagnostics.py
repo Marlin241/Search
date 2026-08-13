@@ -16,7 +16,9 @@ from app.storage.dependencies import get_object_storage
 
 class FakeAnalyzer:
     def analyze(self, cv_text: str, offer_text: str) -> SemanticReport:
-        return SemanticReport(score=60, missing_keywords=["Docker"], recommendations=["Add Docker"])
+        return SemanticReport(
+            score=60, missing_keywords=["Docker"], recommendations=["Add Docker"]
+        )
 
 
 def _clean_cv_docx_bytes() -> bytes:
@@ -45,7 +47,13 @@ def test_create_diagnostic_returns_combined_report(client):
     response = client.post(
         "/diagnostics",
         headers={"Authorization": f"Bearer {token}"},
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "We need a Python developer with Docker experience."},
     )
 
@@ -68,7 +76,13 @@ def test_create_diagnostic_without_offer_returns_422(client):
     response = client.post(
         "/diagnostics",
         headers={"Authorization": f"Bearer {token}"},
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
     )
 
     assert response.status_code == 422
@@ -83,7 +97,13 @@ def test_list_and_delete_diagnostics(client):
     client.post(
         "/diagnostics",
         headers=headers,
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "We need a Python developer."},
     )
 
@@ -130,7 +150,13 @@ def test_create_diagnostic_oversized_offer_text_returns_422(client):
     response = client.post(
         "/diagnostics",
         headers={"Authorization": f"Bearer {token}"},
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "a" * 50001},
     )
 
@@ -148,7 +174,13 @@ def test_rate_limit_returns_429(client):
         response = client.post(
             "/diagnostics",
             headers=headers,
-            files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+            files={
+                "cv_file": (
+                    "cv.docx",
+                    _clean_cv_docx_bytes(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
             data={"offer_text": "We need a Python developer."},
         )
         assert response.status_code == 201
@@ -156,7 +188,13 @@ def test_rate_limit_returns_429(client):
     blocked = client.post(
         "/diagnostics",
         headers=headers,
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "We need a Python developer."},
     )
     assert blocked.status_code == 429
@@ -172,13 +210,25 @@ def test_list_diagnostics_includes_id_and_created_at_newest_first(client):
     first = client.post(
         "/diagnostics",
         headers=headers,
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "We need a Python developer."},
     ).json()
     second = client.post(
         "/diagnostics",
         headers=headers,
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "We need a Python developer."},
     ).json()
 
@@ -194,7 +244,11 @@ class _FakeCvRewriter:
     def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
         return RewrittenCv(
             summary="Résumé.",
-            experience=[CvExperienceEntry(title="Dev", company="Acme", dates="2020-2022", bullets=["Bullet."])],
+            experience=[
+                CvExperienceEntry(
+                    title="Dev", company="Acme", dates="2020-2022", bullets=["Bullet."]
+                )
+            ],
             education=["Master"],
             skills=["Python"],
         )
@@ -228,7 +282,13 @@ def test_delete_all_diagnostics_also_purges_personalized_documents(client, db_se
     diagnostic_id = client.post(
         "/diagnostics",
         headers=headers,
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "We need a Python developer."},
     ).json()["id"]
 
@@ -259,7 +319,8 @@ def test_delete_all_diagnostics_also_purges_applications(client, db_session):
         headers=headers,
         files={
             "cv_file": (
-                "cv.docx", _clean_cv_docx_bytes(),
+                "cv.docx",
+                _clean_cv_docx_bytes(),
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
@@ -288,7 +349,9 @@ def test_delete_all_diagnostics_also_purges_applications(client, db_session):
     assert db_session.query(Application).count() == 0
 
 
-def test_delete_all_diagnostics_does_not_purge_other_users_applications(client, db_session):
+def test_delete_all_diagnostics_does_not_purge_other_users_applications(
+    client, db_session
+):
     from app.models.application import APPLICATION_STATUS_EN_COURS, Application
     from app.models.user import User
 
@@ -301,7 +364,8 @@ def test_delete_all_diagnostics_does_not_purge_other_users_applications(client, 
         headers=owner_headers,
         files={
             "cv_file": (
-                "cv.docx", _clean_cv_docx_bytes(),
+                "cv.docx",
+                _clean_cv_docx_bytes(),
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
@@ -315,7 +379,8 @@ def test_delete_all_diagnostics_does_not_purge_other_users_applications(client, 
         headers=other_headers,
         files={
             "cv_file": (
-                "cv.docx", _clean_cv_docx_bytes(),
+                "cv.docx",
+                _clean_cv_docx_bytes(),
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
@@ -355,10 +420,17 @@ def test_delete_all_diagnostics_does_not_purge_other_users_applications(client, 
 
     assert response.status_code == 204
     # Only the requesting user's own Application row was purged.
-    assert db_session.query(Application).filter(Application.user_id == owner.id).count() == 0
+    assert (
+        db_session.query(Application).filter(Application.user_id == owner.id).count()
+        == 0
+    )
     # The other user's Application, attached to a different diagnostic,
     # must survive untouched.
-    surviving = db_session.query(Application).filter(Application.id == other_application_id).first()
+    surviving = (
+        db_session.query(Application)
+        .filter(Application.id == other_application_id)
+        .first()
+    )
     assert surviving is not None
     assert surviving.user_id == other.id
 

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
-from app.rules_engine.rules import StructuralReport
 from app.aggregator.aggregator import build_diagnostic_report
+from app.rules_engine.rules import StructuralReport
 
 
 class FakeSemanticReport(BaseModel):
@@ -12,7 +12,9 @@ class FakeSemanticReport(BaseModel):
 
 def test_aggregates_scores_and_details():
     structural = StructuralReport(score=80, issues=["Missing skills section"])
-    semantic = FakeSemanticReport(score=60, missing_keywords=["Docker"], recommendations=["Add Docker"])
+    semantic = FakeSemanticReport(
+        score=60, missing_keywords=["Docker"], recommendations=["Add Docker"]
+    )
 
     report = build_diagnostic_report(structural, semantic)
 

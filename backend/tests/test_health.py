@@ -4,6 +4,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 

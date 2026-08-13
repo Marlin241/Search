@@ -10,5 +10,9 @@ def test_create_job_search_request_log_linked_to_user(db_session):
     db_session.add(JobSearchRequestLog(user_id=user.id))
     db_session.commit()
 
-    fetched = db_session.query(JobSearchRequestLog).filter(JobSearchRequestLog.user_id == user.id).first()
+    fetched = (
+        db_session.query(JobSearchRequestLog)
+        .filter(JobSearchRequestLog.user_id == user.id)
+        .first()
+    )
     assert fetched.created_at is not None

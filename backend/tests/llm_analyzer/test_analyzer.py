@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import anthropic
 import pytest
 
-from app.llm_analyzer.analyzer import SemanticAnalyzer, LLMAnalysisError
+from app.llm_analyzer.analyzer import LLMAnalysisError, SemanticAnalyzer
 
 
 def _fake_tool_use_response(input_payload: dict):
@@ -31,7 +31,15 @@ class FakeClient:
 
 def test_analyze_returns_parsed_report_on_valid_response():
     client = FakeClient(
-        [_fake_tool_use_response({"score": 72, "missing_keywords": ["Docker"], "recommendations": ["Add Docker"]})]
+        [
+            _fake_tool_use_response(
+                {
+                    "score": 72,
+                    "missing_keywords": ["Docker"],
+                    "recommendations": ["Add Docker"],
+                }
+            )
+        ]
     )
     analyzer = SemanticAnalyzer(client)
 
@@ -40,14 +48,19 @@ def test_analyze_returns_parsed_report_on_valid_response():
     assert report.score == 72
     assert report.missing_keywords == ["Docker"]
     assert report.recommendations == ["Add Docker"]
-    assert client.messages.calls[0]["tool_choice"] == {"type": "tool", "name": "submit_diagnostic"}
+    assert client.messages.calls[0]["tool_choice"] == {
+        "type": "tool",
+        "name": "submit_diagnostic",
+    }
 
 
 def test_analyze_retries_once_on_invalid_payload_then_succeeds():
     client = FakeClient(
         [
             _fake_tool_use_response({"score": "not-a-number"}),
-            _fake_tool_use_response({"score": 50, "missing_keywords": [], "recommendations": []}),
+            _fake_tool_use_response(
+                {"score": 50, "missing_keywords": [], "recommendations": []}
+            ),
         ]
     )
     analyzer = SemanticAnalyzer(client)
@@ -74,8 +87,12 @@ def test_analyze_raises_after_two_failures():
 def test_analyze_retries_once_on_out_of_range_score_then_succeeds():
     client = FakeClient(
         [
-            _fake_tool_use_response({"score": 150, "missing_keywords": [], "recommendations": []}),
-            _fake_tool_use_response({"score": 50, "missing_keywords": [], "recommendations": []}),
+            _fake_tool_use_response(
+                {"score": 150, "missing_keywords": [], "recommendations": []}
+            ),
+            _fake_tool_use_response(
+                {"score": 50, "missing_keywords": [], "recommendations": []}
+            ),
         ]
     )
     analyzer = SemanticAnalyzer(client)
@@ -89,8 +106,12 @@ def test_analyze_retries_once_on_out_of_range_score_then_succeeds():
 def test_analyze_raises_when_both_attempts_return_out_of_range_score():
     client = FakeClient(
         [
-            _fake_tool_use_response({"score": 1000, "missing_keywords": [], "recommendations": []}),
-            _fake_tool_use_response({"score": -500, "missing_keywords": [], "recommendations": []}),
+            _fake_tool_use_response(
+                {"score": 1000, "missing_keywords": [], "recommendations": []}
+            ),
+            _fake_tool_use_response(
+                {"score": -500, "missing_keywords": [], "recommendations": []}
+            ),
         ]
     )
     analyzer = SemanticAnalyzer(client)
@@ -103,7 +124,9 @@ def test_analyze_retries_on_api_error():
     client = FakeClient(
         [
             anthropic.APIConnectionError(request=SimpleNamespace()),
-            _fake_tool_use_response({"score": 40, "missing_keywords": [], "recommendations": []}),
+            _fake_tool_use_response(
+                {"score": 40, "missing_keywords": [], "recommendations": []}
+            ),
         ]
     )
     analyzer = SemanticAnalyzer(client)

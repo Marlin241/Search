@@ -3,7 +3,10 @@ from types import SimpleNamespace
 import anthropic
 import pytest
 
-from app.ats_adapters.custom_fields import CustomFieldAnsweringError, CustomFieldAnswerer
+from app.ats_adapters.custom_fields import (
+    CustomFieldAnswerer,
+    CustomFieldAnsweringError,
+)
 from app.ats_adapters.schemas import FormField
 
 
@@ -31,8 +34,20 @@ class FakeClient:
 
 
 _FIELDS = [
-    FormField(name="custom_why", label="Why this role?", field_type="textarea", required=False, is_custom=True),
-    FormField(name="custom_salary", label="Salary expectations", field_type="text", required=False, is_custom=True),
+    FormField(
+        name="custom_why",
+        label="Why this role?",
+        field_type="textarea",
+        required=False,
+        is_custom=True,
+    ),
+    FormField(
+        name="custom_salary",
+        label="Salary expectations",
+        field_type="text",
+        required=False,
+        is_custom=True,
+    ),
 ]
 
 
@@ -42,8 +57,16 @@ def test_answer_returns_only_confident_answers():
             _fake_tool_use_response(
                 {
                     "answers": [
-                        {"field_name": "custom_why", "answer": "Mon expérience Python correspond au poste.", "confident": True},
-                        {"field_name": "custom_salary", "answer": "", "confident": False},
+                        {
+                            "field_name": "custom_why",
+                            "answer": "Mon expérience Python correspond au poste.",
+                            "confident": True,
+                        },
+                        {
+                            "field_name": "custom_salary",
+                            "answer": "",
+                            "confident": False,
+                        },
                     ]
                 }
             )
@@ -68,7 +91,13 @@ def test_answer_retries_once_on_invalid_payload_then_succeeds():
     client = FakeClient(
         [
             _fake_tool_use_response({"answers": [{"field_name": "x"}]}),
-            _fake_tool_use_response({"answers": [{"field_name": "custom_why", "answer": "OK", "confident": True}]}),
+            _fake_tool_use_response(
+                {
+                    "answers": [
+                        {"field_name": "custom_why", "answer": "OK", "confident": True}
+                    ]
+                }
+            ),
         ]
     )
     answerer = CustomFieldAnswerer(client)
@@ -79,7 +108,9 @@ def test_answer_retries_once_on_invalid_payload_then_succeeds():
 
 
 def test_answer_raises_after_two_failures():
-    client = FakeClient([_fake_tool_use_response({"answers": [{"field_name": "x"}]})] * 2)
+    client = FakeClient(
+        [_fake_tool_use_response({"answers": [{"field_name": "x"}]})] * 2
+    )
     answerer = CustomFieldAnswerer(client)
 
     with pytest.raises(CustomFieldAnsweringError):
@@ -90,7 +121,13 @@ def test_answer_retries_on_api_error():
     client = FakeClient(
         [
             anthropic.APIConnectionError(request=SimpleNamespace()),
-            _fake_tool_use_response({"answers": [{"field_name": "custom_why", "answer": "OK", "confident": True}]}),
+            _fake_tool_use_response(
+                {
+                    "answers": [
+                        {"field_name": "custom_why", "answer": "OK", "confident": True}
+                    ]
+                }
+            ),
         ]
     )
     answerer = CustomFieldAnswerer(client)

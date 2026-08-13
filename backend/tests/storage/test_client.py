@@ -13,14 +13,20 @@ class FakeBotoClient:
 
     def put_object(self, Bucket, Key, Body, ContentType):
         if self.fail_next:
-            raise ClientError({"Error": {"Code": "500", "Message": "boom"}}, "PutObject")
+            raise ClientError(
+                {"Error": {"Code": "500", "Message": "boom"}}, "PutObject"
+            )
         self.objects[Key] = Body
 
     def get_object(self, Bucket, Key):
         if self.fail_next:
-            raise ClientError({"Error": {"Code": "500", "Message": "boom"}}, "GetObject")
+            raise ClientError(
+                {"Error": {"Code": "500", "Message": "boom"}}, "GetObject"
+            )
         if Key not in self.objects:
-            raise ClientError({"Error": {"Code": "NoSuchKey", "Message": "not found"}}, "GetObject")
+            raise ClientError(
+                {"Error": {"Code": "NoSuchKey", "Message": "not found"}}, "GetObject"
+            )
 
         class _Body:
             def read(self_inner) -> bytes:
@@ -30,7 +36,9 @@ class FakeBotoClient:
 
     def delete_object(self, Bucket, Key):
         if self.fail_next:
-            raise ClientError({"Error": {"Code": "500", "Message": "boom"}}, "DeleteObject")
+            raise ClientError(
+                {"Error": {"Code": "500", "Message": "boom"}}, "DeleteObject"
+            )
         self.objects.pop(Key, None)
 
 

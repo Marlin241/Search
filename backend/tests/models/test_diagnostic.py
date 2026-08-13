@@ -1,7 +1,7 @@
 from sqlalchemy import text
 
-from app.models.user import User
 from app.models.diagnostic import Diagnostic
+from app.models.user import User
 
 
 def test_create_diagnostic_linked_to_user(db_session):

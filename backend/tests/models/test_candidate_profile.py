@@ -24,7 +24,11 @@ def test_create_candidate_profile_with_contact_fields(db_session):
     db_session.add(profile)
     db_session.commit()
 
-    fetched = db_session.query(CandidateProfile).filter(CandidateProfile.user_id == user.id).first()
+    fetched = (
+        db_session.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == user.id)
+        .first()
+    )
     assert fetched.full_name == "Jane Doe"
     assert fetched.address is None
     assert fetched.cv_text is None
@@ -50,7 +54,11 @@ def test_cv_fields_store_parsed_reference_cv(db_session):
     db_session.add(profile)
     db_session.commit()
 
-    fetched = db_session.query(CandidateProfile).filter(CandidateProfile.user_id == user.id).first()
+    fetched = (
+        db_session.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == user.id)
+        .first()
+    )
     assert fetched.cv_text.startswith("Jane Doe")
     assert fetched.cv_detected_sections == ["experience", "education", "skills"]
 
@@ -58,12 +66,22 @@ def test_cv_fields_store_parsed_reference_cv(db_session):
 def test_unique_constraint_on_user_id(db_session):
     user = _make_user(db_session)
     db_session.add(
-        CandidateProfile(user_id=user.id, full_name="Jane", phone="0600000000", work_authorization="FR/UE")
+        CandidateProfile(
+            user_id=user.id,
+            full_name="Jane",
+            phone="0600000000",
+            work_authorization="FR/UE",
+        )
     )
     db_session.commit()
 
     db_session.add(
-        CandidateProfile(user_id=user.id, full_name="Jane 2", phone="0611111111", work_authorization="FR/UE")
+        CandidateProfile(
+            user_id=user.id,
+            full_name="Jane 2",
+            phone="0611111111",
+            work_authorization="FR/UE",
+        )
     )
     with pytest.raises(IntegrityError):
         db_session.commit()

@@ -6,7 +6,9 @@ from app.rate_limit.limiter import MAX_DIAGNOSTICS_PER_HOUR
 
 class FakeAnalyzer:
     def analyze(self, cv_text, offer_text):
-        return SemanticReport(score=70, missing_keywords=["Docker"], recommendations=["Add Docker"])
+        return SemanticReport(
+            score=70, missing_keywords=["Docker"], recommendations=["Add Docker"]
+        )
 
 
 def _register_and_login(client, email: str = "jane@example.com") -> str:
@@ -19,7 +21,11 @@ def _setup_profile(client, headers: dict) -> None:
     client.put(
         "/profile",
         headers=headers,
-        json={"full_name": "Jane Doe", "phone": "0600000000", "work_authorization": "FR/UE"},
+        json={
+            "full_name": "Jane Doe",
+            "phone": "0600000000",
+            "work_authorization": "FR/UE",
+        },
     )
     import io
 

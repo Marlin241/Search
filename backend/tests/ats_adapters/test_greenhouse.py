@@ -47,6 +47,7 @@ def _parse_multipart_parts(content: bytes, boundary: str) -> dict[str, bytes]:
 
     return parts
 
+
 _SAMPLE_HTML = """
 <html><body>
 <form action="https://boards-api.greenhouse.io/v1/boards/acme/jobs/123" method="post">
@@ -68,15 +69,21 @@ _SAMPLE_HTML = """
 
 
 def _profile() -> CandidateProfile:
-    return CandidateProfile(user_id=1, full_name="Jane Doe", phone="0612345678", work_authorization="FR/UE")
+    return CandidateProfile(
+        user_id=1, full_name="Jane Doe", phone="0612345678", work_authorization="FR/UE"
+    )
 
 
 @respx.mock
 def test_discover_form_maps_greenhouse_field_names():
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_SAMPLE_HTML))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_HTML)
+    )
 
     form = GreenhouseAdapter().discover_form(
-        "https://boards.greenhouse.io/acme/jobs/123", _profile(), email="jane@example.com"
+        "https://boards.greenhouse.io/acme/jobs/123",
+        _profile(),
+        email="jane@example.com",
     )
 
     first_name = next(f for f in form.fields if f.name == "job_application[first_name]")
@@ -146,11 +153,16 @@ def test_discover_form_rejects_a_non_greenhouse_host():
         return_value=httpx.Response(200, text=_SAMPLE_HTML)
     )
 
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
-        with pytest.raises(ATSAdapterError):
-            GreenhouseAdapter().discover_form(
-                "https://attacker.example.com/harvest", _profile(), email="jane@example.com"
-            )
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo",
+            return_value=_PUBLIC_ADDRINFO,
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        GreenhouseAdapter().discover_form(
+            "https://attacker.example.com/harvest", _profile(), email="jane@example.com"
+        )
 
     assert not route.called
 
@@ -164,11 +176,18 @@ def test_discover_form_rejects_a_lookalike_greenhouse_host():
         return_value=httpx.Response(200, text=_SAMPLE_HTML)
     )
 
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
-        with pytest.raises(ATSAdapterError):
-            GreenhouseAdapter().discover_form(
-                "https://notgreenhouse.io/acme/jobs/123", _profile(), email="jane@example.com"
-            )
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo",
+            return_value=_PUBLIC_ADDRINFO,
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        GreenhouseAdapter().discover_form(
+            "https://notgreenhouse.io/acme/jobs/123",
+            _profile(),
+            email="jane@example.com",
+        )
 
     assert not route.called
 
@@ -177,12 +196,21 @@ def test_discover_form_rejects_a_lookalike_greenhouse_host():
 def test_submit_rejects_a_non_greenhouse_submit_url():
     # The submit URL comes from the fetched page's <form action>, so it is
     # validated independently of the offer URL.
-    route = respx.post("https://attacker.example.com/harvest").mock(return_value=httpx.Response(200))
-    filled = DiscoveredForm(submit_url="https://attacker.example.com/harvest", hidden_fields={}, fields=[])
+    route = respx.post("https://attacker.example.com/harvest").mock(
+        return_value=httpx.Response(200)
+    )
+    filled = DiscoveredForm(
+        submit_url="https://attacker.example.com/harvest", hidden_fields={}, fields=[]
+    )
 
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
-        with pytest.raises(ATSAdapterError):
-            GreenhouseAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo",
+            return_value=_PUBLIC_ADDRINFO,
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        GreenhouseAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
 
     assert not route.called
 
@@ -194,7 +222,9 @@ def test_discover_form_accepts_a_greenhouse_subdomain():
     )
 
     form = GreenhouseAdapter().discover_form(
-        "https://job-boards.greenhouse.io/acme/jobs/123", _profile(), email="jane@example.com"
+        "https://job-boards.greenhouse.io/acme/jobs/123",
+        _profile(),
+        email="jane@example.com",
     )
 
     assert form.submit_url == "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"

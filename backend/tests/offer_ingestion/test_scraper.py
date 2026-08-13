@@ -5,13 +5,16 @@ import httpx
 import pytest
 import respx
 
-from app.offer_ingestion.scraper import scrape_offer, ScrapingError, MAX_RESPONSE_BYTES
+from app.offer_ingestion.scraper import MAX_RESPONSE_BYTES, ScrapingError, scrape_offer
 
 
 @respx.mock
 def test_scrape_offer_success():
     respx.get("https://example.com/job").mock(
-        return_value=httpx.Response(200, html="<html><body>" + ("Description du poste. " * 50) + "</body></html>")
+        return_value=httpx.Response(
+            200,
+            html="<html><body>" + ("Description du poste. " * 50) + "</body></html>",
+        )
     )
     text = scrape_offer("https://example.com/job")
     assert "Description du poste" in text
@@ -73,9 +76,13 @@ def test_scrape_offer_rejects_shared_address_space():
     fake_addrinfo = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.0.1", 80)),
     ]
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo):
-        with pytest.raises(ScrapingError):
-            scrape_offer("http://cgnat.example.com/")
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo
+        ),
+        pytest.raises(ScrapingError),
+    ):
+        scrape_offer("http://cgnat.example.com/")
 
 
 @respx.mock
@@ -92,7 +99,9 @@ def test_scrape_offer_rejects_redirect_to_internal_address():
 
 @respx.mock
 def test_scrape_offer_rejects_oversized_response():
-    oversized_body = b"<html><body>" + b"a" * (MAX_RESPONSE_BYTES + 1024) + b"</body></html>"
+    oversized_body = (
+        b"<html><body>" + b"a" * (MAX_RESPONSE_BYTES + 1024) + b"</body></html>"
+    )
     respx.get("https://example.com/huge").mock(
         return_value=httpx.Response(200, content=oversized_body)
     )

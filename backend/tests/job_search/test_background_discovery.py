@@ -1,7 +1,11 @@
 import httpx
 import respx
 
-from app.job_search.background_discovery import create_pending_search, get_discovery_result, run_discovery
+from app.job_search.background_discovery import (
+    create_pending_search,
+    get_discovery_result,
+    run_discovery,
+)
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.greenhouse import GreenhouseJobBoardClient
 from app.job_search.lever import LeverJobBoardClient
@@ -75,14 +79,22 @@ def test_run_discovery_saves_confirmed_mapping_and_delivers_listings(db_session)
     assert len(new_listings) == 1
     assert new_listings[0].title == "Ingénieur backend"
 
-    mapping = db_session.query(CompanyAtsMapping).filter(CompanyAtsMapping.company_name == "acme").first()
+    mapping = (
+        db_session.query(CompanyAtsMapping)
+        .filter(CompanyAtsMapping.company_name == "acme")
+        .first()
+    )
     assert mapping.source == "greenhouse"
 
 
 @respx.mock
 def test_run_discovery_does_not_cache_indeterminate_detection(db_session):
-    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(side_effect=httpx.ConnectError("down"))
-    respx.get("https://api.lever.co/v0/postings/acme").mock(return_value=httpx.Response(404))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        side_effect=httpx.ConnectError("down")
+    )
+    respx.get("https://api.lever.co/v0/postings/acme").mock(
+        return_value=httpx.Response(404)
+    )
 
     search_id = create_pending_search(user_id=1, has_unknown_companies=True)
     run_discovery(
@@ -97,13 +109,24 @@ def test_run_discovery_does_not_cache_indeterminate_detection(db_session):
     done, new_listings = get_discovery_result(search_id, user_id=1)
     assert done is True
     assert new_listings == []
-    assert db_session.query(CompanyAtsMapping).filter(CompanyAtsMapping.company_name == "acme").first() is None
+    assert (
+        db_session.query(CompanyAtsMapping)
+        .filter(CompanyAtsMapping.company_name == "acme")
+        .first()
+        is None
+    )
 
 
 @respx.mock
-def test_run_discovery_continues_after_a_listings_fetch_failure(db_session, monkeypatch):
-    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(return_value=httpx.Response(200, json={}))
-    respx.get("https://boards-api.greenhouse.io/v1/boards/globex/jobs").mock(return_value=httpx.Response(200, json={}))
+def test_run_discovery_continues_after_a_listings_fetch_failure(
+    db_session, monkeypatch
+):
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    respx.get("https://boards-api.greenhouse.io/v1/boards/globex/jobs").mock(
+        return_value=httpx.Response(200, json={})
+    )
 
     greenhouse_client = GreenhouseJobBoardClient()
 
@@ -129,8 +152,5 @@ def test_run_discovery_continues_after_a_listings_fetch_failure(db_session, monk
     done, _ = get_discovery_result(search_id, user_id=1)
     assert done is True
     # Both companies still get their mapping saved despite Acme's listings fetch failing
-    names = {
-        row.company_name
-        for row in db_session.query(CompanyAtsMapping).all()
-    }
+    names = {row.company_name for row in db_session.query(CompanyAtsMapping).all()}
     assert names == {"acme", "globex"}

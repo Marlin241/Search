@@ -99,21 +99,29 @@ def test_search_returns_listings_and_unavailable_sources(client):
 
 
 def test_search_requires_auth(client):
-    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": FakeWorkingClient()})
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": FakeWorkingClient()}
+    )
     response = client.post("/job-search/search", json={"keywords": "python"})
     assert response.status_code == 401
 
 
 def test_search_rate_limited_after_max_per_hour(client):
-    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": FakeWorkingClient()})
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": FakeWorkingClient()}
+    )
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
 
     for _ in range(MAX_SEARCHES_PER_HOUR):
-        response = client.post("/job-search/search", headers=headers, json={"keywords": "python"})
+        response = client.post(
+            "/job-search/search", headers=headers, json={"keywords": "python"}
+        )
         assert response.status_code == 200
 
-    response = client.post("/job-search/search", headers=headers, json={"keywords": "python"})
+    response = client.post(
+        "/job-search/search", headers=headers, json={"keywords": "python"}
+    )
     assert response.status_code == 429
 
 
@@ -122,11 +130,15 @@ def test_search_with_no_companies_in_results_is_not_discovery_pending(client):
         def search(self, criteria):
             return []
 
-    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": NoCompanyClient()})
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": NoCompanyClient()}
+    )
     token = _register_and_login(client)
 
     response = client.post(
-        "/job-search/search", headers={"Authorization": f"Bearer {token}"}, json={"keywords": "python"}
+        "/job-search/search",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"keywords": "python"},
     )
 
     assert response.json()["discovery_pending"] is False
@@ -160,7 +172,9 @@ def test_search_discovers_unknown_company_and_polling_returns_new_listing(client
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
 
-    response = client.post("/job-search/search", headers=headers, json={"keywords": "python"})
+    response = client.post(
+        "/job-search/search", headers=headers, json={"keywords": "python"}
+    )
     assert response.status_code == 200
     body = response.json()
     assert body["discovery_pending"] is True
@@ -191,10 +205,12 @@ def test_search_with_dakar_location_returns_waves_real_listing_synchronously(cli
             },
         )
     )
-    respx.get(url__regex=r"https://boards-api\.greenhouse\.io/v1/boards/(?!wavemm1)[a-z0-9-]+/jobs").mock(
+    respx.get(
+        url__regex=r"https://boards-api\.greenhouse\.io/v1/boards/(?!wavemm1)[a-z0-9-]+/jobs"
+    ).mock(return_value=httpx.Response(404))
+    respx.get(url__regex=r"https://api\.lever\.co/v0/postings/[a-z0-9-]+").mock(
         return_value=httpx.Response(404)
     )
-    respx.get(url__regex=r"https://api\.lever\.co/v0/postings/[a-z0-9-]+").mock(return_value=httpx.Response(404))
 
     app.dependency_overrides[get_job_search_clients] = lambda: {
         "france_travail": EmptyPrimaryClient(),
@@ -218,11 +234,15 @@ def test_search_with_dakar_location_returns_waves_real_listing_synchronously(cli
 
 
 @respx.mock
-def test_search_with_dakar_location_triggers_discovery_from_seed_companies_even_with_no_primary_results(client):
+def test_search_with_dakar_location_triggers_discovery_from_seed_companies_even_with_no_primary_results(
+    client,
+):
     respx.get(url__regex=r"https://boards-api\.greenhouse\.io/v1/boards/.+/jobs").mock(
         return_value=httpx.Response(404)
     )
-    respx.get(url__regex=r"https://api\.lever\.co/v0/postings/.+").mock(return_value=httpx.Response(404))
+    respx.get(url__regex=r"https://api\.lever\.co/v0/postings/.+").mock(
+        return_value=httpx.Response(404)
+    )
 
     app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({})
     token = _register_and_login(client)
@@ -239,11 +259,14 @@ def test_search_with_dakar_location_triggers_discovery_from_seed_companies_even_
 
 
 def test_get_discovery_for_unknown_search_id_returns_done_true(client):
-    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients({"france_travail": FakeWorkingClient()})
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": FakeWorkingClient()}
+    )
     token = _register_and_login(client)
 
     response = client.get(
-        "/job-search/search/does-not-exist/discovery", headers={"Authorization": f"Bearer {token}"}
+        "/job-search/search/does-not-exist/discovery",
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == 200

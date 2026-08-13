@@ -46,7 +46,11 @@ def test_create_application_linked_to_diagnostic(db_session):
     db_session.add(application)
     db_session.commit()
 
-    fetched = db_session.query(Application).filter(Application.diagnostic_id == diagnostic.id).first()
+    fetched = (
+        db_session.query(Application)
+        .filter(Application.diagnostic_id == diagnostic.id)
+        .first()
+    )
     assert fetched.status == APPLICATION_STATUS_EN_COURS
     assert fetched.submitted_at is None
     assert fetched.error_message is None
@@ -108,4 +112,7 @@ def test_deleting_diagnostic_cascades_to_application(db_session):
     db_session.delete(diagnostic)
     db_session.commit()
 
-    assert db_session.query(Application).filter(Application.id == application_id).first() is None
+    assert (
+        db_session.query(Application).filter(Application.id == application_id).first()
+        is None
+    )

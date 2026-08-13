@@ -35,8 +35,14 @@ def test_get_cached_mapping_matches_regardless_of_casing_and_accents(db_session)
 
 def test_save_mapping_ignores_duplicate_insert_for_same_normalized_name(db_session):
     save_mapping(db_session, "Acme", "greenhouse", "acme")
-    save_mapping(db_session, "ACME", "lever", "acme-2")  # same normalized name, should not crash or overwrite
+    save_mapping(
+        db_session, "ACME", "lever", "acme-2"
+    )  # same normalized name, should not crash or overwrite
 
-    rows = db_session.query(CompanyAtsMapping).filter(CompanyAtsMapping.company_name == "acme").all()
+    rows = (
+        db_session.query(CompanyAtsMapping)
+        .filter(CompanyAtsMapping.company_name == "acme")
+        .all()
+    )
     assert len(rows) == 1
     assert rows[0].source == "greenhouse"  # first write wins

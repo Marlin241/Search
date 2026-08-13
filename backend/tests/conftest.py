@@ -8,11 +8,10 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 os.environ.setdefault("DATABASE_URL", "postgresql://unused:unused@localhost/unused")
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.pool import StaticPool
-from sqlalchemy.orm import sessionmaker
-
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app import database
 from app.database import Base, get_db
@@ -53,7 +52,9 @@ def client(db_session, monkeypatch):
     # to the same in-memory test engine (StaticPool keeps it on the same
     # underlying connection as db_session) so it doesn't try to reach the
     # unused DATABASE_URL from the environment.
-    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    monkeypatch.setattr(
+        database, "SessionLocal", sessionmaker(bind=db_session.get_bind())
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

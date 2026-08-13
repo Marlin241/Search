@@ -44,7 +44,9 @@ def test_generate_slug_candidates_empty_string_returns_no_candidates():
 
 @respx.mock
 def test_detect_company_ats_finds_greenhouse_on_first_candidate():
-    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(return_value=httpx.Response(200, json={}))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(200, json={})
+    )
 
     result = detect_company_ats("Acme", httpx.Client())
 
@@ -55,8 +57,12 @@ def test_detect_company_ats_finds_greenhouse_on_first_candidate():
 
 @respx.mock
 def test_detect_company_ats_falls_back_to_lever_when_greenhouse_404s():
-    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(return_value=httpx.Response(404))
-    respx.get("https://api.lever.co/v0/postings/acme").mock(return_value=httpx.Response(200, json=[]))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(404)
+    )
+    respx.get("https://api.lever.co/v0/postings/acme").mock(
+        return_value=httpx.Response(200, json=[])
+    )
 
     result = detect_company_ats("Acme", httpx.Client())
 
@@ -67,8 +73,12 @@ def test_detect_company_ats_falls_back_to_lever_when_greenhouse_404s():
 
 @respx.mock
 def test_detect_company_ats_confirmed_not_found_when_all_candidates_404():
-    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(return_value=httpx.Response(404))
-    respx.get("https://api.lever.co/v0/postings/acme").mock(return_value=httpx.Response(404))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(404)
+    )
+    respx.get("https://api.lever.co/v0/postings/acme").mock(
+        return_value=httpx.Response(404)
+    )
 
     result = detect_company_ats("Acme", httpx.Client())
 
@@ -79,8 +89,12 @@ def test_detect_company_ats_confirmed_not_found_when_all_candidates_404():
 
 @respx.mock
 def test_detect_company_ats_not_confirmed_on_network_error():
-    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(side_effect=httpx.ConnectError("down"))
-    respx.get("https://api.lever.co/v0/postings/acme").mock(return_value=httpx.Response(404))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        side_effect=httpx.ConnectError("down")
+    )
+    respx.get("https://api.lever.co/v0/postings/acme").mock(
+        return_value=httpx.Response(404)
+    )
 
     result = detect_company_ats("Acme", httpx.Client())
 
@@ -89,8 +103,12 @@ def test_detect_company_ats_not_confirmed_on_network_error():
 
 @respx.mock
 def test_detect_company_ats_not_confirmed_on_server_error():
-    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(return_value=httpx.Response(500))
-    respx.get("https://api.lever.co/v0/postings/acme").mock(return_value=httpx.Response(404))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(500)
+    )
+    respx.get("https://api.lever.co/v0/postings/acme").mock(
+        return_value=httpx.Response(404)
+    )
 
     result = detect_company_ats("Acme", httpx.Client())
 
@@ -98,12 +116,19 @@ def test_detect_company_ats_not_confirmed_on_server_error():
 
 
 def test_extract_unique_companies_dedupes_case_insensitively_preserving_first_seen_casing():
-    listings = [_listing("Acme", "https://example.com/1"), _listing("ACME", "https://example.com/2"), _listing("Globex", "https://example.com/3")]
+    listings = [
+        _listing("Acme", "https://example.com/1"),
+        _listing("ACME", "https://example.com/2"),
+        _listing("Globex", "https://example.com/3"),
+    ]
 
     assert extract_unique_companies(listings) == ["Acme", "Globex"]
 
 
 def test_extract_unique_companies_skips_blank_company_names():
-    listings = [_listing("", "https://example.com/1"), _listing("Acme", "https://example.com/2")]
+    listings = [
+        _listing("", "https://example.com/1"),
+        _listing("Acme", "https://example.com/2"),
+    ]
 
     assert extract_unique_companies(listings) == ["Acme"]

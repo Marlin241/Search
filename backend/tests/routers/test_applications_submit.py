@@ -35,14 +35,23 @@ _GREENHOUSE_FORM_HTML = """
 
 class FakeAnalyzer:
     def analyze(self, cv_text, offer_text):
-        return SemanticReport(score=70, missing_keywords=["Docker"], recommendations=["Add Docker"])
+        return SemanticReport(
+            score=70, missing_keywords=["Docker"], recommendations=["Add Docker"]
+        )
 
 
 class FakeCvRewriter:
     def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
         return RewrittenCv(
             summary="Résumé.",
-            experience=[CvExperienceEntry(title="Dev", company="Acme", dates="2020-2022", bullets=["A conçu des API."])],
+            experience=[
+                CvExperienceEntry(
+                    title="Dev",
+                    company="Acme",
+                    dates="2020-2022",
+                    bullets=["A conçu des API."],
+                )
+            ],
             education=["Master"],
             skills=["Python"],
         )
@@ -113,7 +122,9 @@ def _cv_docx_bytes() -> bytes:
     document = Document()
     document.add_paragraph("Jane Doe - Développeuse Python")
     document.add_paragraph("Expérience professionnelle")
-    document.add_paragraph("Développeuse Python chez Acme, 2020-2022. A conçu des API REST avec FastAPI.")
+    document.add_paragraph(
+        "Développeuse Python chez Acme, 2020-2022. A conçu des API REST avec FastAPI."
+    )
     document.add_paragraph("Compétences: Python, SQL, Docker.")
     document.add_paragraph("Formation: Master informatique.")
     buffer = io.BytesIO()
@@ -123,19 +134,32 @@ def _cv_docx_bytes() -> bytes:
 
 def _setup_profile(client, headers: dict) -> None:
     client.put(
-        "/profile", headers=headers,
-        json={"full_name": "Jane Doe", "phone": "0612345678", "work_authorization": "FR/UE"},
+        "/profile",
+        headers=headers,
+        json={
+            "full_name": "Jane Doe",
+            "phone": "0612345678",
+            "work_authorization": "FR/UE",
+        },
     )
     client.post(
-        "/profile/cv", headers=headers,
-        files={"cv_file": ("cv.docx", _cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        "/profile/cv",
+        headers=headers,
+        files={
+            "cv_file": (
+                "cv.docx",
+                _cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
     )
 
 
 def _setup_ready_ats_application(client, headers: dict) -> int:
     _setup_profile(client, headers)
     created = client.post(
-        "/applications", headers=headers,
+        "/applications",
+        headers=headers,
         json={
             "offer_url": "https://boards.greenhouse.io/acme/jobs/123",
             "offer_text": "Nous recherchons un développeur Python.",
@@ -162,9 +186,13 @@ def _override_common_dependencies() -> None:
     fake_storage = FakeObjectStorage()
     app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
     app.dependency_overrides[get_cv_rewriter] = lambda: FakeCvRewriter()
-    app.dependency_overrides[get_cover_letter_generator] = lambda: FakeCoverLetterGenerator()
+    app.dependency_overrides[get_cover_letter_generator] = lambda: (
+        FakeCoverLetterGenerator()
+    )
     app.dependency_overrides[get_object_storage] = lambda: fake_storage
-    app.dependency_overrides[get_custom_field_answerer] = lambda: FakeCustomFieldAnswerer()
+    app.dependency_overrides[get_custom_field_answerer] = lambda: (
+        FakeCustomFieldAnswerer()
+    )
 
 
 @respx.mock
@@ -173,9 +201,13 @@ def test_get_prefilled_form_returns_standard_and_llm_answered_custom_fields(clie
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
 
-    response = client.get(f"/applications/{application_id}/prefilled-form", headers=headers)
+    response = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    )
 
     assert response.status_code == 200
     fields = response.json()["fields"]
@@ -191,7 +223,8 @@ def test_get_prefilled_form_returns_409_for_non_ats_offer(client):
     headers = {"Authorization": f"Bearer {token}"}
     _setup_profile(client, headers)
     created = client.post(
-        "/applications", headers=headers,
+        "/applications",
+        headers=headers,
         json={
             "offer_url": "https://www.linkedin.com/jobs/view/123",
             "offer_text": "Offre.",
@@ -200,7 +233,9 @@ def test_get_prefilled_form_returns_409_for_non_ats_offer(client):
             "job_title": "Dev",
         },
     )
-    response = client.get(f"/applications/{created.json()['id']}/prefilled-form", headers=headers)
+    response = client.get(
+        f"/applications/{created.json()['id']}/prefilled-form", headers=headers
+    )
     assert response.status_code == 409
 
 
@@ -210,11 +245,21 @@ def test_confirm_application_auto_submits_for_ats_offer(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(return_value=httpx.Response(200))
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
-    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
+    response = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
 
     assert response.status_code == 200
     assert response.json()["status"] == "soumise_auto"
@@ -222,16 +267,28 @@ def test_confirm_application_auto_submits_for_ats_offer(client):
 
 
 @respx.mock
-def test_confirm_application_records_failure_status_on_submission_error(client, db_session):
+def test_confirm_application_records_failure_status_on_submission_error(
+    client, db_session
+):
     _override_common_dependencies()
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(500))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(
+        return_value=httpx.Response(500)
+    )
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
-    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
+    response = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
 
     assert response.status_code == 503
     # The `client` fixture shares one db_session across every request in
@@ -252,7 +309,8 @@ def test_confirm_application_without_ats_type_moves_to_assisted_status(client):
     headers = {"Authorization": f"Bearer {token}"}
     _setup_profile(client, headers)
     created = client.post(
-        "/applications", headers=headers,
+        "/applications",
+        headers=headers,
         json={
             "offer_url": "https://www.linkedin.com/jobs/view/123",
             "offer_text": "Offre.",
@@ -263,7 +321,9 @@ def test_confirm_application_without_ats_type_moves_to_assisted_status(client):
     )
     application_id = created.json()["id"]
 
-    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={})
+    response = client.post(
+        f"/applications/{application_id}/confirm", headers=headers, json={}
+    )
 
     assert response.status_code == 200
     assert response.json()["status"] == "a_soumettre_manuellement"
@@ -275,7 +335,8 @@ def test_mark_sent_manually_transitions_status(client):
     headers = {"Authorization": f"Bearer {token}"}
     _setup_profile(client, headers)
     created = client.post(
-        "/applications", headers=headers,
+        "/applications",
+        headers=headers,
         json={
             "offer_url": "https://www.linkedin.com/jobs/view/123",
             "offer_text": "Offre.",
@@ -297,7 +358,9 @@ def test_mark_sent_manually_rejects_wrong_state(client):
     _override_common_dependencies()
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
-    application_id = _setup_ready_ats_application(client, headers)  # still "en_cours", never confirmed
+    application_id = _setup_ready_ats_application(
+        client, headers
+    )  # still "en_cours", never confirmed
 
     response = client.post(f"/applications/{application_id}/mark-sent", headers=headers)
     assert response.status_code == 409
@@ -314,7 +377,8 @@ def test_prefilled_form_and_confirm_handle_unknown_ats_type_gracefully(client):
     headers = {"Authorization": f"Bearer {token}"}
     _setup_profile(client, headers)
     created = client.post(
-        "/applications", headers=headers,
+        "/applications",
+        headers=headers,
         json={
             "offer_url": "https://workday.example.com/jobs/123",
             "offer_text": "Offre.",
@@ -326,10 +390,14 @@ def test_prefilled_form_and_confirm_handle_unknown_ats_type_gracefully(client):
     )
     application_id = created.json()["id"]
 
-    prefilled_response = client.get(f"/applications/{application_id}/prefilled-form", headers=headers)
+    prefilled_response = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    )
     assert prefilled_response.status_code == 409
 
-    confirm_response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={})
+    confirm_response = client.post(
+        f"/applications/{application_id}/confirm", headers=headers, json={}
+    )
     assert confirm_response.status_code == 200
     assert confirm_response.json()["status"] == "a_soumettre_manuellement"
 
@@ -347,16 +415,30 @@ def test_confirm_application_second_attempt_after_success_is_rejected(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(return_value=httpx.Response(200))
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
-    first = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
+    first = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
     assert first.status_code == 200
     assert first.json()["status"] == "soumise_auto"
     assert submit_route.call_count == 1
 
-    second = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    second = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
 
     assert second.status_code == 409
     assert submit_route.call_count == 1
@@ -374,18 +456,33 @@ def test_confirm_application_can_be_retried_after_a_failed_submission(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(
-        side_effect=[httpx.Response(500), httpx.Response(200)]
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(side_effect=[httpx.Response(500), httpx.Response(200)])
+
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
+
+    first = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
+    assert first.status_code == 503
+    assert (
+        client.get(f"/applications/{application_id}", headers=headers).json()["status"]
+        == "echec_soumission"
     )
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
-
-    first = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
-    assert first.status_code == 503
-    assert client.get(f"/applications/{application_id}", headers=headers).json()["status"] == "echec_soumission"
-
-    second = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    second = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
 
     assert second.status_code == 200
     assert second.json()["status"] == "soumise_auto"
@@ -402,7 +499,8 @@ def test_confirm_application_rejects_retry_from_terminal_statuses(client):
     headers = {"Authorization": f"Bearer {token}"}
     _setup_profile(client, headers)
     created = client.post(
-        "/applications", headers=headers,
+        "/applications",
+        headers=headers,
         json={
             "offer_url": "https://www.linkedin.com/jobs/view/123",
             "offer_text": "Offre.",
@@ -412,9 +510,16 @@ def test_confirm_application_rejects_retry_from_terminal_statuses(client):
         },
     )
     application_id = created.json()["id"]
-    assert client.post(f"/applications/{application_id}/confirm", headers=headers, json={}).status_code == 200
+    assert (
+        client.post(
+            f"/applications/{application_id}/confirm", headers=headers, json={}
+        ).status_code
+        == 200
+    )
 
-    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={})
+    response = client.post(
+        f"/applications/{application_id}/confirm", headers=headers, json={}
+    )
 
     assert response.status_code == 409
 
@@ -429,16 +534,29 @@ def test_confirm_application_blocks_auto_submit_when_cv_needs_review(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(return_value=httpx.Response(200))
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
-    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
+    response = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
 
     assert response.status_code == 422
     assert "vérifier" in response.json()["detail"]
     assert not submit_route.called
-    assert client.get(f"/applications/{application_id}", headers=headers).json()["status"] == "en_cours"
+    assert (
+        client.get(f"/applications/{application_id}", headers=headers).json()["status"]
+        == "en_cours"
+    )
 
 
 @respx.mock
@@ -447,11 +565,21 @@ def test_confirm_application_proceeds_when_cv_does_not_need_review(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(return_value=httpx.Response(200))
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
-    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={"fields": prefilled["fields"]})
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
+    response = client.post(
+        f"/applications/{application_id}/confirm",
+        headers=headers,
+        json={"fields": prefilled["fields"]},
+    )
 
     assert response.status_code == 200
     assert response.json()["status"] == "soumise_auto"
@@ -468,10 +596,16 @@ def test_confirm_application_override_needs_review_allows_auto_submit(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(return_value=httpx.Response(200))
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
     response = client.post(
         f"/applications/{application_id}/confirm",
         headers=headers,
@@ -492,10 +626,16 @@ def test_confirm_application_override_needs_review_is_noop_when_not_flagged(clie
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(return_value=httpx.Response(200))
 
-    prefilled = client.get(f"/applications/{application_id}/prefilled-form", headers=headers).json()
+    prefilled = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    ).json()
     response = client.post(
         f"/applications/{application_id}/confirm",
         headers=headers,
@@ -519,8 +659,12 @@ def test_confirm_application_override_needs_review_does_not_bypass_other_guards(
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
-    submit_route = respx.post("https://boards-api.greenhouse.io/v1/boards/acme/jobs/123").mock(return_value=httpx.Response(200))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
+    submit_route = respx.post(
+        "https://boards-api.greenhouse.io/v1/boards/acme/jobs/123"
+    ).mock(return_value=httpx.Response(200))
 
     client.get(f"/applications/{application_id}/prefilled-form", headers=headers)
     # Trip the separate "fields are required" guard (payload.fields is None)
@@ -535,7 +679,10 @@ def test_confirm_application_override_needs_review_does_not_bypass_other_guards(
     assert response.status_code == 422
     assert "champs du formulaire" in response.json()["detail"]
     assert not submit_route.called
-    assert client.get(f"/applications/{application_id}", headers=headers).json()["status"] == "en_cours"
+    assert (
+        client.get(f"/applications/{application_id}", headers=headers).json()["status"]
+        == "en_cours"
+    )
 
 
 def test_confirm_application_does_not_block_assisted_mode_when_cv_needs_review(client):
@@ -548,7 +695,8 @@ def test_confirm_application_does_not_block_assisted_mode_when_cv_needs_review(c
     headers = {"Authorization": f"Bearer {token}"}
     _setup_profile(client, headers)
     created = client.post(
-        "/applications", headers=headers,
+        "/applications",
+        headers=headers,
         json={
             "offer_url": "https://www.linkedin.com/jobs/view/123",
             "offer_text": "Offre.",
@@ -562,7 +710,9 @@ def test_confirm_application_does_not_block_assisted_mode_when_cv_needs_review(c
     client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
     client.post(f"/diagnostics/{diagnostic_id}/lettre", headers=headers)
 
-    response = client.post(f"/applications/{application_id}/confirm", headers=headers, json={})
+    response = client.post(
+        f"/applications/{application_id}/confirm", headers=headers, json={}
+    )
 
     assert response.status_code == 200
     assert response.json()["status"] == "a_soumettre_manuellement"
@@ -576,14 +726,18 @@ def test_get_prefilled_form_is_rate_limited(client, db_session):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
 
     user_id = db_session.query(User).filter(User.email == "jane@example.com").first().id
     for _ in range(MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR):
         db_session.add(PrefilledFormRequestLog(user_id=user_id))
     db_session.commit()
 
-    response = client.get(f"/applications/{application_id}/prefilled-form", headers=headers)
+    response = client.get(
+        f"/applications/{application_id}/prefilled-form", headers=headers
+    )
 
     assert response.status_code == 429
 
@@ -594,9 +748,21 @@ def test_get_prefilled_form_records_one_request_log_per_call(client, db_session)
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     application_id = _setup_ready_ats_application(client, headers)
-    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML))
+    respx.get("https://boards.greenhouse.io/acme/jobs/123").mock(
+        return_value=httpx.Response(200, text=_GREENHOUSE_FORM_HTML)
+    )
 
-    assert client.get(f"/applications/{application_id}/prefilled-form", headers=headers).status_code == 200
-    assert client.get(f"/applications/{application_id}/prefilled-form", headers=headers).status_code == 200
+    assert (
+        client.get(
+            f"/applications/{application_id}/prefilled-form", headers=headers
+        ).status_code
+        == 200
+    )
+    assert (
+        client.get(
+            f"/applications/{application_id}/prefilled-form", headers=headers
+        ).status_code
+        == 200
+    )
 
     assert db_session.query(PrefilledFormRequestLog).count() == 2

@@ -1,10 +1,10 @@
-from app.models.user import User
 from app.models.diagnostic import Diagnostic
+from app.models.user import User
 from app.rate_limit.limiter import (
+    MAX_DIAGNOSTICS_PER_HOUR,
+    RateLimitExceeded,
     check_rate_limit,
     lock_user_for_rate_limit,
-    RateLimitExceeded,
-    MAX_DIAGNOSTICS_PER_HOUR,
 )
 
 
@@ -78,7 +78,10 @@ def test_lock_then_check_rate_limit_still_enforces_limit_sequentially(db_session
 
 
 from app.models.personalization_request_log import PersonalizationRequestLog
-from app.rate_limit.limiter import MAX_PERSONALIZATIONS_PER_HOUR, check_personalization_rate_limit
+from app.rate_limit.limiter import (
+    MAX_PERSONALIZATIONS_PER_HOUR,
+    check_personalization_rate_limit,
+)
 
 
 def _add_personalization_logs(db_session, user_id: int, count: int) -> None:
@@ -149,7 +152,9 @@ def _add_prefilled_form_logs(db_session, user_id: int, count: int) -> None:
 
 def test_prefilled_form_allows_under_limit(db_session):
     user = _make_user(db_session)
-    _add_prefilled_form_logs(db_session, user.id, MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR - 1)
+    _add_prefilled_form_logs(
+        db_session, user.id, MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR - 1
+    )
     check_prefilled_form_rate_limit(db_session, user.id)  # should not raise
 
 

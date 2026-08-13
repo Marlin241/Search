@@ -2,8 +2,6 @@ import io
 
 from docx import Document
 
-from app.main import app
-
 
 def _register_and_login(client, email: str = "jane@example.com") -> str:
     client.post("/auth/register", json={"email": email, "password": "s3cret!1"})
@@ -71,7 +69,11 @@ def test_upload_cv_parses_and_stores_reference_cv(client):
     client.put(
         "/profile",
         headers=headers,
-        json={"full_name": "Jane Doe", "phone": "0612345678", "work_authorization": "FR/UE"},
+        json={
+            "full_name": "Jane Doe",
+            "phone": "0612345678",
+            "work_authorization": "FR/UE",
+        },
     )
 
     response = client.post(
@@ -98,7 +100,11 @@ def test_upload_cv_rejects_unsupported_format(client):
     client.put(
         "/profile",
         headers=headers,
-        json={"full_name": "Jane Doe", "phone": "0612345678", "work_authorization": "FR/UE"},
+        json={
+            "full_name": "Jane Doe",
+            "phone": "0612345678",
+            "work_authorization": "FR/UE",
+        },
     )
 
     response = client.post(
@@ -133,7 +139,12 @@ def test_upload_cv_before_put_creates_profile_implicitly(client):
 
 def test_profile_endpoints_require_auth(client):
     assert client.get("/profile").status_code == 401
-    assert client.put("/profile", json={"full_name": "x", "phone": "x", "work_authorization": "x"}).status_code == 401
+    assert (
+        client.put(
+            "/profile", json={"full_name": "x", "phone": "x", "work_authorization": "x"}
+        ).status_code
+        == 401
+    )
 
 
 def test_delete_profile_removes_the_stored_profile(client):
@@ -145,7 +156,11 @@ def test_delete_profile_removes_the_stored_profile(client):
     client.put(
         "/profile",
         headers=headers,
-        json={"full_name": "Jane Doe", "phone": "0612345678", "work_authorization": "FR/UE"},
+        json={
+            "full_name": "Jane Doe",
+            "phone": "0612345678",
+            "work_authorization": "FR/UE",
+        },
     )
     client.post(
         "/profile/cv",
@@ -174,17 +189,27 @@ def test_delete_profile_is_idempotent_when_no_profile_exists(client):
 
 
 def test_delete_profile_only_deletes_the_current_users_profile(client):
-    other_headers = {"Authorization": f"Bearer {_register_and_login(client, email='other@example.com')}"}
+    other_headers = {
+        "Authorization": f"Bearer {_register_and_login(client, email='other@example.com')}"
+    }
     client.put(
         "/profile",
         headers=other_headers,
-        json={"full_name": "Other User", "phone": "0600000000", "work_authorization": "FR/UE"},
+        json={
+            "full_name": "Other User",
+            "phone": "0600000000",
+            "work_authorization": "FR/UE",
+        },
     )
     headers = {"Authorization": f"Bearer {_register_and_login(client)}"}
     client.put(
         "/profile",
         headers=headers,
-        json={"full_name": "Jane Doe", "phone": "0612345678", "work_authorization": "FR/UE"},
+        json={
+            "full_name": "Jane Doe",
+            "phone": "0612345678",
+            "work_authorization": "FR/UE",
+        },
     )
 
     assert client.delete("/profile", headers=headers).status_code == 204

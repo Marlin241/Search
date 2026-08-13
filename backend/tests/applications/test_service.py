@@ -15,7 +15,9 @@ from app.models.user import User
 
 class FakeAnalyzer:
     def __init__(self, report=None, error=None):
-        self._report = report or SemanticReport(score=70, missing_keywords=["Docker"], recommendations=["Add Docker"])
+        self._report = report or SemanticReport(
+            score=70, missing_keywords=["Docker"], recommendations=["Add Docker"]
+        )
         self._error = error
         self.calls = 0
 
@@ -26,7 +28,9 @@ class FakeAnalyzer:
         return self._report
 
 
-def _make_user_with_profile(db_session, cv_text: str = "Jane Doe\nExpérience\nDéveloppeuse") -> User:
+def _make_user_with_profile(
+    db_session, cv_text: str = "Jane Doe\nExpérience\nDéveloppeuse"
+) -> User:
     user = User(email="jane@example.com", hashed_password="hashed")
     db_session.add(user)
     db_session.commit()
@@ -65,7 +69,11 @@ def test_create_application_success(db_session):
 
     assert application.status == "en_cours"
     assert application.offer_url == "https://example.com/job/1"
-    diagnostic = db_session.query(Diagnostic).filter(Diagnostic.id == application.diagnostic_id).first()
+    diagnostic = (
+        db_session.query(Diagnostic)
+        .filter(Diagnostic.id == application.diagnostic_id)
+        .first()
+    )
     assert diagnostic is not None
     assert diagnostic.cv_text.startswith("Jane Doe")
     assert diagnostic.missing_keywords == ["Docker"]

@@ -1,9 +1,10 @@
+import io
+
 import pytest
 from docx import Document
-import io
 from fpdf import FPDF
 
-from app.cv_parser.parser import parse_cv, CVParsingError, MAX_CV_SIZE_BYTES
+from app.cv_parser.parser import MAX_CV_SIZE_BYTES, CVParsingError, parse_cv
 
 
 def _docx_bytes(paragraph_text: str) -> bytes:
@@ -15,7 +16,12 @@ def _docx_bytes(paragraph_text: str) -> bytes:
 
 
 def test_parses_valid_docx_by_extension():
-    result = parse_cv(_docx_bytes("Expérience professionnelle chez Acme. Travaux importants en 2023 et 2024."), "cv.docx")
+    result = parse_cv(
+        _docx_bytes(
+            "Expérience professionnelle chez Acme. Travaux importants en 2023 et 2024."
+        ),
+        "cv.docx",
+    )
     assert "Acme" in result.text
 
 

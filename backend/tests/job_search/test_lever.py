@@ -90,7 +90,9 @@ def test_search_matches_french_keyword_against_english_only_title():
 
 @respx.mock
 def test_search_raises_on_http_error():
-    respx.get("https://api.lever.co/v0/postings/unknown-co").mock(return_value=httpx.Response(404))
+    respx.get("https://api.lever.co/v0/postings/unknown-co").mock(
+        return_value=httpx.Response(404)
+    )
 
     client = LeverJobBoardClient()
     with pytest.raises(JobSearchSourceError):

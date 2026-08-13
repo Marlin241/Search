@@ -12,7 +12,11 @@ def test_extracts_text_and_sections():
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", size=12)
-    pdf.multi_cell(0, 10, "Expérience professionnelle\nDéveloppeur chez Acme\nFormation\nMaster\nCompétences\nPython")
+    pdf.multi_cell(
+        0,
+        10,
+        "Expérience professionnelle\nDéveloppeur chez Acme\nFormation\nMaster\nCompétences\nPython",
+    )
 
     result = parse_pdf(_output(pdf))
     assert "Développeur chez Acme" in result.text

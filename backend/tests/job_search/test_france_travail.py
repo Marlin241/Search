@@ -3,13 +3,22 @@ import pytest
 import respx
 
 from app.job_search.errors import JobSearchSourceError
-from app.job_search.france_travail import COMMUNES_URL, TOKEN_URL, SEARCH_URL, FranceTravailClient
+from app.job_search.france_travail import (
+    COMMUNES_URL,
+    SEARCH_URL,
+    TOKEN_URL,
+    FranceTravailClient,
+)
 from app.job_search.schemas import SearchCriteria
 
 
 @respx.mock
 def test_search_returns_normalized_listings():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123", "expires_in": 1499}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(
+            200, json={"access_token": "tok123", "expires_in": 1499}
+        )
+    )
     respx.get(SEARCH_URL).mock(
         return_value=httpx.Response(
             200,
@@ -20,7 +29,9 @@ def test_search_returns_normalized_listings():
                         "entreprise": {"nom": "Acme"},
                         "lieuTravail": {"libelle": "Paris"},
                         "description": "Nous recherchons un développeur Python expérimenté.",
-                        "origineOffre": {"urlOrigine": "https://candidat.francetravail.fr/offres/123"},
+                        "origineOffre": {
+                            "urlOrigine": "https://candidat.francetravail.fr/offres/123"
+                        },
                     }
                 ]
             },
@@ -39,8 +50,12 @@ def test_search_returns_normalized_listings():
 
 @respx.mock
 def test_search_uppercases_contract_type():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
-    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
+    search_route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"resultats": []})
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     client.search(SearchCriteria(keywords="python", contract_type="cdi"))
@@ -50,7 +65,9 @@ def test_search_uppercases_contract_type():
 
 @respx.mock
 def test_search_raises_on_auth_failure():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(401, json={"error": "invalid_client"}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(401, json={"error": "invalid_client"})
+    )
 
     client = FranceTravailClient(client_id="bad", client_secret="bad")
     with pytest.raises(JobSearchSourceError):
@@ -59,7 +76,9 @@ def test_search_raises_on_auth_failure():
 
 @respx.mock
 def test_search_raises_on_search_failure():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
     respx.get(SEARCH_URL).mock(return_value=httpx.Response(500))
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
@@ -69,7 +88,9 @@ def test_search_raises_on_search_failure():
 
 @respx.mock
 def test_search_raises_on_invalid_json():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
     respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, text="not json"))
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
@@ -80,7 +101,9 @@ def test_search_raises_on_invalid_json():
 @respx.mock
 def test_search_raises_on_token_response_wrong_shape():
     # Token response is valid JSON but is an array instead of an object
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json=["not", "an", "object"]))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json=["not", "an", "object"])
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     with pytest.raises(JobSearchSourceError):
@@ -90,8 +113,12 @@ def test_search_raises_on_token_response_wrong_shape():
 @respx.mock
 def test_search_raises_on_search_response_not_object():
     # Search response is valid JSON but is an array instead of an object
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
-    respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json=[{"title": "job"}]))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
+    respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json=[{"title": "job"}])
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     with pytest.raises(JobSearchSourceError):
@@ -100,9 +127,15 @@ def test_search_raises_on_search_response_not_object():
 
 @respx.mock
 def test_search_resolves_city_name_to_commune_code():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
-    geocode_route = respx.get(COMMUNES_URL).mock(return_value=httpx.Response(200, json=[{"code": "75056"}]))
-    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
+    geocode_route = respx.get(COMMUNES_URL).mock(
+        return_value=httpx.Response(200, json=[{"code": "75056"}])
+    )
+    search_route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"resultats": []})
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     client.search(SearchCriteria(keywords="python", location="Paris"))
@@ -113,8 +146,12 @@ def test_search_resolves_city_name_to_commune_code():
 
 @respx.mock
 def test_search_treats_france_as_nationwide():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
-    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
+    search_route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"resultats": []})
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     client.search(SearchCriteria(keywords="python", location="France"))
@@ -124,9 +161,15 @@ def test_search_treats_france_as_nationwide():
 
 @respx.mock
 def test_search_accepts_insee_code_directly():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
-    geocode_route = respx.get(COMMUNES_URL).mock(return_value=httpx.Response(200, json=[]))
-    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
+    geocode_route = respx.get(COMMUNES_URL).mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    search_route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"resultats": []})
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     client.search(SearchCriteria(keywords="python", location="75056"))
@@ -137,9 +180,13 @@ def test_search_accepts_insee_code_directly():
 
 @respx.mock
 def test_search_drops_location_filter_when_city_not_found():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
     respx.get(COMMUNES_URL).mock(return_value=httpx.Response(200, json=[]))
-    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+    search_route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"resultats": []})
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     client.search(SearchCriteria(keywords="python", location="Villequinexistepas"))
@@ -149,9 +196,13 @@ def test_search_drops_location_filter_when_city_not_found():
 
 @respx.mock
 def test_search_drops_location_filter_when_geocoding_service_unreachable():
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
     respx.get(COMMUNES_URL).mock(return_value=httpx.Response(500))
-    search_route = respx.get(SEARCH_URL).mock(return_value=httpx.Response(200, json={"resultats": []}))
+    search_route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"resultats": []})
+    )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
     client.search(SearchCriteria(keywords="python", location="Paris"))
@@ -162,7 +213,9 @@ def test_search_drops_location_filter_when_geocoding_service_unreachable():
 @respx.mock
 def test_search_raises_on_search_response_wrong_field_type():
     # Search response has entreprise as string instead of object
-    respx.post(TOKEN_URL).mock(return_value=httpx.Response(200, json={"access_token": "tok123"}))
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
     respx.get(SEARCH_URL).mock(
         return_value=httpx.Response(
             200,

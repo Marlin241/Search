@@ -1,4 +1,5 @@
 import socket
+from typing import ClassVar
 from unittest.mock import patch
 
 import httpx
@@ -29,24 +30,30 @@ _SAMPLE_FORM_HTML = """
 
 
 class _TestAdapter(HtmlFormAdapter):
-    standard_field_aliases = {
+    standard_field_aliases: ClassVar[dict[str, list[str]]] = {
         "first_name": ["first_name"],
         "last_name": ["last_name"],
         "email": ["email"],
     }
-    resume_field_names = ["resume"]
-    cover_letter_field_names = ["cover_letter"]
+    resume_field_names: ClassVar[list[str]] = ["resume"]
+    cover_letter_field_names: ClassVar[list[str]] = ["cover_letter"]
 
 
 def _profile() -> CandidateProfile:
-    return CandidateProfile(user_id=1, full_name="Jane Doe", phone="0600000000", work_authorization="FR/UE")
+    return CandidateProfile(
+        user_id=1, full_name="Jane Doe", phone="0600000000", work_authorization="FR/UE"
+    )
 
 
 @respx.mock
 def test_discover_form_splits_standard_and_custom_fields():
-    respx.get("https://example.com/apply").mock(return_value=httpx.Response(200, text=_SAMPLE_FORM_HTML))
+    respx.get("https://example.com/apply").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_FORM_HTML)
+    )
 
-    form = _TestAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+    form = _TestAdapter().discover_form(
+        "https://example.com/apply", _profile(), email="jane@example.com"
+    )
 
     assert form.submit_url == "https://example.com/submit"
     assert form.hidden_fields == {"csrf_token": "tok-abc"}
@@ -77,9 +84,13 @@ def test_discover_form_label_falls_back_to_field_name_when_no_label():
     </form>
     </body></html>
     """
-    respx.get("https://example.com/apply").mock(return_value=httpx.Response(200, text=html))
+    respx.get("https://example.com/apply").mock(
+        return_value=httpx.Response(200, text=html)
+    )
 
-    form = _TestAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+    form = _TestAdapter().discover_form(
+        "https://example.com/apply", _profile(), email="jane@example.com"
+    )
 
     field = next(f for f in form.fields if f.name == "mystery_field")
     assert field.label == "mystery_field"
@@ -93,12 +104,12 @@ def test_prefill_prefers_most_specific_alias_match():
     # prefer the more specific "first_name" alias regardless of which
     # concept was declared first in the alias table.
     class _AmbiguousAdapter(HtmlFormAdapter):
-        standard_field_aliases = {
+        standard_field_aliases: ClassVar[dict[str, list[str]]] = {
             "full_name": ["name"],
             "first_name": ["first_name"],
         }
-        resume_field_names = ["resume"]
-        cover_letter_field_names = ["cover_letter"]
+        resume_field_names: ClassVar[list[str]] = ["resume"]
+        cover_letter_field_names: ClassVar[list[str]] = ["cover_letter"]
 
     html = """
     <html><body>
@@ -107,9 +118,13 @@ def test_prefill_prefers_most_specific_alias_match():
     </form>
     </body></html>
     """
-    respx.get("https://example.com/apply").mock(return_value=httpx.Response(200, text=html))
+    respx.get("https://example.com/apply").mock(
+        return_value=httpx.Response(200, text=html)
+    )
 
-    form = _AmbiguousAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+    form = _AmbiguousAdapter().discover_form(
+        "https://example.com/apply", _profile(), email="jane@example.com"
+    )
 
     field = next(f for f in form.fields if f.name == "first_name")
     assert field.value == "Jane"  # first_name concept wins, not the full "Jane Doe"
@@ -123,11 +138,11 @@ def test_prefill_treats_matched_but_unmapped_concept_as_custom():
     # the field must come back blank AND marked custom, never blank with
     # is_custom=False (which would silently hide it from manual review).
     class _UnmappedConceptAdapter(HtmlFormAdapter):
-        standard_field_aliases = {
+        standard_field_aliases: ClassVar[dict[str, list[str]]] = {
             "work_authorization": ["auth"],
         }
-        resume_field_names = ["resume"]
-        cover_letter_field_names = ["cover_letter"]
+        resume_field_names: ClassVar[list[str]] = ["resume"]
+        cover_letter_field_names: ClassVar[list[str]] = ["cover_letter"]
 
     html = """
     <html><body>
@@ -136,9 +151,13 @@ def test_prefill_treats_matched_but_unmapped_concept_as_custom():
     </form>
     </body></html>
     """
-    respx.get("https://example.com/apply").mock(return_value=httpx.Response(200, text=html))
+    respx.get("https://example.com/apply").mock(
+        return_value=httpx.Response(200, text=html)
+    )
 
-    form = _UnmappedConceptAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+    form = _UnmappedConceptAdapter().discover_form(
+        "https://example.com/apply", _profile(), email="jane@example.com"
+    )
 
     field = next(f for f in form.fields if f.name == "auth_status")
     assert field.value is None
@@ -151,28 +170,44 @@ def test_discover_form_raises_when_no_form_present():
         return_value=httpx.Response(200, text="<html><body>no form</body></html>")
     )
     with pytest.raises(ATSAdapterError):
-        _TestAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+        _TestAdapter().discover_form(
+            "https://example.com/apply", _profile(), email="jane@example.com"
+        )
 
 
 @respx.mock
 def test_discover_form_raises_on_http_error():
     respx.get("https://example.com/apply").mock(return_value=httpx.Response(404))
     with pytest.raises(ATSAdapterError):
-        _TestAdapter().discover_form("https://example.com/apply", _profile(), email="jane@example.com")
+        _TestAdapter().discover_form(
+            "https://example.com/apply", _profile(), email="jane@example.com"
+        )
 
 
 @respx.mock
 def test_submit_posts_hidden_and_filled_fields():
-    route = respx.post("https://example.com/submit").mock(return_value=httpx.Response(200))
+    route = respx.post("https://example.com/submit").mock(
+        return_value=httpx.Response(200)
+    )
 
     filled = DiscoveredForm(
         submit_url="https://example.com/submit",
         hidden_fields={"csrf_token": "tok-abc"},
         fields=[
-            FormField(name="first_name", label="First name", field_type="text", required=True, value="Jane"),
             FormField(
-                name="custom_why", label="Why this role?", field_type="textarea", required=False,
-                value="", is_custom=True,
+                name="first_name",
+                label="First name",
+                field_type="text",
+                required=True,
+                value="Jane",
+            ),
+            FormField(
+                name="custom_why",
+                label="Why this role?",
+                field_type="textarea",
+                required=False,
+                value="",
+                is_custom=True,
             ),
         ],
     )
@@ -188,7 +223,9 @@ def test_submit_posts_hidden_and_filled_fields():
 @respx.mock
 def test_submit_raises_on_http_error():
     respx.post("https://example.com/submit").mock(return_value=httpx.Response(500))
-    filled = DiscoveredForm(submit_url="https://example.com/submit", hidden_fields={}, fields=[])
+    filled = DiscoveredForm(
+        submit_url="https://example.com/submit", hidden_fields={}, fields=[]
+    )
 
     with pytest.raises(ATSAdapterError):
         _TestAdapter().submit(filled, cv_pdf=b"%PDF", lettre_pdf=b"%PDF")
@@ -207,7 +244,9 @@ def test_discover_form_rejects_non_http_scheme():
     # respx would not be active here and this would attempt a real file
     # read / crash instead of raising ATSAdapterError cleanly.
     with pytest.raises(ATSAdapterError):
-        _TestAdapter().discover_form("file:///etc/passwd", _profile(), email="jane@example.com")
+        _TestAdapter().discover_form(
+            "file:///etc/passwd", _profile(), email="jane@example.com"
+        )
 
 
 @respx.mock
@@ -230,9 +269,15 @@ def test_discover_form_rejects_shared_address_space():
     fake_addrinfo = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.0.1", 80)),
     ]
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo):
-        with pytest.raises(ATSAdapterError):
-            _TestAdapter().discover_form("http://cgnat.example.com/", _profile(), email="jane@example.com")
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        _TestAdapter().discover_form(
+            "http://cgnat.example.com/", _profile(), email="jane@example.com"
+        )
 
 
 def _filled_form(submit_url: str) -> DiscoveredForm:
@@ -241,7 +286,9 @@ def _filled_form(submit_url: str) -> DiscoveredForm:
 
 def test_submit_rejects_non_http_scheme():
     with pytest.raises(ATSAdapterError):
-        _TestAdapter().submit(_filled_form("file:///etc/passwd"), cv_pdf=b"%PDF", lettre_pdf=b"%PDF")
+        _TestAdapter().submit(
+            _filled_form("file:///etc/passwd"), cv_pdf=b"%PDF", lettre_pdf=b"%PDF"
+        )
 
 
 @respx.mock
@@ -256,8 +303,14 @@ def test_submit_rejects_shared_address_space():
     fake_addrinfo = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("100.64.0.1", 80)),
     ]
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo):
-        with pytest.raises(ATSAdapterError):
-            _TestAdapter().submit(
-                _filled_form("http://cgnat.example.com/"), cv_pdf=b"%PDF", lettre_pdf=b"%PDF"
-            )
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo", return_value=fake_addrinfo
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        _TestAdapter().submit(
+            _filled_form("http://cgnat.example.com/"),
+            cv_pdf=b"%PDF",
+            lettre_pdf=b"%PDF",
+        )

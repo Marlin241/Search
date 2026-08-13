@@ -47,7 +47,9 @@ def test_cache_known_seed_mappings_overwrites_a_stale_mismatched_mapping(db_sess
     assert mapping.slug == "wavemm1"
 
 
-def test_cache_known_seed_mappings_leaves_an_already_correct_mapping_untouched(db_session):
+def test_cache_known_seed_mappings_leaves_an_already_correct_mapping_untouched(
+    db_session,
+):
     save_mapping(db_session, "Wave", "greenhouse", "wavemm1")
     original_checked_at = get_cached_mapping(db_session, "Wave").checked_at
 

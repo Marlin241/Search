@@ -1,5 +1,7 @@
 def test_register_creates_user(client):
-    response = client.post("/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"})
+    response = client.post(
+        "/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"}
+    )
     assert response.status_code == 201
     body = response.json()
     assert body["email"] == "jane@example.com"
@@ -7,13 +9,19 @@ def test_register_creates_user(client):
 
 
 def test_register_duplicate_email_returns_409(client):
-    client.post("/auth/register", json={"email": "dup@example.com", "password": "s3cret!1"})
-    response = client.post("/auth/register", json={"email": "dup@example.com", "password": "otherpw1"})
+    client.post(
+        "/auth/register", json={"email": "dup@example.com", "password": "s3cret!1"}
+    )
+    response = client.post(
+        "/auth/register", json={"email": "dup@example.com", "password": "otherpw1"}
+    )
     assert response.status_code == 409
 
 
 def test_login_returns_token(client):
-    client.post("/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"})
+    client.post(
+        "/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"}
+    )
     response = client.post(
         "/auth/login", data={"username": "jane@example.com", "password": "s3cret!1"}
     )
@@ -23,7 +31,9 @@ def test_login_returns_token(client):
 
 
 def test_login_wrong_password_returns_401(client):
-    client.post("/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"})
+    client.post(
+        "/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"}
+    )
     response = client.post(
         "/auth/login", data={"username": "jane@example.com", "password": "wrong"}
     )
@@ -46,7 +56,9 @@ def test_register_password_over_max_length_returns_422(client):
 
 
 def test_login_with_over_length_password_returns_401_not_500(client):
-    client.post("/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"})
+    client.post(
+        "/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"}
+    )
     response = client.post(
         "/auth/login",
         data={"username": "jane@example.com", "password": "a" * 100},
@@ -55,7 +67,9 @@ def test_login_with_over_length_password_returns_401_not_500(client):
 
 
 def test_me_requires_valid_token(client):
-    client.post("/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"})
+    client.post(
+        "/auth/register", json={"email": "jane@example.com", "password": "s3cret!1"}
+    )
     login = client.post(
         "/auth/login", data={"username": "jane@example.com", "password": "s3cret!1"}
     )

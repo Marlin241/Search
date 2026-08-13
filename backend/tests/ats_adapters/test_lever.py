@@ -47,6 +47,7 @@ def _parse_multipart_parts(content: bytes, boundary: str) -> dict[str, bytes]:
 
     return parts
 
+
 _SAMPLE_HTML = """
 <html><body>
 <form action="https://jobs.lever.co/acme/abc123/apply" method="post">
@@ -69,14 +70,19 @@ _SAMPLE_HTML = """
 
 def _profile() -> CandidateProfile:
     return CandidateProfile(
-        user_id=1, full_name="Jane Doe", phone="0612345678", work_authorization="FR/UE",
+        user_id=1,
+        full_name="Jane Doe",
+        phone="0612345678",
+        work_authorization="FR/UE",
         linkedin_url="https://linkedin.com/in/janedoe",
     )
 
 
 @respx.mock
 def test_discover_form_maps_lever_field_names():
-    respx.get("https://jobs.lever.co/acme/abc123").mock(return_value=httpx.Response(200, text=_SAMPLE_HTML))
+    respx.get("https://jobs.lever.co/acme/abc123").mock(
+        return_value=httpx.Response(200, text=_SAMPLE_HTML)
+    )
 
     form = LeverAdapter().discover_form(
         "https://jobs.lever.co/acme/abc123", _profile(), email="jane@example.com"
@@ -99,7 +105,9 @@ def test_discover_form_maps_lever_field_names():
 
 @respx.mock
 def test_submit_attaches_cv_and_lettre_under_lever_field_names():
-    route = respx.post("https://jobs.lever.co/acme/abc123/apply").mock(return_value=httpx.Response(200))
+    route = respx.post("https://jobs.lever.co/acme/abc123/apply").mock(
+        return_value=httpx.Response(200)
+    )
 
     filled = DiscoveredForm(
         submit_url="https://jobs.lever.co/acme/abc123/apply",
@@ -141,11 +149,16 @@ def test_discover_form_rejects_a_non_lever_host():
         return_value=httpx.Response(200, text=_SAMPLE_HTML)
     )
 
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
-        with pytest.raises(ATSAdapterError):
-            LeverAdapter().discover_form(
-                "https://attacker.example.com/harvest", _profile(), email="jane@example.com"
-            )
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo",
+            return_value=_PUBLIC_ADDRINFO,
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        LeverAdapter().discover_form(
+            "https://attacker.example.com/harvest", _profile(), email="jane@example.com"
+        )
 
     assert not route.called
 
@@ -156,20 +169,36 @@ def test_discover_form_rejects_a_lookalike_lever_host():
         return_value=httpx.Response(200, text=_SAMPLE_HTML)
     )
 
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
-        with pytest.raises(ATSAdapterError):
-            LeverAdapter().discover_form("https://notlever.co/acme/abc123", _profile(), email="jane@example.com")
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo",
+            return_value=_PUBLIC_ADDRINFO,
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        LeverAdapter().discover_form(
+            "https://notlever.co/acme/abc123", _profile(), email="jane@example.com"
+        )
 
     assert not route.called
 
 
 @respx.mock
 def test_submit_rejects_a_non_lever_submit_url():
-    route = respx.post("https://attacker.example.com/harvest").mock(return_value=httpx.Response(200))
-    filled = DiscoveredForm(submit_url="https://attacker.example.com/harvest", hidden_fields={}, fields=[])
+    route = respx.post("https://attacker.example.com/harvest").mock(
+        return_value=httpx.Response(200)
+    )
+    filled = DiscoveredForm(
+        submit_url="https://attacker.example.com/harvest", hidden_fields={}, fields=[]
+    )
 
-    with patch("app.offer_ingestion.scraper.socket.getaddrinfo", return_value=_PUBLIC_ADDRINFO):
-        with pytest.raises(ATSAdapterError):
-            LeverAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
+    with (
+        patch(
+            "app.offer_ingestion.scraper.socket.getaddrinfo",
+            return_value=_PUBLIC_ADDRINFO,
+        ),
+        pytest.raises(ATSAdapterError),
+    ):
+        LeverAdapter().submit(filled, cv_pdf=b"%PDF-cv", lettre_pdf=b"%PDF-lettre")
 
     assert not route.called

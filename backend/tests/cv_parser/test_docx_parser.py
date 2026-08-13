@@ -1,8 +1,8 @@
 import io
 
 from docx import Document
-from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from PIL import Image
 
 from app.cv_parser.docx_parser import parse_docx

@@ -15,7 +15,12 @@ class FakeCvRewriter:
         return RewrittenCv(
             summary="Résumé optimisé.",
             experience=[
-                CvExperienceEntry(title="Développeuse", company="Acme", dates="2020-2022", bullets=["A conçu des API."])
+                CvExperienceEntry(
+                    title="Développeuse",
+                    company="Acme",
+                    dates="2020-2022",
+                    bullets=["A conçu des API."],
+                )
             ],
             education=["Master Informatique"],
             skills=["Python"],
@@ -87,13 +92,21 @@ def _create_diagnostic(client, headers) -> int:
 
     class FakeAnalyzer:
         def analyze(self, cv_text: str, offer_text: str) -> SemanticReport:
-            return SemanticReport(score=60, missing_keywords=["Docker"], recommendations=["Add Docker"])
+            return SemanticReport(
+                score=60, missing_keywords=["Docker"], recommendations=["Add Docker"]
+            )
 
     app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
     response = client.post(
         "/diagnostics",
         headers=headers,
-        files={"cv_file": ("cv.docx", _clean_cv_docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
         data={"offer_text": "We need a Python developer with Docker experience."},
     )
     app.dependency_overrides.pop(get_semantic_analyzer, None)
@@ -111,7 +124,9 @@ def _override_personalization_deps():
     # life of a test.
     storage = FakeObjectStorage()
     app.dependency_overrides[get_cv_rewriter] = lambda: FakeCvRewriter()
-    app.dependency_overrides[get_cover_letter_generator] = lambda: FakeCoverLetterGenerator()
+    app.dependency_overrides[get_cover_letter_generator] = lambda: (
+        FakeCoverLetterGenerator()
+    )
     app.dependency_overrides[get_object_storage] = lambda: storage
 
 

@@ -1,5 +1,3 @@
-import pytest
-
 from app.job_search.aggregator import search_jobs
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria
@@ -27,7 +25,8 @@ class FailingClient:
 
 def test_search_jobs_merges_results_from_all_sources():
     listings, unavailable = search_jobs(
-        SearchCriteria(keywords="python"), {"source_a": WorkingClient(), "source_b": WorkingClient()}
+        SearchCriteria(keywords="python"),
+        {"source_a": WorkingClient(), "source_b": WorkingClient()},
     )
     assert len(listings) == 2
     assert unavailable == []
@@ -35,7 +34,8 @@ def test_search_jobs_merges_results_from_all_sources():
 
 def test_search_jobs_omits_failing_source_without_failing_the_whole_search():
     listings, unavailable = search_jobs(
-        SearchCriteria(keywords="python"), {"source_a": WorkingClient(), "source_b": FailingClient()}
+        SearchCriteria(keywords="python"),
+        {"source_a": WorkingClient(), "source_b": FailingClient()},
     )
     assert len(listings) == 1
     assert unavailable == ["source_b"]
@@ -43,7 +43,8 @@ def test_search_jobs_omits_failing_source_without_failing_the_whole_search():
 
 def test_search_jobs_with_all_sources_failing_returns_empty_listings():
     listings, unavailable = search_jobs(
-        SearchCriteria(keywords="python"), {"source_a": FailingClient(), "source_b": FailingClient()}
+        SearchCriteria(keywords="python"),
+        {"source_a": FailingClient(), "source_b": FailingClient()},
     )
     assert listings == []
     assert set(unavailable) == {"source_a", "source_b"}
@@ -77,7 +78,9 @@ class StaticClient:
 
 def test_search_jobs_drops_listings_whose_title_matches_an_excluded_keyword():
     kept = _listing(title="Développeur Python", url="https://example.com/keep")
-    dropped = _listing(title="Développeur Python - Alternance", url="https://example.com/drop")
+    dropped = _listing(
+        title="Développeur Python - Alternance", url="https://example.com/drop"
+    )
 
     listings, _ = search_jobs(
         SearchCriteria(keywords="python", exclude_keywords=["alternance"]),
@@ -89,7 +92,9 @@ def test_search_jobs_drops_listings_whose_title_matches_an_excluded_keyword():
 
 def test_search_jobs_drops_listings_whose_snippet_matches_an_excluded_keyword():
     kept = _listing(url="https://example.com/keep")
-    dropped = _listing(snippet="Contrat de STAGE de 6 mois.", url="https://example.com/drop")
+    dropped = _listing(
+        snippet="Contrat de STAGE de 6 mois.", url="https://example.com/drop"
+    )
 
     listings, _ = search_jobs(
         # Lowercase criterion vs. uppercase snippet: the match is case-insensitive.
@@ -110,18 +115,30 @@ def test_search_jobs_without_exclude_keywords_keeps_everything():
 
 
 def test_search_jobs_with_remote_true_keeps_only_listings_with_a_remote_indicator():
-    on_site = _listing(location="Paris", snippet="Poste sur site.", url="https://example.com/on-site")
-    remote_location = _listing(location="Remote", snippet="Poste ouvert.", url="https://example.com/remote")
+    on_site = _listing(
+        location="Paris", snippet="Poste sur site.", url="https://example.com/on-site"
+    )
+    remote_location = _listing(
+        location="Remote", snippet="Poste ouvert.", url="https://example.com/remote"
+    )
     remote_snippet = _listing(
-        location="Lyon", snippet="Télétravail intégral possible.", url="https://example.com/teletravail"
+        location="Lyon",
+        snippet="Télétravail intégral possible.",
+        url="https://example.com/teletravail",
     )
     distanciel_snippet = _listing(
-        location="Nantes", snippet="Travail en DISTANCIEL.", url="https://example.com/distanciel"
+        location="Nantes",
+        snippet="Travail en DISTANCIEL.",
+        url="https://example.com/distanciel",
     )
 
     listings, _ = search_jobs(
         SearchCriteria(keywords="python", remote=True),
-        {"source_a": StaticClient([on_site, remote_location, remote_snippet, distanciel_snippet])},
+        {
+            "source_a": StaticClient(
+                [on_site, remote_location, remote_snippet, distanciel_snippet]
+            )
+        },
     )
 
     assert [listing.url for listing in listings] == [
@@ -143,8 +160,12 @@ def test_search_jobs_with_remote_not_requested_keeps_on_site_listings():
 
 
 def test_search_jobs_remote_filter_tolerates_missing_location():
-    without_location = _listing(location=None, snippet="Full remote.", url="https://example.com/keep")
-    dropped = _listing(location=None, snippet="Sur site.", url="https://example.com/drop")
+    without_location = _listing(
+        location=None, snippet="Full remote.", url="https://example.com/keep"
+    )
+    dropped = _listing(
+        location=None, snippet="Sur site.", url="https://example.com/drop"
+    )
 
     listings, _ = search_jobs(
         SearchCriteria(keywords="python", remote=True),
@@ -158,10 +179,16 @@ def test_search_jobs_applies_filters_after_merging_all_sources():
     listings, unavailable = search_jobs(
         SearchCriteria(keywords="python", remote=True, exclude_keywords=["alternance"]),
         {
-            "source_a": StaticClient([_listing(location="Remote", url="https://example.com/a")]),
+            "source_a": StaticClient(
+                [_listing(location="Remote", url="https://example.com/a")]
+            ),
             "source_b": StaticClient(
                 [
-                    _listing(title="Alternance dev", location="Remote", url="https://example.com/b"),
+                    _listing(
+                        title="Alternance dev",
+                        location="Remote",
+                        url="https://example.com/b",
+                    ),
                     _listing(location="Paris", url="https://example.com/c"),
                 ]
             ),

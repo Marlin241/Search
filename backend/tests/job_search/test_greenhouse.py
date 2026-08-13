@@ -44,7 +44,10 @@ def test_search_returns_normalized_listings_for_given_companies():
 @respx.mock
 def test_search_with_no_keyword_returns_all_jobs():
     respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
-        return_value=httpx.Response(200, json={"jobs": [{"title": "Chef de projet", "absolute_url": "https://x"}]})
+        return_value=httpx.Response(
+            200,
+            json={"jobs": [{"title": "Chef de projet", "absolute_url": "https://x"}]},
+        )
     )
 
     client = GreenhouseJobBoardClient()
@@ -85,7 +88,9 @@ def test_search_matches_french_keyword_against_english_only_title():
 
 @respx.mock
 def test_search_raises_on_http_error():
-    respx.get("https://boards-api.greenhouse.io/v1/boards/unknown-co/jobs").mock(return_value=httpx.Response(404))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/unknown-co/jobs").mock(
+        return_value=httpx.Response(404)
+    )
 
     client = GreenhouseJobBoardClient()
     with pytest.raises(JobSearchSourceError):
