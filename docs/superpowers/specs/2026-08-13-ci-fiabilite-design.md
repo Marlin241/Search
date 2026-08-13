@@ -26,19 +26,36 @@ Mettre en place :
    avant même de pousser.
 
 **Hors scope pour cette itération** (explicitement exclu) :
-- La correction des warnings de dépréciation existants (`datetime.utcnow()`,
-  9 occurrences dans `applications.py`, `rate_limit/limiter.py`,
-  `job_search/*.py`, `auth/security.py`) — non demandée pour ce chantier ;
-  pourra être traitée séparément, éventuellement signalée par `ruff` une
-  fois en place.
-- L'annotation rétroactive des ~42 fichiers backend actuellement sans
-  types (`mypy` tourne en mode permissif — voir plus bas — precisément pour
-  ne pas en faire un prérequis de ce chantier).
+- L'annotation rétroactive de *tous* les fichiers backend actuellement sans
+  types comme politique générale (`mypy` tourne en mode permissif — voir
+  plus bas — précisément pour ne pas en faire un prérequis de ce chantier).
+  Ceci n'exclut pas la correction des erreurs mypy concrètes découvertes en
+  activant l'outil — voir addendum ci-dessous.
 - Le déclenchement automatique du passage bandit/pip-audit en mode
   bloquant : cette bascule est un commit de suivi manuel, décidé après
   revue du premier rapport (voir « Composants » et « Prochaines étapes »).
 - Le déploiement (CD) : ce chantier couvre uniquement l'intégration
   continue (vérifications), pas le déploiement automatique.
+
+**Addendum (découverte pendant la préparation du plan d'implémentation) :**
+En testant `ruff`/`mypy` contre le code existant avant d'écrire le plan,
+deux hypothèses de cette spec se sont révélées fausses en pratique, et ont
+été retranchées avec l'utilisateur :
+- Le rule set par défaut de `ruff` flague les 9 `datetime.utcnow()`
+  mentionnés plus haut comme initialement hors scope (règle `DTZ003`) — les
+  laisser en l'état aurait empêché `ruff check` (bloquant) de jamais passer
+  au vert. Décision : les corriger maintenant (remplacement mécanique par
+  un helper `datetime.now(UTC).replace(tzinfo=None)`, comportement
+  identique) plutôt que d'exclure la règle. Cette correction n'est donc
+  **plus** hors scope, contrairement à la version initiale de cette section.
+- L'hypothèse « le mode permissif de mypy suffit à passer immédiatement »
+  était fausse : mypy remontait 38 erreurs réelles (dont ~29 après un
+  premier correctif d'1 ligne dans `main.py`) même en mode permissif,
+  touchant du code métier (`ats_adapters`, `job_search`, `routers`).
+  Décision : les corriger maintenant plutôt que de rendre `mypy` non
+  bloquant au démarrage — voir le plan d'implémentation
+  (`docs/superpowers/plans/2026-08-13-ci-fiabilite.md`) pour le détail
+  fichier par fichier de chaque correctif.
 
 ## Composants
 
