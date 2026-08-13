@@ -1,0 +1,65 @@
+from app.job_search.unsubscribe import create_unsubscribe_token
+
+
+def _register_and_login(client, email: str = "jane@example.com") -> str:
+    client.post("/auth/register", json={"email": email, "password": "s3cret!1"})
+    login = client.post("/auth/login", data={"username": email, "password": "s3cret!1"})
+    return login.json()["access_token"]
+
+
+def test_unsubscribe_disables_the_saved_search(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    client.put(
+        "/job-search/saved-search",
+        headers=headers,
+        json={
+            "keywords": "python",
+            "exclude_keywords": [],
+            "timezone": "Europe/Paris",
+            "enabled": True,
+        },
+    )
+    me = client.get("/auth/me", headers=headers).json()
+    unsubscribe_token = create_unsubscribe_token(me["id"])
+
+    response = client.get(
+        f"/job-search/saved-search/unsubscribe?token={unsubscribe_token}"
+    )
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+
+    saved = client.get("/job-search/saved-search", headers=headers).json()
+    assert saved["enabled"] is False
+
+
+def test_unsubscribe_is_idempotent(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    client.put(
+        "/job-search/saved-search",
+        headers=headers,
+        json={
+            "keywords": "python",
+            "exclude_keywords": [],
+            "timezone": "Europe/Paris",
+            "enabled": True,
+        },
+    )
+    me = client.get("/auth/me", headers=headers).json()
+    unsubscribe_token = create_unsubscribe_token(me["id"])
+
+    client.get(f"/job-search/saved-search/unsubscribe?token={unsubscribe_token}")
+    second_response = client.get(
+        f"/job-search/saved-search/unsubscribe?token={unsubscribe_token}"
+    )
+
+    assert second_response.status_code == 200
+    saved = client.get("/job-search/saved-search", headers=headers).json()
+    assert saved["enabled"] is False
+
+
+def test_unsubscribe_with_invalid_token_returns_400(client):
+    response = client.get("/job-search/saved-search/unsubscribe?token=garbage")
+    assert response.status_code == 400

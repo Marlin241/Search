@@ -2,6 +2,7 @@ from typing import cast
 from zoneinfo import available_timezones
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app import database
@@ -27,6 +28,10 @@ from app.job_search.schemas import (
     SluggableSearchClient,
 )
 from app.job_search.seed_companies import cache_known_seed_mappings, get_seed_companies
+from app.job_search.unsubscribe import (
+    InvalidUnsubscribeTokenError,
+    verify_unsubscribe_token,
+)
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.saved_search import SavedSearch
 from app.models.user import User
@@ -199,3 +204,22 @@ def put_saved_search(
     db.commit()
     db.refresh(saved_search)
     return _to_saved_search_out(saved_search)
+
+
+@router.get("/saved-search/unsubscribe", response_class=HTMLResponse)
+def unsubscribe_saved_search(token: str, db: Session = Depends(get_db)) -> HTMLResponse:
+    try:
+        user_id = verify_unsubscribe_token(token)
+    except InvalidUnsubscribeTokenError:
+        return HTMLResponse(
+            "<html><body><p>Ce lien de désabonnement n'est plus valide.</p></body></html>",
+            status_code=400,
+        )
+    saved_search = db.query(SavedSearch).filter(SavedSearch.user_id == user_id).first()
+    if saved_search is not None:
+        saved_search.enabled = False
+        db.commit()
+    return HTMLResponse(
+        "<html><body><p>Vous ne recevrez plus d'alertes email pour votre "
+        "recherche sauvegardée.</p></body></html>"
+    )
