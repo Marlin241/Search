@@ -114,7 +114,7 @@ describe("listDiagnostics / deleteAllDiagnostics", () => {
   });
 
   it("deletes without parsing a body on 204", async () => {
-    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 204, json: async () => { throw new Error("no body"); } } as Response);
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 204, json: async () => { throw new Error("no body"); } } as unknown as Response);
     await expect(deleteAllDiagnostics("tok123")).resolves.toBeUndefined();
   });
 });

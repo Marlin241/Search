@@ -40,7 +40,7 @@ export function OfferInput({ value, onChange }: OfferInputProps) {
               : "text-slate-500 dark:text-slate-400"
           }`}
         >
-          URL de l'offre
+          URL de l&apos;offre
         </button>
       </div>
       {value.mode === "text" ? (

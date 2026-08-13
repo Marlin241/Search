@@ -36,7 +36,7 @@ export function DiagnosticReportView({ report }: { report: DiagnosticReport }) {
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <ScoreCircle score={report.semantic_score} size="sm" />
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Correspondance à l'offre</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Correspondance à l&apos;offre</p>
           </div>
           {report.missing_keywords.length === 0 ? (
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Aucun mot-clé manquant détecté.</p>
