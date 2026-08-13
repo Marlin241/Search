@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,6 +9,7 @@ from app import (
     models,  # noqa: F401 register models on Base
 )
 from app.config import get_settings
+from app.job_search.daily_search import run_daily_search
 from app.routers import (
     applications,
     auth,
@@ -30,7 +32,28 @@ async def lifespan(app: FastAPI):
     # tests can monkeypatch `app.database.engine` to an isolated in-memory
     # database before the lifespan runs.
     database.Base.metadata.create_all(bind=database.engine)
-    yield
+
+    # A fresh BackgroundScheduler is created on every lifespan entry
+    # (rather than a module-level singleton) because APScheduler schedulers
+    # cannot be restarted after shutdown() - a module-level instance would
+    # break the second of any two `with TestClient(app)` blocks in the test
+    # suite, which each trigger one lifespan start/stop cycle.
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(
+        # Looked up as database.SessionLocal (not a bare `SessionLocal` name
+        # imported at module load) so the test suite's monkeypatch of
+        # database.SessionLocal (see tests/conftest.py) takes effect - same
+        # convention as the background_discovery.run_discovery task.
+        lambda: run_daily_search(database.SessionLocal),
+        trigger="cron",
+        minute=0,
+        id="daily_search",
+    )
+    scheduler.start()
+    try:
+        yield
+    finally:
+        scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="ATS Diagnostic API", lifespan=lifespan)
