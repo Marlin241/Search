@@ -1,3 +1,4 @@
+from typing import ClassVar
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -87,24 +88,28 @@ class HtmlFormAdapter:
         if form is None:
             raise ATSAdapterError("Aucun formulaire de candidature trouvé sur cette page.")
 
-        submit_url = urljoin(offer_url, form.get("action") or offer_url)
+        action = form.get("action") or offer_url
+        submit_url = urljoin(offer_url, action if isinstance(action, str) else offer_url)
 
         hidden_fields: dict[str, str] = {}
         fields: list[FormField] = []
 
         for tag in form.find_all(["input", "select", "textarea"]):
             name = tag.get("name")
-            if not name:
+            if not isinstance(name, str) or not name:
                 continue
-            tag_type = tag.get("type", "text" if tag.name == "input" else tag.name)
+            tag_type_raw = tag.get("type", "text" if tag.name == "input" else tag.name)
+            tag_type = tag_type_raw if isinstance(tag_type_raw, str) else "text"
 
             if tag_type == "hidden":
-                hidden_fields[name] = tag.get("value", "")
+                value_raw = tag.get("value", "")
+                hidden_fields[name] = value_raw if isinstance(value_raw, str) else ""
                 continue
             if tag_type == "file":
                 continue  # resume/cover letter - handled separately by submit()
 
-            label_tag = form.find("label", attrs={"for": tag.get("id")}) if tag.get("id") else None
+            tag_id = tag.get("id")
+            label_tag = form.find("label", attrs={"for": tag_id}) if isinstance(tag_id, str) and tag_id else None
             label = label_tag.get_text(strip=True) if label_tag else name
 
             options = [opt.get_text(strip=True) for opt in tag.find_all("option")] if tag.name == "select" else None
