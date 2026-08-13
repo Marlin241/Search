@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     adzuna_app_key: str = ""
     adzuna_country: str = "fr"
     la_bonne_alternance_api_key: str = ""
+    resend_api_key: str = ""
+    resend_from_email: str = ""
+    backend_base_url: str = "http://localhost:8000"
 
 
 @lru_cache
