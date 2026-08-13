@@ -1,25 +1,44 @@
+import html
+from urllib.parse import urlsplit
+
 import httpx
 
 from app.config import get_settings
 from app.job_search.schemas import JobListing
 
 _RESEND_API_URL = "https://api.resend.com/emails"
+_ALLOWED_URL_SCHEMES = {"http", "https"}
 
 
 class EmailSendError(Exception):
     pass
 
 
+def _safe_href(url: str) -> str:
+    """Only http(s) URLs are ever linked - rejects `javascript:` and other
+    executable schemes a compromised/malicious upstream job listing could
+    smuggle in. HTML-escaping alone (see _render_html) does not stop this,
+    since the scheme itself contains no special HTML characters to escape."""
+    if urlsplit(url).scheme not in _ALLOWED_URL_SCHEMES:
+        return "#"
+    return html.escape(url)
+
+
 def _render_html(listings: list[JobListing], unsubscribe_url: str) -> str:
+    # Every field interpolated here (title/company/location, all from
+    # external job-search APIs we don't control) is HTML-escaped - without
+    # it, a listing whose title/company contained raw HTML would be
+    # rendered as-is in the recipient's email client.
     items = "".join(
-        f'<li><a href="{listing.url}">{listing.title}</a> — {listing.company}'
-        f"{f' ({listing.location})' if listing.location else ''}</li>"
+        f'<li><a href="{_safe_href(listing.url)}">{html.escape(listing.title)}</a>'
+        f" — {html.escape(listing.company)}"
+        f"{f' ({html.escape(listing.location)})' if listing.location else ''}</li>"
         for listing in listings
     )
     return (
         "<p>Nouvelles offres correspondant à votre recherche :</p>"
         f"<ul>{items}</ul>"
-        f'<p><a href="{unsubscribe_url}">Se désabonner de ces alertes</a></p>'
+        f'<p><a href="{_safe_href(unsubscribe_url)}">Se désabonner de ces alertes</a></p>'
     )
 
 

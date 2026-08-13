@@ -62,3 +62,46 @@ def test_send_daily_digest_email_pluralizes_subject_for_multiple_listings():
 
     payload = json.loads(route.calls[0].request.content)
     assert "2 nouvelles offres" in payload["subject"]
+
+
+@respx.mock
+def test_send_daily_digest_email_escapes_html_in_listing_fields():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    malicious = JobListing(
+        title="<script>alert(1)</script>",
+        company="Acme & Co <img src=x onerror=alert(1)>",
+        location='Paris" onmouseover="alert(1)',
+        snippet="...",
+        url="https://example.com/job/1",
+        source="france_travail",
+        ats_type=None,
+    )
+
+    send_daily_digest_email("jane@example.com", [malicious], "tok-123")
+
+    payload = json.loads(route.calls[0].request.content)
+    # The real security property: no unescaped tag delimiter reaches the
+    # output, so no HTML element can actually form - not the absence of
+    # any particular harmless substring like the word "onerror=" as inert
+    # text (which is fine to keep, since it can no longer execute).
+    assert "<script>" not in payload["html"]
+    assert "&lt;script&gt;" in payload["html"]
+    assert "<img" not in payload["html"]
+    assert "&lt;img" in payload["html"]
+
+
+@respx.mock
+def test_send_daily_digest_email_rejects_javascript_scheme_urls():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    send_daily_digest_email(
+        "jane@example.com", [_listing("javascript:alert(1)")], "tok-123"
+    )
+
+    payload = json.loads(route.calls[0].request.content)
+    assert "javascript:" not in payload["html"]
