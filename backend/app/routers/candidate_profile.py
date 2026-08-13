@@ -27,13 +27,17 @@ def _to_out(profile: CandidateProfile) -> CandidateProfileOut:
 
 
 def _get_profile(db: Session, user_id: int) -> CandidateProfile | None:
-    return db.query(CandidateProfile).filter(CandidateProfile.user_id == user_id).first()
+    return (
+        db.query(CandidateProfile).filter(CandidateProfile.user_id == user_id).first()
+    )
 
 
 def _get_or_create_profile(db: Session, user_id: int) -> CandidateProfile:
     profile = _get_profile(db, user_id)
     if profile is None:
-        profile = CandidateProfile(user_id=user_id, full_name="", phone="", work_authorization="")
+        profile = CandidateProfile(
+            user_id=user_id, full_name="", phone="", work_authorization=""
+        )
         db.add(profile)
     return profile
 
@@ -45,7 +49,9 @@ def get_profile(
 ) -> CandidateProfileOut:
     profile = _get_profile(db, current_user.id)
     if profile is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profil non renseigné.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Profil non renseigné."
+        )
     return _to_out(profile)
 
 
@@ -105,7 +111,9 @@ def upload_reference_cv(
         cv_bytes = cv_file.file.read()
         parsed = parse_cv(cv_bytes, cv_file.filename or "")
     except CVParsingError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     profile = _get_or_create_profile(db, current_user.id)
     profile.cv_text = parsed.text

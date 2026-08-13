@@ -1,4 +1,4 @@
-from app.offer_ingestion.scraper import scrape_offer, ScrapingError
+from app.offer_ingestion.scraper import ScrapingError, scrape_offer
 
 
 class OfferIngestionError(Exception):

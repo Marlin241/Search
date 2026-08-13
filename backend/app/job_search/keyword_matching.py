@@ -42,4 +42,6 @@ def keyword_matches_title(keyword: str, title: str) -> bool:
     normalized_keyword = _strip_accents(keyword.strip().lower())
     if normalized_keyword in normalized_title:
         return True
-    return any(synonym in normalized_title for synonym in _SYNONYMS.get(normalized_keyword, ()))
+    return any(
+        synonym in normalized_title for synonym in _SYNONYMS.get(normalized_keyword, ())
+    )

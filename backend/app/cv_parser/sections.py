@@ -1,5 +1,10 @@
 SECTION_KEYWORDS: dict[str, list[str]] = {
-    "experience": ["expérience", "experience", "parcours professionnel", "work history"],
+    "experience": [
+        "expérience",
+        "experience",
+        "parcours professionnel",
+        "work history",
+    ],
     "education": ["formation", "education", "études", "academic background"],
     "skills": ["compétences", "skills", "competencies"],
 }

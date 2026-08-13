@@ -5,7 +5,9 @@ import httpx
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria
 
-TOKEN_URL = "https://entreprise.pole-emploi.fr/connexion/oauth2/access_token?realm=/partenaire"
+TOKEN_URL = (
+    "https://entreprise.pole-emploi.fr/connexion/oauth2/access_token?realm=/partenaire"
+)
 SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
 COMMUNES_URL = "https://geo.api.gouv.fr/communes"
 
@@ -14,7 +16,12 @@ _NATIONWIDE_LOCATIONS = {"france"}
 
 
 class FranceTravailClient:
-    def __init__(self, client_id: str, client_secret: str, http_client: httpx.Client | None = None):
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        http_client: httpx.Client | None = None,
+    ):
         self._client_id = client_id
         self._client_secret = client_secret
         self._http = http_client or httpx.Client(timeout=10.0)
@@ -33,12 +40,16 @@ class FranceTravailClient:
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise JobSearchSourceError(f"France Travail: échec de l'authentification: {exc}") from exc
+            raise JobSearchSourceError(
+                f"France Travail: échec de l'authentification: {exc}"
+            ) from exc
 
         try:
             return response.json()["access_token"]
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
-            raise JobSearchSourceError("France Travail: réponse d'authentification invalide.") from exc
+            raise JobSearchSourceError(
+                "France Travail: réponse d'authentification invalide."
+            ) from exc
 
     def _resolve_commune_code(self, location: str) -> str | None:
         # The France Travail API only accepts INSEE commune codes, not free-text
@@ -54,7 +65,13 @@ class FranceTravailClient:
 
         try:
             response = self._http.get(
-                COMMUNES_URL, params={"nom": location, "fields": "code", "boost": "population", "limit": 1}
+                COMMUNES_URL,
+                params={
+                    "nom": location,
+                    "fields": "code",
+                    "boost": "population",
+                    "limit": 1,
+                },
             )
             response.raise_for_status()
             results = response.json()
@@ -83,10 +100,14 @@ class FranceTravailClient:
             params["typeContrat"] = criteria.contract_type.upper()
 
         try:
-            response = self._http.get(SEARCH_URL, params=params, headers={"Authorization": f"Bearer {token}"})
+            response = self._http.get(
+                SEARCH_URL, params=params, headers={"Authorization": f"Bearer {token}"}
+            )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise JobSearchSourceError(f"France Travail: échec de la recherche: {exc}") from exc
+            raise JobSearchSourceError(
+                f"France Travail: échec de la recherche: {exc}"
+            ) from exc
 
         try:
             payload = response.json()

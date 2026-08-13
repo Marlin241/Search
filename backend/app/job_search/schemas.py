@@ -32,4 +32,6 @@ class SluggableSearchClient(Protocol):
     """Structural type for the Greenhouse/Lever clients: search scoped to a
     specific set of company slugs."""
 
-    def search(self, criteria: SearchCriteria, company_slugs: list[str]) -> list[JobListing]: ...
+    def search(
+        self, criteria: SearchCriteria, company_slugs: list[str]
+    ) -> list[JobListing]: ...

@@ -6,7 +6,6 @@ import jwt
 from app.config import get_settings
 from app.utils.time import utcnow
 
-
 _BCRYPT_MAX_BYTES = 72
 
 
@@ -37,5 +36,7 @@ def create_access_token(subject: str) -> str:
 
 def decode_access_token(token: str) -> str:
     settings = get_settings()
-    payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    payload = jwt.decode(
+        token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+    )
     return payload["sub"]

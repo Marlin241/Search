@@ -37,7 +37,12 @@ from app.rate_limit.limiter import (
     check_rate_limit,
     lock_user_for_rate_limit,
 )
-from app.schemas.application import ApplicationCreateIn, ApplicationOut, ConfirmApplicationIn, PrefilledFormOut
+from app.schemas.application import (
+    ApplicationCreateIn,
+    ApplicationOut,
+    ConfirmApplicationIn,
+    PrefilledFormOut,
+)
 from app.schemas.diagnostic import DiagnosticReport
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
@@ -87,7 +92,9 @@ def create(
     try:
         check_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
 
     try:
         application = create_application(
@@ -102,11 +109,17 @@ def create(
             analyzer=analyzer,
         )
     except MissingReferenceCvError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     except DuplicateApplicationError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
     except ApplicationCreationError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     return _to_out(application)
 
@@ -125,14 +138,18 @@ def list_applications(
     return [_to_out(a) for a in applications]
 
 
-def get_owned_application(db: Session, application_id: int, user_id: int) -> Application:
+def get_owned_application(
+    db: Session, application_id: int, user_id: int
+) -> Application:
     application = (
         db.query(Application)
         .filter(Application.id == application_id, Application.user_id == user_id)
         .first()
     )
     if application is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidature introuvable.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Candidature introuvable."
+        )
     return application
 
 
@@ -162,7 +179,9 @@ def get_prefilled_form(
     try:
         check_prefilled_form_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
 
     application = get_owned_application(db, application_id, current_user.id)
     # get_ats_adapter returns None both when ats_type is None and when it's a
@@ -176,30 +195,43 @@ def get_prefilled_form(
             detail="Cette offre n'est pas éligible à la soumission automatique.",
         )
 
-    profile = db.query(CandidateProfile).filter(CandidateProfile.user_id == current_user.id).first()
+    profile = (
+        db.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == current_user.id)
+        .first()
+    )
     missing = missing_required_profile_fields(profile)
     if missing:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Complétez votre profil avant de continuer: {', '.join(missing)}",
         )
-    assert profile is not None  # missing_required_profile_fields(None) always returns non-empty
+    assert (
+        profile is not None
+    )  # missing_required_profile_fields(None) always returns non-empty
 
     try:
         form = adapter.discover_form(application.offer_url, profile, current_user.email)
     except ATSAdapterError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     diagnostic = application.diagnostic
     custom_fields = [f for f in form.fields if f.is_custom]
     try:
-        answers = custom_field_answerer.answer(custom_fields, diagnostic.cv_text, diagnostic.offer_text)
+        answers = custom_field_answerer.answer(
+            custom_fields, diagnostic.cv_text, diagnostic.offer_text
+        )
     except CustomFieldAnsweringError:
         # Non-fatal: the preview is still returned, with custom fields left
         # blank for the user to fill in manually during review.
         answers = {}
 
-    filled_fields = [f.model_copy(update={"value": answers.get(f.name, f.value)}) for f in form.fields]
+    filled_fields = [
+        f.model_copy(update={"value": answers.get(f.name, f.value)})
+        for f in form.fields
+    ]
 
     # Logged only once the preview is actually about to be returned, so a
     # request that failed earlier (409/422/503) - and therefore never ran
@@ -235,15 +267,23 @@ def _lock_application_for_update(db: Session, application_id: int) -> None:
     db.execute(query)
 
 
-def _get_ready_personalized_documents(db: Session, diagnostic_id: int) -> tuple[PersonalizedDocument, PersonalizedDocument] | None:
+def _get_ready_personalized_documents(
+    db: Session, diagnostic_id: int
+) -> tuple[PersonalizedDocument, PersonalizedDocument] | None:
     cv_document = (
         db.query(PersonalizedDocument)
-        .filter(PersonalizedDocument.diagnostic_id == diagnostic_id, PersonalizedDocument.kind == "cv")
+        .filter(
+            PersonalizedDocument.diagnostic_id == diagnostic_id,
+            PersonalizedDocument.kind == "cv",
+        )
         .first()
     )
     lettre_document = (
         db.query(PersonalizedDocument)
-        .filter(PersonalizedDocument.diagnostic_id == diagnostic_id, PersonalizedDocument.kind == "lettre")
+        .filter(
+            PersonalizedDocument.diagnostic_id == diagnostic_id,
+            PersonalizedDocument.kind == "lettre",
+        )
         .first()
     )
     if cv_document is None or lettre_document is None:
@@ -274,8 +314,14 @@ def confirm_application(
     # constraint - the retry is explicitly user-initiated, never silent.
     # The three remaining statuses stay rejected: `a_soumettre_manuellement`
     # is mark-sent's business, and the two `soumise_*` statuses are terminal.
-    if application.status not in (APPLICATION_STATUS_EN_COURS, APPLICATION_STATUS_ECHEC_SOUMISSION):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cette candidature a déjà été traitée.")
+    if application.status not in (
+        APPLICATION_STATUS_EN_COURS,
+        APPLICATION_STATUS_ECHEC_SOUMISSION,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cette candidature a déjà été traitée.",
+        )
 
     # get_ats_adapter returns None both when ats_type is None and when it's a
     # non-None value with no registered adapter - both cases mean "nothing we
@@ -293,14 +339,20 @@ def confirm_application(
             detail="Les champs du formulaire pré-rempli sont requis pour la soumission automatique.",
         )
 
-    profile = db.query(CandidateProfile).filter(CandidateProfile.user_id == current_user.id).first()
+    profile = (
+        db.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == current_user.id)
+        .first()
+    )
     missing = missing_required_profile_fields(profile)
     if missing:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Complétez votre profil avant de continuer: {', '.join(missing)}",
         )
-    assert profile is not None  # missing_required_profile_fields(None) always returns non-empty
+    assert (
+        profile is not None
+    )  # missing_required_profile_fields(None) always returns non-empty
 
     documents = _get_ready_personalized_documents(db, application.diagnostic_id)
     if documents is None:
@@ -341,10 +393,13 @@ def confirm_application(
         # Re-discovered rather than reusing the GET .../prefilled-form
         # result: the hidden CSRF/session token there may no longer be
         # valid by the time the user finishes reviewing the form.
-        discovered = adapter.discover_form(application.offer_url, profile, current_user.email)
+        discovered = adapter.discover_form(
+            application.offer_url, profile, current_user.email
+        )
         edited_values = {f.name: f.value for f in payload.fields}
         filled_fields = [
-            f.model_copy(update={"value": edited_values.get(f.name, f.value)}) for f in discovered.fields
+            f.model_copy(update={"value": edited_values.get(f.name, f.value)})
+            for f in discovered.fields
         ]
         filled_form = discovered.model_copy(update={"fields": filled_fields})
 
@@ -358,7 +413,9 @@ def confirm_application(
         application.status = APPLICATION_STATUS_ECHEC_SOUMISSION
         application.error_message = str(exc)
         db.commit()
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     application.status = APPLICATION_STATUS_SOUMISE_AUTO
     # Cleared so a successful retry after an `echec_soumission` doesn't leave
@@ -379,7 +436,8 @@ def mark_sent_manually(
     application = get_owned_application(db, application_id, current_user.id)
     if application.status != APPLICATION_STATUS_A_SOUMETTRE_MANUELLEMENT:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Cette candidature n'est pas en attente d'envoi manuel."
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cette candidature n'est pas en attente d'envoi manuel.",
         )
     application.status = APPLICATION_STATUS_SOUMISE_MANUELLE_CONFIRMEE
     db.commit()

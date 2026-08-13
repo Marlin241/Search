@@ -12,7 +12,9 @@ _YEAR_RE = re.compile(r"\b(?:19|20)\d{2}\b")
 # a title's last word + the next line's employer name) into a single bogus
 # "proper noun" phrase that can never match between original and rewritten
 # text. Restricting to `[ \t]+` keeps matches within one logical line/field.
-_PROPER_NOUN_RE = re.compile(r"\b[A-ZÀ-Ý][\wÀ-ÿ'&.-]*(?:[ \t]+[A-ZÀ-Ý][\wÀ-ÿ'&.-]*){1,3}\b")
+_PROPER_NOUN_RE = re.compile(
+    r"\b[A-ZÀ-Ý][\wÀ-ÿ'&.-]*(?:[ \t]+[A-ZÀ-Ý][\wÀ-ÿ'&.-]*){1,3}\b"
+)
 
 
 def _extract_reference_terms(text: str) -> set[str]:
@@ -45,7 +47,7 @@ def cv_needs_review(original_cv_text: str, rewritten: RewrittenCv) -> bool:
         [
             rewritten.summary,
             *(
-                f"{entry.title}\n{entry.company}\n{entry.dates}\n{"\n".join(entry.bullets)}"
+                f"{entry.title}\n{entry.company}\n{entry.dates}\n{'\n'.join(entry.bullets)}"
                 for entry in rewritten.experience
             ),
             *rewritten.education,

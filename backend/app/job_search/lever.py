@@ -9,7 +9,9 @@ class LeverJobBoardClient:
     def __init__(self, http_client: httpx.Client | None = None):
         self._http = http_client or httpx.Client(timeout=10.0)
 
-    def search(self, criteria: SearchCriteria, company_slugs: list[str]) -> list[JobListing]:
+    def search(
+        self, criteria: SearchCriteria, company_slugs: list[str]
+    ) -> list[JobListing]:
         listings: list[JobListing] = []
         keyword = criteria.keywords
 
@@ -19,7 +21,9 @@ class LeverJobBoardClient:
                 response = self._http.get(url, params={"mode": "json"})
                 response.raise_for_status()
             except httpx.HTTPError as exc:
-                raise JobSearchSourceError(f"Lever ({company_slug}): échec de la recherche: {exc}") from exc
+                raise JobSearchSourceError(
+                    f"Lever ({company_slug}): échec de la recherche: {exc}"
+                ) from exc
 
             try:
                 postings = response.json()
@@ -40,6 +44,8 @@ class LeverJobBoardClient:
                         )
                     )
             except (ValueError, KeyError, TypeError, AttributeError) as exc:
-                raise JobSearchSourceError(f"Lever ({company_slug}): réponse invalide.") from exc
+                raise JobSearchSourceError(
+                    f"Lever ({company_slug}): réponse invalide."
+                ) from exc
 
         return listings

@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
+from app.auth.security import create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.models.user import User
-from app.schemas.auth import UserCreate, UserOut, Token
-from app.auth.security import hash_password, verify_password, create_access_token
-from app.auth.dependencies import get_current_user
+from app.schemas.auth import Token, UserCreate, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -15,7 +15,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cet email est déjà utilisé.")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Cet email est déjà utilisé."
+        )
 
     user = User(email=payload.email, hashed_password=hash_password(payload.password))
     db.add(user)
@@ -25,7 +27,9 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)) -> Token:
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+) -> Token:
     user = db.query(User).filter(User.email == form_data.username).first()
     if user is None or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(

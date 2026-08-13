@@ -51,12 +51,15 @@ class CustomFieldAnswerer:
         self._client = client
         self._model = model
 
-    def answer(self, custom_fields: list[FormField], cv_text: str, offer_text: str) -> dict[str, str]:
+    def answer(
+        self, custom_fields: list[FormField], cv_text: str, offer_text: str
+    ) -> dict[str, str]:
         if not custom_fields:
             return {}
 
         fields_description = "\n".join(
-            f"- name={f.name!r} label={f.label!r} options={f.options}" for f in custom_fields
+            f"- name={f.name!r} label={f.label!r} options={f.options}"
+            for f in custom_fields
         )
         prompt = (
             "A candidate is applying to this job offer using this CV. Answer "
@@ -89,16 +92,27 @@ class CustomFieldAnswerer:
                     tool_choice={"type": "tool", "name": _CUSTOM_FIELDS_TOOL["name"]},
                     messages=[{"role": "user", "content": prompt}],
                 )
-                tool_use = next((block for block in response.content if block.type == "tool_use"), None)
+                tool_use = next(
+                    (block for block in response.content if block.type == "tool_use"),
+                    None,
+                )
                 if tool_use is None:
-                    raise CustomFieldAnsweringError("No tool_use block in Claude response")
+                    raise CustomFieldAnsweringError(
+                        "No tool_use block in Claude response"
+                    )
                 parsed = _CustomFieldAnswers.model_validate(tool_use.input)
                 return {
                     a.field_name: a.answer.strip()
                     for a in parsed.answers
                     if a.confident and a.answer.strip()
                 }
-            except (ValidationError, CustomFieldAnsweringError, anthropic.APIError) as exc:
+            except (
+                ValidationError,
+                CustomFieldAnsweringError,
+                anthropic.APIError,
+            ) as exc:
                 last_error = exc
                 continue
-        raise CustomFieldAnsweringError(f"Custom field answering failed after retries: {last_error}")
+        raise CustomFieldAnsweringError(
+            f"Custom field answering failed after retries: {last_error}"
+        )

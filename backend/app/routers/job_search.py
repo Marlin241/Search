@@ -7,12 +7,24 @@ from app import database
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.job_search.aggregator import search_jobs
-from app.job_search.background_discovery import create_pending_search, get_discovery_result, run_discovery
+from app.job_search.background_discovery import (
+    create_pending_search,
+    get_discovery_result,
+    run_discovery,
+)
 from app.job_search.company_cache import get_cached_mapping
 from app.job_search.dependencies import get_job_search_clients
-from app.job_search.discovery import MAX_COMPANIES_PER_DISCOVERY, extract_unique_companies
+from app.job_search.discovery import (
+    MAX_COMPANIES_PER_DISCOVERY,
+    extract_unique_companies,
+)
 from app.job_search.errors import JobSearchSourceError
-from app.job_search.schemas import JobListing, SearchClient, SearchCriteria, SluggableSearchClient
+from app.job_search.schemas import (
+    JobListing,
+    SearchClient,
+    SearchCriteria,
+    SluggableSearchClient,
+)
 from app.job_search.seed_companies import cache_known_seed_mappings, get_seed_companies
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.user import User
@@ -48,7 +60,9 @@ def search(
     try:
         check_job_search_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
 
     primary_clients: dict[str, SearchClient] = {
         "france_travail": cast(SearchClient, clients["france_travail"]),
@@ -62,7 +76,9 @@ def search(
 
     cache_known_seed_mappings(db, criteria.location)
     candidate_companies = list(
-        dict.fromkeys(extract_unique_companies(listings) + get_seed_companies(criteria.location))
+        dict.fromkeys(
+            extract_unique_companies(listings) + get_seed_companies(criteria.location)
+        )
     )
 
     known_listings: list[JobListing] = []
@@ -72,13 +88,19 @@ def search(
         if mapping is None:
             unknown_companies.append(company_name)
         elif mapping.source is not None:
-            assert mapping.slug is not None  # CompanyAtsMapping always sets slug alongside source
+            assert (
+                mapping.slug is not None
+            )  # CompanyAtsMapping always sets slug alongside source
             known_listings.extend(
-                _fetch_known_company_listings(clients, criteria, mapping.source, mapping.slug)
+                _fetch_known_company_listings(
+                    clients, criteria, mapping.source, mapping.slug
+                )
             )
 
     unknown_companies = unknown_companies[:MAX_COMPANIES_PER_DISCOVERY]
-    search_id = create_pending_search(current_user.id, has_unknown_companies=bool(unknown_companies))
+    search_id = create_pending_search(
+        current_user.id, has_unknown_companies=bool(unknown_companies)
+    )
     if unknown_companies:
         background_tasks.add_task(
             run_discovery,

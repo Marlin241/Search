@@ -68,7 +68,8 @@ class SemanticAnalyzer:
                     ],
                 )
                 tool_use = next(
-                    (block for block in response.content if block.type == "tool_use"), None
+                    (block for block in response.content if block.type == "tool_use"),
+                    None,
                 )
                 if tool_use is None:
                     raise LLMAnalysisError("No tool_use block in Claude response")

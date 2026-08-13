@@ -59,7 +59,10 @@ _COVER_LETTER_TOOL = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "greeting": {"type": "string", "description": "Opening line, e.g. 'Madame, Monsieur,'."},
+            "greeting": {
+                "type": "string",
+                "description": "Opening line, e.g. 'Madame, Monsieur,'.",
+            },
             "body_paragraphs": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -110,14 +113,18 @@ def _submit_via_tool_use(
                 tool_choice={"type": "tool", "name": tool["name"]},
                 messages=[{"role": "user", "content": prompt}],
             )
-            tool_use = next((block for block in response.content if block.type == "tool_use"), None)
+            tool_use = next(
+                (block for block in response.content if block.type == "tool_use"), None
+            )
             if tool_use is None:
                 raise PersonalizationError("No tool_use block in Claude response")
             return schema_cls.model_validate(tool_use.input)
         except (ValidationError, PersonalizationError, anthropic.APIError) as exc:
             last_error = exc
             continue
-    raise PersonalizationError(f"Personalization call failed after retries: {last_error}")
+    raise PersonalizationError(
+        f"Personalization call failed after retries: {last_error}"
+    )
 
 
 class CvRewriter:
@@ -141,7 +148,9 @@ class CvRewriter:
             f"Missing keywords identified by a prior diagnostic: {missing_keywords}\n"
             f"Recommendations from a prior diagnostic: {recommendations}"
         )
-        return _submit_via_tool_use(self._client, self._model, 4096, _CV_REWRITE_TOOL, prompt, RewrittenCv)
+        return _submit_via_tool_use(
+            self._client, self._model, 4096, _CV_REWRITE_TOOL, prompt, RewrittenCv
+        )
 
 
 class CoverLetterGenerator:
@@ -165,4 +174,6 @@ class CoverLetterGenerator:
             f"Missing keywords identified by a prior diagnostic: {missing_keywords}\n"
             f"Recommendations from a prior diagnostic: {recommendations}"
         )
-        return _submit_via_tool_use(self._client, self._model, 2048, _COVER_LETTER_TOOL, prompt, CoverLetter)
+        return _submit_via_tool_use(
+            self._client, self._model, 2048, _COVER_LETTER_TOOL, prompt, CoverLetter
+        )

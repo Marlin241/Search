@@ -1,22 +1,26 @@
 import logging
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.aggregator.aggregator import build_diagnostic_report
 from app.auth.dependencies import get_current_user
-from app.models.user import User
+from app.cv_parser.parser import MAX_CV_SIZE_BYTES, CVParsingError, parse_cv
+from app.database import get_db
+from app.llm_analyzer.analyzer import LLMAnalysisError, SemanticAnalyzer
+from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.models.application import Application
 from app.models.diagnostic import Diagnostic
 from app.models.personalized_document import PersonalizedDocument
-from app.cv_parser.parser import parse_cv, CVParsingError, MAX_CV_SIZE_BYTES
-from app.offer_ingestion.ingestion import get_offer_text, OfferIngestionError
+from app.models.user import User
+from app.offer_ingestion.ingestion import OfferIngestionError, get_offer_text
+from app.rate_limit.limiter import (
+    RateLimitExceeded,
+    check_rate_limit,
+    lock_user_for_rate_limit,
+)
 from app.rules_engine.rules import evaluate_structure
-from app.llm_analyzer.analyzer import SemanticAnalyzer, LLMAnalysisError
-from app.llm_analyzer.dependencies import get_semantic_analyzer
-from app.aggregator.aggregator import build_diagnostic_report
 from app.schemas.diagnostic import DiagnosticReport
-from app.rate_limit.limiter import check_rate_limit, lock_user_for_rate_limit, RateLimitExceeded
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
 
@@ -46,7 +50,9 @@ def create_diagnostic(
     try:
         check_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
 
     # Check the declared upload size (from Content-Length, via Starlette's
     # UploadFile.size) before reading the body into memory, so an oversized
@@ -63,19 +69,25 @@ def create_diagnostic(
         cv_bytes = cv_file.file.read()
         parsed_cv = parse_cv(cv_bytes, cv_file.filename or "")
     except CVParsingError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     try:
         offer = get_offer_text(offer_text, offer_url)
     except OfferIngestionError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
     structural = evaluate_structure(parsed_cv)
 
     try:
         semantic = analyzer.analyze(parsed_cv.text, offer)
     except LLMAnalysisError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     report = build_diagnostic_report(structural, semantic)
 
@@ -94,7 +106,9 @@ def create_diagnostic(
     db.commit()
     db.refresh(diagnostic)
 
-    return report.model_copy(update={"id": diagnostic.id, "created_at": diagnostic.created_at})
+    return report.model_copy(
+        update={"id": diagnostic.id, "created_at": diagnostic.created_at}
+    )
 
 
 @router.get("", response_model=list[DiagnosticReport])
@@ -130,7 +144,10 @@ def delete_all_diagnostics(
     storage: ObjectStorage = Depends(get_object_storage),
 ) -> None:
     diagnostic_ids = [
-        row[0] for row in db.query(Diagnostic.id).filter(Diagnostic.user_id == current_user.id).all()
+        row[0]
+        for row in db.query(Diagnostic.id)
+        .filter(Diagnostic.user_id == current_user.id)
+        .all()
     ]
 
     # Collected before deletion, and PersonalizedDocument rows are deleted
@@ -154,11 +171,13 @@ def delete_all_diagnostics(
     # enforce FK-level ondelete="CASCADE" unless PRAGMA foreign_keys=ON is
     # explicitly set. Deleted before PersonalizedDocument/Diagnostic so no
     # FK is ever left dangling mid-purge on backends that do enforce it.
-    db.query(Application).filter(Application.diagnostic_id.in_(diagnostic_ids)).delete(synchronize_session=False)
-
-    db.query(PersonalizedDocument).filter(PersonalizedDocument.diagnostic_id.in_(diagnostic_ids)).delete(
+    db.query(Application).filter(Application.diagnostic_id.in_(diagnostic_ids)).delete(
         synchronize_session=False
     )
+
+    db.query(PersonalizedDocument).filter(
+        PersonalizedDocument.diagnostic_id.in_(diagnostic_ids)
+    ).delete(synchronize_session=False)
     db.query(Diagnostic).filter(Diagnostic.user_id == current_user.id).delete()
     db.commit()
 

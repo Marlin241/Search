@@ -19,4 +19,6 @@ class CompanyAtsMapping(Base):
     company_name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     source: Mapped[str | None] = mapped_column(String, nullable=True)
     slug: Mapped[str | None] = mapped_column(String, nullable=True)
-    checked_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )

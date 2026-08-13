@@ -12,7 +12,12 @@ class ObjectStorage:
 
     def upload(self, key: str, content: bytes) -> None:
         try:
-            self._client.put_object(Bucket=self._bucket, Key=key, Body=content, ContentType="application/pdf")
+            self._client.put_object(
+                Bucket=self._bucket,
+                Key=key,
+                Body=content,
+                ContentType="application/pdf",
+            )
         except (BotoCoreError, ClientError) as exc:
             raise ObjectStorageError(f"Échec de l'upload de l'objet '{key}'.") from exc
 
@@ -21,10 +26,14 @@ class ObjectStorage:
             response = self._client.get_object(Bucket=self._bucket, Key=key)
             return response["Body"].read()
         except (BotoCoreError, ClientError) as exc:
-            raise ObjectStorageError(f"Échec du téléchargement de l'objet '{key}'.") from exc
+            raise ObjectStorageError(
+                f"Échec du téléchargement de l'objet '{key}'."
+            ) from exc
 
     def delete(self, key: str) -> None:
         try:
             self._client.delete_object(Bucket=self._bucket, Key=key)
         except (BotoCoreError, ClientError) as exc:
-            raise ObjectStorageError(f"Échec de la suppression de l'objet '{key}'.") from exc
+            raise ObjectStorageError(
+                f"Échec de la suppression de l'objet '{key}'."
+            ) from exc

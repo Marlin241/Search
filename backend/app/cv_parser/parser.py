@@ -1,5 +1,5 @@
-from app.cv_parser.models import CVParseResult
 from app.cv_parser.docx_parser import parse_docx
+from app.cv_parser.models import CVParseResult
 from app.cv_parser.pdf_parser import parse_pdf
 
 MAX_CV_SIZE_BYTES = 5 * 1024 * 1024
@@ -20,7 +20,9 @@ def parse_cv(file_bytes: bytes, filename: str) -> CVParseResult:
         elif lowered_name.endswith(".docx"):
             result = parse_docx(file_bytes)
         else:
-            raise CVParsingError("Format de fichier non supporté. Utilisez un PDF ou un DOCX.")
+            raise CVParsingError(
+                "Format de fichier non supporté. Utilisez un PDF ou un DOCX."
+            )
     except CVParsingError:
         raise
     except Exception as exc:

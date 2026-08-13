@@ -100,7 +100,9 @@ def scrape_offer(url: str) -> str:
                     if response.is_redirect:
                         location = response.headers.get("location")
                         if not location:
-                            raise ScrapingError("Redirect response missing Location header")
+                            raise ScrapingError(
+                                "Redirect response missing Location header"
+                            )
                         current_url = str(httpx.URL(current_url).join(location))
                         continue
 
@@ -125,5 +127,7 @@ def scrape_offer(url: str) -> str:
     text = soup.get_text(separator="\n", strip=True)
 
     if len(text) < 200:
-        raise ScrapingError("Scraped content too short, likely blocked or JS-rendered page")
+        raise ScrapingError(
+            "Scraped content too short, likely blocked or JS-rendered page"
+        )
     return text

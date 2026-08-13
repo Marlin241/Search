@@ -8,7 +8,9 @@ from app.job_search.schemas import JobListing, SearchClient, SearchCriteria
 REMOTE_INDICATORS = ("remote", "télétravail", "distanciel")
 
 
-def _matches_any(text_fragments: list[str | None], needles: tuple[str, ...] | list[str]) -> bool:
+def _matches_any(
+    text_fragments: list[str | None], needles: tuple[str, ...] | list[str]
+) -> bool:
     haystack = " ".join(fragment for fragment in text_fragments if fragment).lower()
     return any(needle.lower() in haystack for needle in needles if needle)
 
@@ -18,12 +20,15 @@ def _passes_filters(listing: JobListing, criteria: SearchCriteria) -> bool:
         [listing.title, listing.snippet], criteria.exclude_keywords
     ):
         return False
-    if criteria.remote and not _matches_any([listing.location, listing.snippet], REMOTE_INDICATORS):
-        return False
-    return True
+    return not (
+        criteria.remote
+        and not _matches_any([listing.location, listing.snippet], REMOTE_INDICATORS)
+    )
 
 
-def search_jobs(criteria: SearchCriteria, clients: dict[str, SearchClient]) -> tuple[list[JobListing], list[str]]:
+def search_jobs(
+    criteria: SearchCriteria, clients: dict[str, SearchClient]
+) -> tuple[list[JobListing], list[str]]:
     listings: list[JobListing] = []
     unavailable_sources: list[str] = []
     for source_name, source_client in clients.items():
@@ -38,4 +43,6 @@ def search_jobs(criteria: SearchCriteria, clients: dict[str, SearchClient]) -> t
     # per client would be four chances to drift out of sync, and none of the
     # upstream APIs offers an equivalent server-side filter we could push
     # down anyway.
-    return [listing for listing in listings if _passes_filters(listing, criteria)], unavailable_sources
+    return [
+        listing for listing in listings if _passes_filters(listing, criteria)
+    ], unavailable_sources

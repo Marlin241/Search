@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import get_settings
 
@@ -10,7 +10,11 @@ class Base(DeclarativeBase):
 
 def _make_engine():
     settings = get_settings()
-    connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+    connect_args = (
+        {"check_same_thread": False}
+        if settings.database_url.startswith("sqlite")
+        else {}
+    )
     return create_engine(settings.database_url, connect_args=connect_args)
 
 

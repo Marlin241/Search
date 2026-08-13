@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.diagnostic import Diagnostic
@@ -41,7 +41,9 @@ def lock_user_for_rate_limit(db: Session, user_id: int) -> None:
 def check_rate_limit(db: Session, user_id: int) -> None:
     one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
-        select(func.count()).select_from(Diagnostic).where(
+        select(func.count())
+        .select_from(Diagnostic)
+        .where(
             Diagnostic.user_id == user_id,
             Diagnostic.created_at >= one_hour_ago,
         )
@@ -63,7 +65,9 @@ def check_personalization_rate_limit(db: Session, user_id: int) -> None:
     """
     one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
-        select(func.count()).select_from(PersonalizationRequestLog).where(
+        select(func.count())
+        .select_from(PersonalizationRequestLog)
+        .where(
             PersonalizationRequestLog.user_id == user_id,
             PersonalizationRequestLog.created_at >= one_hour_ago,
         )
@@ -82,7 +86,9 @@ MAX_SEARCHES_PER_HOUR = 20
 def check_job_search_rate_limit(db: Session, user_id: int) -> None:
     one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
-        select(func.count()).select_from(JobSearchRequestLog).where(
+        select(func.count())
+        .select_from(JobSearchRequestLog)
+        .where(
             JobSearchRequestLog.user_id == user_id,
             JobSearchRequestLog.created_at >= one_hour_ago,
         )
@@ -105,7 +111,9 @@ def check_prefilled_form_rate_limit(db: Session, user_id: int) -> None:
     because it is an LLM-cost limit, not a third-party free-tier quota."""
     one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
-        select(func.count()).select_from(PrefilledFormRequestLog).where(
+        select(func.count())
+        .select_from(PrefilledFormRequestLog)
+        .where(
             PrefilledFormRequestLog.user_id == user_id,
             PrefilledFormRequestLog.created_at >= one_hour_ago,
         )

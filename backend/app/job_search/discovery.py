@@ -13,7 +13,9 @@ _LEVER_PROBE_URL = "https://api.lever.co/v0/postings/{slug}"
 
 def normalize_company_name(name: str) -> str:
     decomposed = unicodedata.normalize("NFKD", name)
-    without_accents = "".join(char for char in decomposed if not unicodedata.combining(char))
+    without_accents = "".join(
+        char for char in decomposed if not unicodedata.combining(char)
+    )
     without_punctuation = re.sub(r"[^a-z0-9\s-]", "", without_accents.lower())
     return without_punctuation.strip()
 
@@ -41,7 +43,9 @@ class DetectionResult:
     found" (e.g. 404) — that IS safe to cache.
     """
 
-    def __init__(self, confirmed: bool, source: str | None = None, slug: str | None = None):
+    def __init__(
+        self, confirmed: bool, source: str | None = None, slug: str | None = None
+    ):
         self.confirmed = confirmed
         self.source = source
         self.slug = slug
@@ -65,7 +69,10 @@ def detect_company_ats(company_name: str, http_client: httpx.Client) -> Detectio
         return DetectionResult(confirmed=True, source=None, slug=None)
 
     any_indeterminate = False
-    for url_template, source in ((_GREENHOUSE_PROBE_URL, "greenhouse"), (_LEVER_PROBE_URL, "lever")):
+    for url_template, source in (
+        (_GREENHOUSE_PROBE_URL, "greenhouse"),
+        (_LEVER_PROBE_URL, "lever"),
+    ):
         for slug in candidates:
             outcome = _probe(url_template, slug, http_client)
             if outcome is True:

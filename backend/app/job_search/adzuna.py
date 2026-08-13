@@ -5,7 +5,13 @@ from app.job_search.schemas import JobListing, SearchCriteria
 
 
 class AdzunaClient:
-    def __init__(self, app_id: str, app_key: str, country: str = "fr", http_client: httpx.Client | None = None):
+    def __init__(
+        self,
+        app_id: str,
+        app_key: str,
+        country: str = "fr",
+        http_client: httpx.Client | None = None,
+    ):
         self._app_id = app_id
         self._app_key = app_key
         self._country = country

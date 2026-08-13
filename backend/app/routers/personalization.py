@@ -8,7 +8,11 @@ from app.models.diagnostic import Diagnostic
 from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.personalized_document import PersonalizedDocument
 from app.models.user import User
-from app.personalization.analyzer import CoverLetterGenerator, CvRewriter, PersonalizationError
+from app.personalization.analyzer import (
+    CoverLetterGenerator,
+    CvRewriter,
+    PersonalizationError,
+)
 from app.personalization.dependencies import get_cover_letter_generator, get_cv_rewriter
 from app.personalization.pdf_generator import render_cover_letter_pdf, render_cv_pdf
 from app.personalization.verification import cv_needs_review
@@ -31,7 +35,9 @@ def _get_owned_diagnostic(db: Session, diagnostic_id: int, user_id: int) -> Diag
         .first()
     )
     if diagnostic is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic introuvable.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic introuvable."
+        )
     return diagnostic
 
 
@@ -39,10 +45,15 @@ def _storage_key(user_id: int, diagnostic_id: int, kind: str) -> str:
     return f"users/{user_id}/diagnostics/{diagnostic_id}/{kind}.pdf"
 
 
-def _get_document(db: Session, diagnostic_id: int, kind: str) -> PersonalizedDocument | None:
+def _get_document(
+    db: Session, diagnostic_id: int, kind: str
+) -> PersonalizedDocument | None:
     return (
         db.query(PersonalizedDocument)
-        .filter(PersonalizedDocument.diagnostic_id == diagnostic_id, PersonalizedDocument.kind == kind)
+        .filter(
+            PersonalizedDocument.diagnostic_id == diagnostic_id,
+            PersonalizedDocument.kind == kind,
+        )
         .first()
     )
 
@@ -53,7 +64,10 @@ def _upsert_document(
     document = _get_document(db, diagnostic_id, kind)
     if document is None:
         document = PersonalizedDocument(
-            diagnostic_id=diagnostic_id, kind=kind, storage_key=storage_key, needs_review=needs_review
+            diagnostic_id=diagnostic_id,
+            kind=kind,
+            storage_key=storage_key,
+            needs_review=needs_review,
         )
         db.add(document)
     else:
@@ -62,7 +76,11 @@ def _upsert_document(
     return document
 
 
-@router.post("/{diagnostic_id}/cv", response_model=PersonalizedDocumentOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{diagnostic_id}/cv",
+    response_model=PersonalizedDocumentOut,
+    status_code=status.HTTP_201_CREATED,
+)
 def generate_cv(
     diagnostic_id: int,
     db: Session = Depends(get_db),
@@ -80,23 +98,31 @@ def generate_cv(
     try:
         check_personalization_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
 
     diagnostic = _get_owned_diagnostic(db, diagnostic_id, current_user.id)
 
     try:
         rewritten = rewriter.rewrite(
-            diagnostic.cv_text, diagnostic.offer_text, diagnostic.missing_keywords, diagnostic.recommendations
+            diagnostic.cv_text,
+            diagnostic.offer_text,
+            diagnostic.missing_keywords,
+            diagnostic.recommendations,
         )
     except PersonalizationError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     needs_review = cv_needs_review(diagnostic.cv_text, rewritten)
     try:
         pdf_bytes = render_cv_pdf(rewritten)
     except FPDFException as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="La génération du PDF a échoué."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="La génération du PDF a échoué.",
         ) from exc
     key = _storage_key(current_user.id, diagnostic.id, "cv")
 
@@ -104,7 +130,8 @@ def generate_cv(
         storage.upload(key, pdf_bytes)
     except ObjectStorageError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Le stockage du document a échoué."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le stockage du document a échoué.",
         ) from exc
 
     # The PersonalizationRequestLog row (which the rate limit counts) is
@@ -119,11 +146,18 @@ def generate_cv(
     db.refresh(document)
 
     return PersonalizedDocumentOut(
-        kind=document.kind, needs_review=document.needs_review, created_at=document.created_at, updated_at=document.updated_at
+        kind=document.kind,
+        needs_review=document.needs_review,
+        created_at=document.created_at,
+        updated_at=document.updated_at,
     )
 
 
-@router.post("/{diagnostic_id}/lettre", response_model=PersonalizedDocumentOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{diagnostic_id}/lettre",
+    response_model=PersonalizedDocumentOut,
+    status_code=status.HTTP_201_CREATED,
+)
 def generate_lettre(
     diagnostic_id: int,
     db: Session = Depends(get_db),
@@ -135,22 +169,30 @@ def generate_lettre(
     try:
         check_personalization_rate_limit(db, current_user.id)
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
 
     diagnostic = _get_owned_diagnostic(db, diagnostic_id, current_user.id)
 
     try:
         letter = generator.generate(
-            diagnostic.cv_text, diagnostic.offer_text, diagnostic.missing_keywords, diagnostic.recommendations
+            diagnostic.cv_text,
+            diagnostic.offer_text,
+            diagnostic.missing_keywords,
+            diagnostic.recommendations,
         )
     except PersonalizationError as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
     try:
         pdf_bytes = render_cover_letter_pdf(letter)
     except FPDFException as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="La génération du PDF a échoué."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="La génération du PDF a échoué.",
         ) from exc
     key = _storage_key(current_user.id, diagnostic.id, "lettre")
 
@@ -158,7 +200,8 @@ def generate_lettre(
         storage.upload(key, pdf_bytes)
     except ObjectStorageError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Le stockage du document a échoué."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le stockage du document a échoué.",
         ) from exc
 
     document = _upsert_document(db, diagnostic.id, "lettre", key, needs_review=False)
@@ -167,12 +210,20 @@ def generate_lettre(
     db.refresh(document)
 
     return PersonalizedDocumentOut(
-        kind=document.kind, needs_review=document.needs_review, created_at=document.created_at, updated_at=document.updated_at
+        kind=document.kind,
+        needs_review=document.needs_review,
+        created_at=document.created_at,
+        updated_at=document.updated_at,
     )
 
 
 def _download(
-    diagnostic_id: int, kind: str, filename: str, db: Session, current_user: User, storage: ObjectStorage
+    diagnostic_id: int,
+    kind: str,
+    filename: str,
+    db: Session,
+    current_user: User,
+    storage: ObjectStorage,
 ) -> Response:
     diagnostic = _get_owned_diagnostic(db, diagnostic_id, current_user.id)
     document = _get_document(db, diagnostic.id, kind)
@@ -185,7 +236,8 @@ def _download(
         pdf_bytes = storage.download(document.storage_key)
     except ObjectStorageError as exc:
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Le téléchargement du document a échoué."
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le téléchargement du document a échoué.",
         ) from exc
 
     return Response(
@@ -212,4 +264,6 @@ def download_lettre(
     current_user: User = Depends(get_current_user),
     storage: ObjectStorage = Depends(get_object_storage),
 ) -> Response:
-    return _download(diagnostic_id, "lettre", "lettre_motivation.pdf", db, current_user, storage)
+    return _download(
+        diagnostic_id, "lettre", "lettre_motivation.pdf", db, current_user, storage
+    )

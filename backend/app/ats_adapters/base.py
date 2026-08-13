@@ -38,10 +38,10 @@ class HtmlFormAdapter:
       only appropriate for the generic base class and its tests.
     """
 
-    standard_field_aliases: dict[str, list[str]] = {}
-    resume_field_names: list[str] = []
-    cover_letter_field_names: list[str] = []
-    allowed_host_suffixes: list[str] = []
+    standard_field_aliases: ClassVar[dict[str, list[str]]] = {}
+    resume_field_names: ClassVar[list[str]] = []
+    cover_letter_field_names: ClassVar[list[str]] = []
+    allowed_host_suffixes: ClassVar[list[str]] = []
 
     def __init__(self, http_client: httpx.Client | None = None):
         self._http = http_client or httpx.Client(timeout=15.0)
@@ -74,22 +74,30 @@ class HtmlFormAdapter:
             f"{', '.join(self.allowed_host_suffixes)}."
         )
 
-    def discover_form(self, offer_url: str, profile: CandidateProfile, email: str) -> DiscoveredForm:
+    def discover_form(
+        self, offer_url: str, profile: CandidateProfile, email: str
+    ) -> DiscoveredForm:
         _validate_url_for_ats(offer_url)
         self._validate_host_allowed(offer_url)
         try:
             response = self._http.get(offer_url)
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise ATSAdapterError(f"Impossible de charger le formulaire de candidature: {exc}") from exc
+            raise ATSAdapterError(
+                f"Impossible de charger le formulaire de candidature: {exc}"
+            ) from exc
 
         soup = BeautifulSoup(response.text, "html.parser")
         form = soup.find("form")
         if form is None:
-            raise ATSAdapterError("Aucun formulaire de candidature trouvé sur cette page.")
+            raise ATSAdapterError(
+                "Aucun formulaire de candidature trouvé sur cette page."
+            )
 
         action = form.get("action") or offer_url
-        submit_url = urljoin(offer_url, action if isinstance(action, str) else offer_url)
+        submit_url = urljoin(
+            offer_url, action if isinstance(action, str) else offer_url
+        )
 
         hidden_fields: dict[str, str] = {}
         fields: list[FormField] = []
@@ -109,10 +117,18 @@ class HtmlFormAdapter:
                 continue  # resume/cover letter - handled separately by submit()
 
             tag_id = tag.get("id")
-            label_tag = form.find("label", attrs={"for": tag_id}) if isinstance(tag_id, str) and tag_id else None
+            label_tag = (
+                form.find("label", attrs={"for": tag_id})
+                if isinstance(tag_id, str) and tag_id
+                else None
+            )
             label = label_tag.get_text(strip=True) if label_tag else name
 
-            options = [opt.get_text(strip=True) for opt in tag.find_all("option")] if tag.name == "select" else None
+            options = (
+                [opt.get_text(strip=True) for opt in tag.find_all("option")]
+                if tag.name == "select"
+                else None
+            )
 
             value, is_standard = self._prefill_from_profile(name, profile, email)
 
@@ -128,7 +144,9 @@ class HtmlFormAdapter:
                 )
             )
 
-        return DiscoveredForm(submit_url=submit_url, fields=fields, hidden_fields=hidden_fields)
+        return DiscoveredForm(
+            submit_url=submit_url, fields=fields, hidden_fields=hidden_fields
+        )
 
     def _prefill_from_profile(
         self, field_name: str, profile: CandidateProfile, email: str
@@ -172,7 +190,9 @@ class HtmlFormAdapter:
             return None, False
         return best_value, True
 
-    def submit(self, filled_form: DiscoveredForm, cv_pdf: bytes, lettre_pdf: bytes) -> None:
+    def submit(
+        self, filled_form: DiscoveredForm, cv_pdf: bytes, lettre_pdf: bytes
+    ) -> None:
         data = dict(filled_form.hidden_fields)
         for field in filled_form.fields:
             if field.value:
@@ -182,7 +202,11 @@ class HtmlFormAdapter:
         if self.resume_field_names:
             files[self.resume_field_names[0]] = ("cv.pdf", cv_pdf, "application/pdf")
         if self.cover_letter_field_names:
-            files[self.cover_letter_field_names[0]] = ("lettre.pdf", lettre_pdf, "application/pdf")
+            files[self.cover_letter_field_names[0]] = (
+                "lettre.pdf",
+                lettre_pdf,
+                "application/pdf",
+            )
 
         # The submit URL comes from the fetched page's <form action>, so it
         # is validated in its own right rather than trusted because the
@@ -193,4 +217,6 @@ class HtmlFormAdapter:
             response = self._http.post(filled_form.submit_url, data=data, files=files)
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise ATSAdapterError(f"Échec de la soumission de la candidature: {exc}") from exc
+            raise ATSAdapterError(
+                f"Échec de la soumission de la candidature: {exc}"
+            ) from exc

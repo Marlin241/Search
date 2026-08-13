@@ -21,7 +21,9 @@ def get_job_search_clients() -> dict[str, object]:
             app_key=settings.adzuna_app_key,
             country=settings.adzuna_country,
         ),
-        "la_bonne_alternance": LaBonneAlternanceClient(api_key=settings.la_bonne_alternance_api_key),
+        "la_bonne_alternance": LaBonneAlternanceClient(
+            api_key=settings.la_bonne_alternance_api_key
+        ),
         "greenhouse": GreenhouseJobBoardClient(),
         "lever": LeverJobBoardClient(),
     }

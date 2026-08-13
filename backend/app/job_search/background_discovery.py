@@ -31,7 +31,11 @@ _state: dict[str, _DiscoveryState] = {}
 def _purge_expired() -> None:
     cutoff = utcnow() - _STATE_TTL
     with _lock:
-        expired = [search_id for search_id, entry in _state.items() if entry.created_at < cutoff]
+        expired = [
+            search_id
+            for search_id, entry in _state.items()
+            if entry.created_at < cutoff
+        ]
         for search_id in expired:
             del _state[search_id]
 
@@ -40,7 +44,9 @@ def create_pending_search(user_id: int, has_unknown_companies: bool) -> str:
     _purge_expired()
     search_id = secrets.token_urlsafe(16)
     with _lock:
-        _state[search_id] = _DiscoveryState(user_id=user_id, done=not has_unknown_companies)
+        _state[search_id] = _DiscoveryState(
+            user_id=user_id, done=not has_unknown_companies
+        )
     return search_id
 
 
@@ -74,9 +80,13 @@ def run_discovery(
 
             if result.source is None:
                 continue
-            assert result.slug is not None  # DetectionResult always sets slug alongside source
+            assert (
+                result.slug is not None
+            )  # DetectionResult always sets slug alongside source
 
-            client = greenhouse_client if result.source == "greenhouse" else lever_client
+            client = (
+                greenhouse_client if result.source == "greenhouse" else lever_client
+            )
             try:
                 listings = client.search(criteria, [result.slug])
             except JobSearchSourceError:

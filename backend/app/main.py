@@ -3,10 +3,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import (
+    database,
+    models,  # noqa: F401 register models on Base
+)
 from app.config import get_settings
-from app import database
-from app.routers import auth, applications, candidate_profile, diagnostics, job_search, personalization
-from app import models  # noqa: F401 register models on Base
+from app.routers import (
+    applications,
+    auth,
+    candidate_profile,
+    diagnostics,
+    job_search,
+    personalization,
+)
 
 settings = get_settings()
 

@@ -34,7 +34,9 @@ def create_application(
     ats_type: str | None,
     analyzer: SemanticAnalyzer,
 ) -> Application:
-    profile = db.query(CandidateProfile).filter(CandidateProfile.user_id == user_id).first()
+    profile = (
+        db.query(CandidateProfile).filter(CandidateProfile.user_id == user_id).first()
+    )
     if profile is None or not profile.cv_text:
         raise MissingReferenceCvError(
             "Merci d'uploader votre CV de référence sur votre profil avant de lancer une candidature."
@@ -46,7 +48,9 @@ def create_application(
         .first()
     )
     if existing is not None:
-        raise DuplicateApplicationError("Vous avez déjà une candidature enregistrée pour cette offre.")
+        raise DuplicateApplicationError(
+            "Vous avez déjà une candidature enregistrée pour cette offre."
+        )
 
     try:
         offer_text = get_offer_text(offer_text_override, offer_url)

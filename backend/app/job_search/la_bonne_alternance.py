@@ -30,7 +30,13 @@ class LaBonneAlternanceClient:
 
         try:
             response = self._http.get(
-                COMMUNES_URL, params={"nom": location, "fields": "centre", "boost": "population", "limit": 1}
+                COMMUNES_URL,
+                params={
+                    "nom": location,
+                    "fields": "centre",
+                    "boost": "population",
+                    "limit": 1,
+                },
             )
             response.raise_for_status()
             results = response.json()
@@ -57,11 +63,15 @@ class LaBonneAlternanceClient:
 
         try:
             response = self._http.get(
-                SEARCH_URL, params=params, headers={"Authorization": f"Bearer {self._api_key}"}
+                SEARCH_URL,
+                params=params,
+                headers={"Authorization": f"Bearer {self._api_key}"},
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise JobSearchSourceError(f"La Bonne Alternance: échec de la recherche: {exc}") from exc
+            raise JobSearchSourceError(
+                f"La Bonne Alternance: échec de la recherche: {exc}"
+            ) from exc
 
         try:
             payload = response.json()
@@ -76,7 +86,9 @@ class LaBonneAlternanceClient:
                 listings.append(
                     JobListing(
                         title=title,
-                        company=workplace.get("name") or workplace.get("legal_name") or "",
+                        company=workplace.get("name")
+                        or workplace.get("legal_name")
+                        or "",
                         location=(workplace.get("location") or {}).get("address"),
                         snippet=(offer.get("description") or "")[:500],
                         url=apply_.get("url", ""),
@@ -85,6 +97,8 @@ class LaBonneAlternanceClient:
                     )
                 )
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
-            raise JobSearchSourceError("La Bonne Alternance: réponse invalide.") from exc
+            raise JobSearchSourceError(
+                "La Bonne Alternance: réponse invalide."
+            ) from exc
 
         return listings
