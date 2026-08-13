@@ -208,12 +208,23 @@ def put_saved_search(
 
 @router.get("/saved-search/unsubscribe", response_class=HTMLResponse)
 def unsubscribe_saved_search(token: str, db: Session = Depends(get_db)) -> HTMLResponse:
+    # GET (not POST) is deliberate: this link is clicked directly from an
+    # email client, with no form/JS available to issue a POST. The tradeoff
+    # (an email link-scanner could pre-fetch and trigger it) is accepted
+    # because the side effect is low-consequence and reversible - just
+    # SavedSearch.enabled = False, undone with one click in the app - and
+    # the token itself (see unsubscribe.py) can only ever do this one
+    # action, on a distinct signing key from login tokens. No-referrer is
+    # set so the token in the URL can't leak via a Referer header if a
+    # future revision of this page ever adds an outbound link.
+    headers = {"Referrer-Policy": "no-referrer"}
     try:
         user_id = verify_unsubscribe_token(token)
     except InvalidUnsubscribeTokenError:
         return HTMLResponse(
             "<html><body><p>Ce lien de désabonnement n'est plus valide.</p></body></html>",
             status_code=400,
+            headers=headers,
         )
     saved_search = db.query(SavedSearch).filter(SavedSearch.user_id == user_id).first()
     if saved_search is not None:
@@ -221,5 +232,6 @@ def unsubscribe_saved_search(token: str, db: Session = Depends(get_db)) -> HTMLR
         db.commit()
     return HTMLResponse(
         "<html><body><p>Vous ne recevrez plus d'alertes email pour votre "
-        "recherche sauvegardée.</p></body></html>"
+        "recherche sauvegardée.</p></body></html>",
+        headers=headers,
     )
