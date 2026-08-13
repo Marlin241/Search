@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import bcrypt
 import jwt
 
 from app.config import get_settings
+from app.utils.time import utcnow
 
 
 _BCRYPT_MAX_BYTES = 72
@@ -29,7 +30,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 def create_access_token(subject: str) -> str:
     settings = get_settings()
-    expire = datetime.utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
+    expire = utcnow() + timedelta(minutes=settings.jwt_expire_minutes)
     payload = {"sub": subject, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 

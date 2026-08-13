@@ -1,9 +1,8 @@
-from datetime import datetime
-
 from sqlalchemy.orm import Session
 
 from app.job_search.company_cache import get_cached_mapping, save_mapping
 from app.job_search.discovery import normalize_company_name
+from app.utils.time import utcnow
 
 _SENEGAL_LOCATION_KEYWORDS = ("senegal", "dakar")
 
@@ -61,5 +60,5 @@ def cache_known_seed_mappings(db: Session, location: str | None) -> None:
             save_mapping(db, company_name, known[0], known[1])
         elif (mapping.source, mapping.slug) != known:
             mapping.source, mapping.slug = known
-            mapping.checked_at = datetime.utcnow()
+            mapping.checked_at = utcnow()
             db.commit()

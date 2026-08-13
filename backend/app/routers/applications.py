@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -42,6 +41,7 @@ from app.schemas.application import ApplicationCreateIn, ApplicationOut, Confirm
 from app.schemas.diagnostic import DiagnosticReport
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
+from app.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -364,7 +364,7 @@ def confirm_application(
     # Cleared so a successful retry after an `echec_soumission` doesn't leave
     # the previous attempt's error text hanging off a submitted candidature.
     application.error_message = None
-    application.submitted_at = datetime.utcnow()
+    application.submitted_at = utcnow()
     db.commit()
     db.refresh(application)
     return _to_out(application)

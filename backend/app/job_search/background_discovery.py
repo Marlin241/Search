@@ -1,8 +1,8 @@
 import secrets
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Callable
 
 import httpx
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from app.job_search.company_cache import save_mapping
 from app.job_search.discovery import detect_company_ats
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria, SluggableSearchClient
+from app.utils.time import utcnow
 
 _STATE_TTL = timedelta(minutes=5)
 
@@ -20,7 +21,7 @@ class _DiscoveryState:
     user_id: int
     done: bool
     new_listings: list[JobListing] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utcnow)
 
 
 _lock = threading.Lock()
@@ -28,7 +29,7 @@ _state: dict[str, _DiscoveryState] = {}
 
 
 def _purge_expired() -> None:
-    cutoff = datetime.utcnow() - _STATE_TTL
+    cutoff = utcnow() - _STATE_TTL
     with _lock:
         expired = [search_id for search_id, entry in _state.items() if entry.created_at < cutoff]
         for search_id in expired:

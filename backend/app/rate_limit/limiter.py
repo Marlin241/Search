@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.diagnostic import Diagnostic
 from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.user import User
+from app.utils.time import utcnow
 
 MAX_DIAGNOSTICS_PER_HOUR = 10
 MAX_PERSONALIZATIONS_PER_HOUR = 10
@@ -38,7 +39,7 @@ def lock_user_for_rate_limit(db: Session, user_id: int) -> None:
 
 
 def check_rate_limit(db: Session, user_id: int) -> None:
-    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
         select(func.count()).select_from(Diagnostic).where(
             Diagnostic.user_id == user_id,
@@ -60,7 +61,7 @@ def check_personalization_rate_limit(db: Session, user_id: int) -> None:
     happened - repeated regenerations of the same document would only ever
     count as one row.
     """
-    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
         select(func.count()).select_from(PersonalizationRequestLog).where(
             PersonalizationRequestLog.user_id == user_id,
@@ -79,7 +80,7 @@ MAX_SEARCHES_PER_HOUR = 20
 
 
 def check_job_search_rate_limit(db: Session, user_id: int) -> None:
-    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
         select(func.count()).select_from(JobSearchRequestLog).where(
             JobSearchRequestLog.user_id == user_id,
@@ -102,7 +103,7 @@ def check_prefilled_form_rate_limit(db: Session, user_id: int) -> None:
     CustomFieldAnswerer LLM on every call. Set to the same 10/h as the
     diagnostic and personalization limits (rather than job search's 20/h)
     because it is an LLM-cost limit, not a third-party free-tier quota."""
-    one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+    one_hour_ago = utcnow() - timedelta(hours=1)
     count = db.scalar(
         select(func.count()).select_from(PrefilledFormRequestLog).where(
             PrefilledFormRequestLog.user_id == user_id,
