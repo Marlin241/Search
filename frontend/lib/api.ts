@@ -1,4 +1,4 @@
-import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult, JobSearchDiscoveryResult, Application, ApplicationCreateInput, FormField, PrefilledForm } from "./types";
+import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult, JobSearchDiscoveryResult, Application, ApplicationCreateInput, FormField, PrefilledForm, SavedSearch, SavedSearchInput } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -142,6 +142,23 @@ export function searchJobs(token: string, criteria: SearchCriteria): Promise<Job
 
 export function fetchJobSearchDiscovery(token: string, searchId: string): Promise<JobSearchDiscoveryResult> {
   return request<JobSearchDiscoveryResult>(`/job-search/search/${searchId}/discovery`, { method: "GET" }, token);
+}
+
+export async function getSavedSearch(token: string): Promise<SavedSearch | null> {
+  try {
+    return await request<SavedSearch>("/job-search/saved-search", { method: "GET" }, token);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export function saveSavedSearch(token: string, payload: SavedSearchInput): Promise<SavedSearch> {
+  return request<SavedSearch>(
+    "/job-search/saved-search",
+    { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+    token
+  );
 }
 
 export function createApplication(token: string, payload: ApplicationCreateInput): Promise<Application> {

@@ -74,6 +74,26 @@ export interface JobSearchDiscoveryResult {
   new_listings: JobListing[];
 }
 
+export interface SavedSearch {
+  keywords: string;
+  location: string | null;
+  contract_type: string | null;
+  remote: boolean | null;
+  exclude_keywords: string[];
+  timezone: string;
+  enabled: boolean;
+}
+
+export interface SavedSearchInput {
+  keywords: string;
+  location?: string;
+  contract_type?: string;
+  remote?: boolean;
+  exclude_keywords: string[];
+  timezone: string;
+  enabled: boolean;
+}
+
 export interface Application {
   id: number;
   diagnostic_id: number;
