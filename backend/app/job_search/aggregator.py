@@ -1,5 +1,5 @@
 from app.job_search.errors import JobSearchSourceError
-from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.schemas import JobListing, SearchClient, SearchCriteria
 
 # Substrings that mark a listing as remote-friendly, matched
 # case-insensitively against the listing's location and snippet. None of the
@@ -23,7 +23,7 @@ def _passes_filters(listing: JobListing, criteria: SearchCriteria) -> bool:
     return True
 
 
-def search_jobs(criteria: SearchCriteria, clients: dict[str, object]) -> tuple[list[JobListing], list[str]]:
+def search_jobs(criteria: SearchCriteria, clients: dict[str, SearchClient]) -> tuple[list[JobListing], list[str]]:
     listings: list[JobListing] = []
     unavailable_sources: list[str] = []
     for source_name, source_client in clients.items():

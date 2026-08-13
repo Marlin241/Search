@@ -1,3 +1,5 @@
+from typing import cast
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -10,7 +12,7 @@ from app.job_search.company_cache import get_cached_mapping
 from app.job_search.dependencies import get_job_search_clients
 from app.job_search.discovery import MAX_COMPANIES_PER_DISCOVERY, extract_unique_companies
 from app.job_search.errors import JobSearchSourceError
-from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.schemas import JobListing, SearchClient, SearchCriteria, SluggableSearchClient
 from app.job_search.seed_companies import cache_known_seed_mappings, get_seed_companies
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.user import User
@@ -27,7 +29,7 @@ router = APIRouter(prefix="/job-search", tags=["job_search"])
 def _fetch_known_company_listings(
     clients: dict[str, object], criteria: SearchCriteria, source: str, slug: str
 ) -> list[JobListing]:
-    client = clients[source]
+    client = cast(SluggableSearchClient, clients[source])
     try:
         return client.search(criteria, [slug])
     except JobSearchSourceError:
@@ -48,10 +50,10 @@ def search(
     except RateLimitExceeded as exc:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
 
-    primary_clients = {
-        "france_travail": clients["france_travail"],
-        "adzuna": clients["adzuna"],
-        "la_bonne_alternance": clients["la_bonne_alternance"],
+    primary_clients: dict[str, SearchClient] = {
+        "france_travail": cast(SearchClient, clients["france_travail"]),
+        "adzuna": cast(SearchClient, clients["adzuna"]),
+        "la_bonne_alternance": cast(SearchClient, clients["la_bonne_alternance"]),
     }
     listings, unavailable_sources = search_jobs(criteria, primary_clients)
 
@@ -70,6 +72,7 @@ def search(
         if mapping is None:
             unknown_companies.append(company_name)
         elif mapping.source is not None:
+            assert mapping.slug is not None  # CompanyAtsMapping always sets slug alongside source
             known_listings.extend(
                 _fetch_known_company_listings(clients, criteria, mapping.source, mapping.slug)
             )
@@ -89,8 +92,8 @@ def search(
             database.SessionLocal,
             unknown_companies,
             criteria,
-            clients["greenhouse"],
-            clients["lever"],
+            cast(SluggableSearchClient, clients["greenhouse"]),
+            cast(SluggableSearchClient, clients["lever"]),
         )
 
     return JobSearchResponse(

@@ -10,9 +10,7 @@ from sqlalchemy.orm import Session
 from app.job_search.company_cache import save_mapping
 from app.job_search.discovery import detect_company_ats
 from app.job_search.errors import JobSearchSourceError
-from app.job_search.greenhouse import GreenhouseJobBoardClient
-from app.job_search.lever import LeverJobBoardClient
-from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.schemas import JobListing, SearchCriteria, SluggableSearchClient
 
 _STATE_TTL = timedelta(minutes=5)
 
@@ -60,8 +58,8 @@ def run_discovery(
     db_session_factory: Callable[[], Session],
     unknown_companies: list[str],
     criteria: SearchCriteria,
-    greenhouse_client: GreenhouseJobBoardClient,
-    lever_client: LeverJobBoardClient,
+    greenhouse_client: SluggableSearchClient,
+    lever_client: SluggableSearchClient,
 ) -> None:
     db = db_session_factory()
     http_client = httpx.Client(timeout=10.0)
@@ -75,6 +73,7 @@ def run_discovery(
 
             if result.source is None:
                 continue
+            assert result.slug is not None  # DetectionResult always sets slug alongside source
 
             client = greenhouse_client if result.source == "greenhouse" else lever_client
             try:
