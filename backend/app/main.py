@@ -8,6 +8,7 @@ from app import (
     database,
     models,  # noqa: F401 register models on Base
 )
+from app.applications.reminders import run_application_reminders
 from app.config import get_settings
 from app.job_search.daily_search import run_daily_search
 from app.routers import (
@@ -48,6 +49,15 @@ async def lifespan(app: FastAPI):
         trigger="cron",
         minute=0,
         id="daily_search",
+    )
+    scheduler.add_job(
+        # Same rationale as the daily_search job above: looked up as
+        # database.SessionLocal at call time, not imported at module load,
+        # so the test suite's monkeypatch takes effect.
+        lambda: run_application_reminders(database.SessionLocal),
+        trigger="cron",
+        minute=0,
+        id="application_reminders",
     )
     scheduler.start()
     try:
