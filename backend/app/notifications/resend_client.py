@@ -5,6 +5,7 @@ import httpx
 
 from app.config import get_settings
 from app.job_search.schemas import JobListing
+from app.models.application import Application
 
 _RESEND_API_URL = "https://api.resend.com/emails"
 _ALLOWED_URL_SCHEMES = {"http", "https"}
@@ -16,15 +17,34 @@ class EmailSendError(Exception):
 
 def _safe_href(url: str) -> str:
     """Only http(s) URLs are ever linked - rejects `javascript:` and other
-    executable schemes a compromised/malicious upstream job listing could
-    smuggle in. HTML-escaping alone (see _render_html) does not stop this,
-    since the scheme itself contains no special HTML characters to escape."""
+    executable schemes a compromised/malicious upstream source could
+    smuggle in. HTML-escaping alone does not stop this, since the scheme
+    itself contains no special HTML characters to escape."""
     if urlsplit(url).scheme not in _ALLOWED_URL_SCHEMES:
         return "#"
     return html.escape(url)
 
 
-def _render_html(listings: list[JobListing], unsubscribe_url: str) -> str:
+def _send_email(to_email: str, subject: str, html_body: str) -> None:
+    settings = get_settings()
+    response = httpx.post(
+        _RESEND_API_URL,
+        headers={"Authorization": f"Bearer {settings.resend_api_key}"},
+        json={
+            "from": settings.resend_from_email,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+        },
+        timeout=10.0,
+    )
+    if response.status_code >= 400:
+        raise EmailSendError(
+            f"Échec de l'envoi de l'email via Resend ({response.status_code}): {response.text}"
+        )
+
+
+def _render_job_listings_html(listings: list[JobListing], unsubscribe_url: str) -> str:
     # Every field interpolated here (title/company/location, all from
     # external job-search APIs we don't control) is HTML-escaped - without
     # it, a listing whose title/company contained raw HTML would be
@@ -55,18 +75,59 @@ def send_daily_digest_email(
         f"{settings.backend_base_url}/job-search/saved-search/unsubscribe"
         f"?token={unsubscribe_token}"
     )
-    response = httpx.post(
-        _RESEND_API_URL,
-        headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-        json={
-            "from": settings.resend_from_email,
-            "to": [to_email],
-            "subject": subject,
-            "html": _render_html(listings, unsubscribe_url),
-        },
-        timeout=10.0,
-    )
-    if response.status_code >= 400:
-        raise EmailSendError(
-            f"Échec de l'envoi de l'email via Resend ({response.status_code}): {response.text}"
+    _send_email(to_email, subject, _render_job_listings_html(listings, unsubscribe_url))
+
+
+def _render_application_reminders_html(
+    to_relance: list[Application],
+    to_finalize: list[Application],
+    candidatures_url: str,
+) -> str:
+    # company_name/job_title are, like a JobListing's fields, ultimately
+    # sourced from external APIs or free-form user input - HTML-escaped for
+    # the same reason as _render_job_listings_html above.
+    sections = []
+    if to_relance:
+        items = []
+        for application in to_relance:
+            assert (
+                application.submitted_at is not None
+            )  # to_relance is filtered on submitted_at <= cutoff
+            items.append(
+                f"<li>{html.escape(application.job_title)} — "
+                f"{html.escape(application.company_name)} "
+                f"(envoyée le {application.submitted_at.strftime('%d/%m/%Y')})</li>"
+            )
+        sections.append(
+            "<p>Candidatures à relancer (envoyées, sans réponse) :</p>"
+            f"<ul>{''.join(items)}</ul>"
         )
+    if to_finalize:
+        items = [
+            f"<li>{html.escape(application.job_title)} — "
+            f"{html.escape(application.company_name)} "
+            f"(créée le {application.created_at.strftime('%d/%m/%Y')})</li>"
+            for application in to_finalize
+        ]
+        sections.append(
+            "<p>Candidatures à finaliser (jamais envoyées) :</p>"
+            f"<ul>{''.join(items)}</ul>"
+        )
+    sections.append(
+        f'<p><a href="{_safe_href(candidatures_url)}">Voir mes candidatures</a></p>'
+    )
+    return "".join(sections)
+
+
+def send_application_reminders_email(
+    to_email: str, to_relance: list[Application], to_finalize: list[Application]
+) -> None:
+    settings = get_settings()
+    count = len(to_relance) + len(to_finalize)
+    subject = f"{count} candidature{'s' if count > 1 else ''} à relancer ou finaliser"
+    candidatures_url = f"{settings.frontend_base_url}/candidatures"
+    _send_email(
+        to_email,
+        subject,
+        _render_application_reminders_html(to_relance, to_finalize, candidatures_url),
+    )

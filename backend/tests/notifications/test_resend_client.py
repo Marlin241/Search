@@ -1,11 +1,17 @@
 import json
+from datetime import UTC, datetime
 
 import httpx
 import pytest
 import respx
 
 from app.job_search.schemas import JobListing
-from app.notifications.resend_client import EmailSendError, send_daily_digest_email
+from app.models.application import Application
+from app.notifications.resend_client import (
+    EmailSendError,
+    send_application_reminders_email,
+    send_daily_digest_email,
+)
 
 
 def _listing(url: str = "https://example.com/job/1") -> JobListing:
@@ -105,3 +111,103 @@ def test_send_daily_digest_email_rejects_javascript_scheme_urls():
 
     payload = json.loads(route.calls[0].request.content)
     assert "javascript:" not in payload["html"]
+
+
+def _application(
+    company_name: str = "Acme",
+    job_title: str = "Développeur Python",
+    submitted_at: datetime | None = None,
+    created_at: datetime | None = None,
+) -> Application:
+    return Application(
+        id=1,
+        user_id=1,
+        diagnostic_id=1,
+        offer_url="https://example.com/job/1",
+        source="manual",
+        company_name=company_name,
+        job_title=job_title,
+        ats_type=None,
+        status="soumise_auto",
+        submitted_at=submitted_at,
+        created_at=created_at or datetime(2026, 7, 1, tzinfo=UTC).replace(tzinfo=None),
+    )
+
+
+@respx.mock
+def test_send_application_reminders_email_posts_to_resend():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    to_relance = [
+        _application(submitted_at=datetime(2026, 7, 1, tzinfo=UTC).replace(tzinfo=None))
+    ]
+    to_finalize: list[Application] = []
+
+    send_application_reminders_email("jane@example.com", to_relance, to_finalize)
+
+    assert route.called
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["to"] == ["jane@example.com"]
+    assert "1 candidature" in payload["subject"]
+    assert "à relancer" in payload["subject"]
+    assert "Acme" in payload["html"]
+    assert "candidatures" in payload["html"]  # lien vers la page candidatures
+
+
+@respx.mock
+def test_send_application_reminders_email_includes_both_sections():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    to_relance = [
+        _application(
+            company_name="Acme",
+            submitted_at=datetime(2026, 7, 1, tzinfo=UTC).replace(tzinfo=None),
+        )
+    ]
+    to_finalize = [_application(company_name="Globex")]
+
+    send_application_reminders_email("jane@example.com", to_relance, to_finalize)
+
+    payload = json.loads(route.calls[0].request.content)
+    assert "2 candidatures" in payload["subject"]
+    assert "Acme" in payload["html"]
+    assert "Globex" in payload["html"]
+
+
+@respx.mock
+def test_send_application_reminders_email_raises_on_http_error():
+    respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(422, json={"message": "invalid from address"})
+    )
+
+    with pytest.raises(EmailSendError):
+        send_application_reminders_email(
+            "jane@example.com",
+            [
+                _application(
+                    submitted_at=datetime(2026, 7, 1, tzinfo=UTC).replace(tzinfo=None)
+                )
+            ],
+            [],
+        )
+
+
+@respx.mock
+def test_send_application_reminders_email_escapes_html_in_fields():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    to_finalize = [
+        _application(company_name="<script>alert(1)</script>", job_title="Dev")
+    ]
+
+    send_application_reminders_email("jane@example.com", [], to_finalize)
+
+    payload = json.loads(route.calls[0].request.content)
+    assert "<script>" not in payload["html"]
+    assert "&lt;script&gt;" in payload["html"]
