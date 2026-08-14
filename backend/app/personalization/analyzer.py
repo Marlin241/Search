@@ -53,6 +53,24 @@ _CV_REWRITE_TOOL = {
     },
 }
 
+_LENGTH_INSTRUCTIONS = (
+    "The rewritten CV must fit on a single A4 page when rendered. To achieve "
+    "this: keep the summary to 2-3 sentences; keep each experience entry to "
+    "at most 3-4 short bullets; if the original CV has more than 4 "
+    "experience entries, keep only the ones most relevant to the offer "
+    "(you may omit older or less relevant ones) rather than shortening all "
+    "of them equally; keep the skills list focused rather than exhaustive. "
+    "Prioritize relevance to the offer over completeness."
+)
+
+_SHRINK_FURTHER_INSTRUCTIONS = (
+    "A previous attempt at this rewrite still did not fit on a single A4 "
+    "page. Cut further: reduce the summary to a single sentence, keep at "
+    "most 2-3 bullets per experience entry, keep only the 2-3 most "
+    "relevant experience entries, and trim the skills list to the terms "
+    "most relevant to the offer."
+)
+
 _COVER_LETTER_TOOL = {
     "name": "submit_cover_letter",
     "description": "Submit the generated cover letter for the target job offer.",
@@ -109,6 +127,11 @@ def _submit_via_tool_use(
                 # reasoning, so thinking is disabled: max_tokens is then
                 # dedicated entirely to the response.
                 thinking={"type": "disabled"},
+                # Low temperature for the same reason as the diagnostic
+                # analyzer: this is structured extraction/rewriting, not
+                # creative writing, so results shouldn't drift between
+                # otherwise-identical calls (API default is 1.0).
+                temperature=0,
                 tools=[tool],
                 tool_choice={"type": "tool", "name": tool["name"]},
                 messages=[{"role": "user", "content": prompt}],
@@ -138,12 +161,19 @@ class CvRewriter:
         offer_text: str,
         missing_keywords: list[str],
         recommendations: list[str],
+        stricter_length: bool = False,
     ) -> RewrittenCv:
+        length_instructions = _LENGTH_INSTRUCTIONS
+        if stricter_length:
+            length_instructions = (
+                f"{_LENGTH_INSTRUCTIONS}\n\n{_SHRINK_FURTHER_INSTRUCTIONS}"
+            )
         prompt = (
             f"{_ANTI_HALLUCINATION_INSTRUCTIONS}\n\n"
             "Rewrite this CV to better match the job offer. The CV and offer "
             "may be in French or English; respond in the same language as "
             "the CV.\n\n"
+            f"{length_instructions}\n\n"
             f"CV:\n{cv_text}\n\nJob offer:\n{offer_text}\n\n"
             f"Missing keywords identified by a prior diagnostic: {missing_keywords}\n"
             f"Recommendations from a prior diagnostic: {recommendations}"

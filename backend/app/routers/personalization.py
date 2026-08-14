@@ -116,14 +116,33 @@ def generate_cv(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
 
-    needs_review = cv_needs_review(diagnostic.cv_text, rewritten)
     try:
-        pdf_bytes = render_cv_pdf(rewritten)
+        pdf_bytes, page_count = render_cv_pdf(rewritten)
     except FPDFException as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="La génération du PDF a échoué.",
         ) from exc
+
+    # The rewrite prompt already asks the model to fit a single A4 page,
+    # but that's not guaranteed - retry once with a stricter prompt if it
+    # still overflows. Best-effort: if the retry itself fails, keep the
+    # first (over-length) result rather than failing the whole request.
+    if page_count > 1:
+        try:
+            retried = rewriter.rewrite(
+                diagnostic.cv_text,
+                diagnostic.offer_text,
+                diagnostic.missing_keywords,
+                diagnostic.recommendations,
+                stricter_length=True,
+            )
+            pdf_bytes, page_count = render_cv_pdf(retried)
+            rewritten = retried
+        except (PersonalizationError, FPDFException):
+            pass
+
+    needs_review = cv_needs_review(diagnostic.cv_text, rewritten)
     key = _storage_key(current_user.id, diagnostic.id, "cv")
 
     try:

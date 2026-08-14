@@ -22,7 +22,14 @@ def _new_pdf() -> FPDF:
     return pdf
 
 
-def render_cv_pdf(cv: RewrittenCv) -> bytes:
+def render_cv_pdf(cv: RewrittenCv) -> tuple[bytes, int]:
+    """Render the CV to PDF bytes, along with the resulting page count.
+
+    The page count lets callers detect when the LLM's rewrite still didn't
+    fit on the single A4 page it was asked to target (see
+    `CvRewriter._LENGTH_INSTRUCTIONS`) and react - e.g. retry with a
+    stricter prompt - instead of silently shipping a 2-page "CV".
+    """
     pdf = _new_pdf()
 
     pdf.set_font("DejaVu", "B", 14)
@@ -62,7 +69,7 @@ def render_cv_pdf(cv: RewrittenCv) -> bytes:
     pdf.set_font("DejaVu", "", 11)
     pdf.multi_cell(0, 6, ", ".join(cv.skills))
 
-    return bytes(pdf.output())
+    return bytes(pdf.output()), pdf.pages_count
 
 
 def render_cover_letter_pdf(letter: CoverLetter) -> bytes:

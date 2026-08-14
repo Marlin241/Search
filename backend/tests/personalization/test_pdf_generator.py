@@ -17,10 +17,11 @@ def test_render_cv_pdf_returns_nonempty_pdf_bytes():
         skills=["Python", "Docker", "PostgreSQL"],
     )
 
-    pdf_bytes = render_cv_pdf(cv)
+    pdf_bytes, page_count = render_cv_pdf(cv)
 
     assert pdf_bytes.startswith(b"%PDF")
     assert len(pdf_bytes) > 500
+    assert page_count == 1
 
 
 def test_render_cover_letter_pdf_returns_nonempty_pdf_bytes():
@@ -58,9 +59,30 @@ def test_render_cv_pdf_handles_typographic_characters_claude_commonly_emits():
         skills=["Œuvre collective"],
     )
 
-    pdf_bytes = render_cv_pdf(cv)
+    pdf_bytes, _ = render_cv_pdf(cv)
 
     assert pdf_bytes.startswith(b"%PDF")
+
+
+def test_render_cv_pdf_reports_page_count_above_one_when_content_overflows():
+    cv = RewrittenCv(
+        summary="Résumé optimisé pour cette offre. " * 20,
+        experience=[
+            CvExperienceEntry(
+                title=f"Poste {i}",
+                company="TechCorp Solutions",
+                dates="2020-2022",
+                bullets=[f"Réalisation notable numéro {i}. " * 10 for _ in range(6)],
+            )
+            for i in range(10)
+        ],
+        education=["Master Informatique, Université Paris-Saclay, 2019"],
+        skills=["Python", "Docker", "PostgreSQL"],
+    )
+
+    _, page_count = render_cv_pdf(cv)
+
+    assert page_count > 1
 
 
 def test_render_cover_letter_pdf_handles_typographic_characters_claude_commonly_emits():

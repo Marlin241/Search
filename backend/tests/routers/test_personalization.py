@@ -11,7 +11,9 @@ from app.storage.dependencies import get_object_storage
 
 
 class FakeCvRewriter:
-    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
+    def rewrite(
+        self, cv_text, offer_text, missing_keywords, recommendations, stricter_length=False
+    ):
         return RewrittenCv(
             summary="Résumé optimisé.",
             experience=[
@@ -28,10 +30,55 @@ class FakeCvRewriter:
 
 
 class FailingCvRewriter:
-    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
+    def rewrite(
+        self, cv_text, offer_text, missing_keywords, recommendations, stricter_length=False
+    ):
         from app.personalization.analyzer import PersonalizationError
 
         raise PersonalizationError("boom")
+
+
+class OverflowingThenShortCvRewriter:
+    """First call returns a CV long enough to overflow a single A4 page;
+    the retry call (stricter_length=True) returns a short one - exercises
+    the router's post-generation page-count retry."""
+
+    def __init__(self):
+        self.stricter_length_flags: list[bool] = []
+
+    def rewrite(
+        self, cv_text, offer_text, missing_keywords, recommendations, stricter_length=False
+    ):
+        self.stricter_length_flags.append(stricter_length)
+        if not stricter_length:
+            return RewrittenCv(
+                summary="Résumé optimisé. " * 30,
+                experience=[
+                    CvExperienceEntry(
+                        title="Développeuse",
+                        company="Acme",
+                        dates="2020-2022",
+                        bullets=["A conçu des API performantes et robustes. " * 8]
+                        * 6,
+                    )
+                    for _ in range(8)
+                ],
+                education=["Master Informatique"] * 5,
+                skills=["Python"] * 30,
+            )
+        return RewrittenCv(
+            summary="Résumé optimisé, version courte.",
+            experience=[
+                CvExperienceEntry(
+                    title="Développeuse",
+                    company="Acme",
+                    dates="2020-2022",
+                    bullets=["A conçu des API."],
+                )
+            ],
+            education=["Master Informatique"],
+            skills=["Python"],
+        )
 
 
 class FakeCoverLetterGenerator:
@@ -153,6 +200,30 @@ def test_generate_cv_returns_metadata_and_download_serves_pdf(client):
     assert download.status_code == 200
     assert download.headers["content-type"] == "application/pdf"
     assert download.content.startswith(b"%PDF")
+
+    _clear_personalization_overrides()
+
+
+def test_generate_cv_retries_with_stricter_prompt_when_pdf_overflows_one_page(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    diagnostic_id = _create_diagnostic(client, headers)
+    _override_personalization_deps()
+    rewriter = OverflowingThenShortCvRewriter()
+    app.dependency_overrides[get_cv_rewriter] = lambda: rewriter
+
+    generate = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
+    assert generate.status_code == 201
+
+    # First call with the normal prompt, second (retry) with stricter_length=True.
+    assert rewriter.stricter_length_flags == [False, True]
+
+    download = client.get(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
+    assert download.status_code == 200
+    import pdfplumber
+
+    with pdfplumber.open(io.BytesIO(download.content)) as pdf:
+        assert len(pdf.pages) == 1
 
     _clear_personalization_overrides()
 
