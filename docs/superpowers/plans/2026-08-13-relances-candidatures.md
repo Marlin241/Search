@@ -452,17 +452,18 @@ def _make_diagnostic(db_session, user: User) -> Diagnostic:
 
 
 def _make_application(db_session, user, diagnostic, offer_url, **overrides):
-    application = Application(
-        user_id=user.id,
-        diagnostic_id=diagnostic.id,
-        offer_url=offer_url,
-        source="manual",
-        company_name="Acme",
-        job_title="Développeur Python",
-        ats_type=None,
-        status=APPLICATION_STATUS_EN_COURS,
-        **overrides,
-    )
+    defaults = {
+        "user_id": user.id,
+        "diagnostic_id": diagnostic.id,
+        "offer_url": offer_url,
+        "source": "manual",
+        "company_name": "Acme",
+        "job_title": "Développeur Python",
+        "ats_type": None,
+        "status": APPLICATION_STATUS_EN_COURS,
+    }
+    defaults.update(overrides)
+    application = Application(**defaults)
     db_session.add(application)
     db_session.commit()
     return application
