@@ -45,5 +45,6 @@ class Application(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     diagnostic: Mapped["Diagnostic"] = relationship()

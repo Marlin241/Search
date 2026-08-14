@@ -116,3 +116,27 @@ def test_deleting_diagnostic_cascades_to_application(db_session):
         db_session.query(Application).filter(Application.id == application_id).first()
         is None
     )
+
+
+def test_reminder_sent_at_defaults_to_none(db_session):
+    diagnostic = _make_diagnostic(db_session)
+
+    application = Application(
+        user_id=diagnostic.user_id,
+        diagnostic_id=diagnostic.id,
+        offer_url="https://example.com/job/reminder-default",
+        source="manual",
+        company_name="Acme",
+        job_title="Dev",
+        ats_type=None,
+        status=APPLICATION_STATUS_EN_COURS,
+    )
+    db_session.add(application)
+    db_session.commit()
+
+    fetched = (
+        db_session.query(Application)
+        .filter(Application.offer_url == "https://example.com/job/reminder-default")
+        .first()
+    )
+    assert fetched.reminder_sent_at is None
