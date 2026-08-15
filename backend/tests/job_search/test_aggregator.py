@@ -114,6 +114,42 @@ def test_search_jobs_without_exclude_keywords_keeps_everything():
     assert len(listings) == 1
 
 
+def test_search_jobs_drops_non_alternance_listings_when_filtering_for_alternance():
+    # Regression test: France Travail has no typeContrat code for
+    # "alternance" (see france_travail.py), so a plain CDI/CDD offer it
+    # returns unfiltered must still be dropped here rather than leak through
+    # as if it were an apprenticeship.
+    kept = _listing(
+        title="Développeur Python en alternance", url="https://example.com/keep"
+    )
+    dropped = _listing(
+        title="Développeur Python (H/F)",
+        snippet="Poste en CDI, statut cadre.",
+        url="https://example.com/drop",
+    )
+
+    listings, _ = search_jobs(
+        SearchCriteria(keywords="python", contract_type="alternance"),
+        {"source_a": StaticClient([kept, dropped])},
+    )
+
+    assert [listing.url for listing in listings] == ["https://example.com/keep"]
+
+
+def test_search_jobs_does_not_text_filter_natively_supported_contract_types():
+    # "cdi" is filtered server-side by France Travail already; the
+    # aggregator must not additionally require the word "CDI" to appear in
+    # the snippet, since a short excerpt often won't mention it at all.
+    listing = _listing(snippet="Poste sur site, aucune mention du type de contrat.")
+
+    listings, _ = search_jobs(
+        SearchCriteria(keywords="python", contract_type="cdi"),
+        {"source_a": StaticClient([listing])},
+    )
+
+    assert len(listings) == 1
+
+
 def test_search_jobs_with_remote_true_keeps_only_listings_with_a_remote_indicator():
     on_site = _listing(
         location="Paris", snippet="Poste sur site.", url="https://example.com/on-site"

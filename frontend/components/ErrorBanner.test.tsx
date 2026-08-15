@@ -10,6 +10,6 @@ describe("ErrorBanner", () => {
 
   it("applies warning styling for the warning variant", () => {
     render(<ErrorBanner content={{ message: "Limite atteinte.", variant: "warning" }} />);
-    expect(screen.getByRole("alert").className).toContain("orange");
+    expect(screen.getByRole("alert").className).toContain("pending");
   });
 });

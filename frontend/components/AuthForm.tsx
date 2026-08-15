@@ -39,34 +39,37 @@ export function AuthForm({ mode, onModeChange, onSubmit }: AuthFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
       <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Diagnostic ATS</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+        <p className="text-xs font-bold uppercase tracking-wide text-accent-strong">Diagnostic ATS</p>
+        <h1 className="mt-1.5 font-display text-2xl font-bold text-ink">
           {mode === "login" ? "Connexion" : "Inscription"}
         </h1>
+        <p className="mt-1.5 text-sm text-ink-soft">
+          {mode === "login" ? "Content de te revoir." : "Quelques secondes suffisent pour commencer."}
+        </p>
       </div>
       {formError && (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <p role="alert" className="rounded-2xl bg-attention-soft px-4 py-2.5 text-sm font-medium text-attention-ink">
           {formError}
         </p>
       )}
-      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+      <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
         Email
         <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        {emailError && <span className="text-sm text-red-600 dark:text-red-400">{emailError}</span>}
+        {emailError && <span className="text-sm font-medium text-attention-ink">{emailError}</span>}
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+      <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
         Mot de passe
         <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
       </label>
-      <Button type="submit" isLoading={isSubmitting}>
+      <Button type="submit" isLoading={isSubmitting} className="mt-1">
         {mode === "login" ? "Se connecter" : "Créer mon compte"}
       </Button>
       <button
         type="button"
         onClick={() => onModeChange(mode === "login" ? "register" : "login")}
-        className="text-sm font-semibold text-amber-700 underline dark:text-amber-400"
+        className="text-center text-sm font-semibold text-accent-strong"
       >
         {mode === "login" ? "Pas de compte ? S'inscrire" : "Déjà un compte ? Se connecter"}
       </button>

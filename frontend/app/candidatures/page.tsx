@@ -107,30 +107,28 @@ function CandidaturesPageContent() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-8 py-10">
-      <p className="text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Candidatures</p>
-      <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-        Trouver et postuler à des offres
-      </h1>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Définissez vos critères, sélectionnez les offres qui vous intéressent, puis relisez chaque candidature avant
-        l&apos;envoi.
-      </p>
+    <main className="mx-auto max-w-2xl px-6 py-9 sm:px-8 sm:py-10">
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-accent2 to-accent2-strong px-7 py-7 text-[oklch(0.14_0.02_60)] sm:px-8">
+        <p className="text-xs font-extrabold uppercase tracking-wide opacity-70">Candidatures</p>
+        <h1 className="mt-1.5 font-display text-3xl font-extrabold tracking-tight">Trouver et postuler à des offres</h1>
+        <p className="mt-1.5 max-w-md opacity-85">
+          Définis tes critères, sélectionne les offres qui t&apos;intéressent, puis relis chaque candidature avant
+          l&apos;envoi.
+        </p>
+      </div>
 
       <div className="mt-6">
         <SearchCriteriaForm value={criteria} onChange={setCriteria} onSearch={handleSearch} isSearching={isSearching} />
       </div>
 
       {token && (
-        <div className="mt-4">
+        <div className="mt-3.5">
           <SavedSearchPanel token={token} criteria={criteria} />
         </div>
       )}
 
       {isDiscovering && (
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-          Recherche en cours sur les sites des entreprises...
-        </p>
+        <p className="mt-3 text-sm text-ink-soft">Recherche en cours sur les sites des entreprises...</p>
       )}
 
       {banner && (
@@ -151,8 +149,8 @@ function CandidaturesPageContent() {
       )}
 
       {applications.length > 0 && token && (
-        <div className="mt-10 flex flex-col gap-6">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">Vos candidatures</h2>
+        <div className="mt-11 flex flex-col gap-5">
+          <h2 className="font-display text-lg font-bold text-ink">Tes candidatures</h2>
           {applications.map((application) => (
             <ApplicationCard
               key={application.id}

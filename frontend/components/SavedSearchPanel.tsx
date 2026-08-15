@@ -62,12 +62,12 @@ export function SavedSearchPanel({ token, criteria }: SavedSearchPanelProps) {
   }
 
   return (
-    <Card className="mt-4 flex flex-col gap-3 p-4">
-      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Recherche automatique</p>
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Recevez un email quotidien listant les nouvelles offres correspondant aux critères ci-dessus.
+    <Card className="mt-3.5 flex flex-col gap-2.5 p-5">
+      <p className="text-[14.5px] font-bold text-ink">Recherche automatique</p>
+      <p className="text-[13.5px] text-ink-soft">
+        Reçois un email dès qu&apos;une nouvelle offre correspond à ces critères.
       </p>
-      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+      <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
         Fuseau horaire
         <Select value={timezone} onChange={(event) => setTimezone(event.target.value)}>
           {TIMEZONES.map((tz) => (
@@ -78,17 +78,19 @@ export function SavedSearchPanel({ token, criteria }: SavedSearchPanelProps) {
         </Select>
       </label>
       {banner && <ErrorBanner content={banner} />}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <Button
           onClick={() => persist(true)}
           isLoading={isSaving}
           disabled={criteria.keywords.trim().length === 0}
+          variant="secondary"
+          size="sm"
           className="w-fit"
         >
           Sauvegarder cette recherche
         </Button>
         {hasSaved && (
-          <Button variant="secondary" onClick={() => persist(!enabled)} isLoading={isSaving} className="w-fit">
+          <Button variant="secondary" size="sm" onClick={() => persist(!enabled)} isLoading={isSaving} className="w-fit">
             {enabled ? "Désactiver" : "Activer"}
           </Button>
         )}

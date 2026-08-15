@@ -6,12 +6,10 @@ describe("tailwind.config", () => {
     expect(config.darkMode).toBe("media");
   });
 
-  it("defines the ink color scale used for dark surfaces", () => {
-    const colors = config.theme?.extend?.colors as Record<string, Record<string, string>> | undefined;
-    expect(colors?.ink).toEqual({
-      800: "#232b3a",
-      900: "#131924",
-      950: "#0b0f16",
-    });
+  it("maps the design tokens to CSS custom properties", () => {
+    const colors = config.theme?.extend?.colors as Record<string, string> | undefined;
+    expect(colors?.ink).toBe("var(--ink)");
+    expect(colors?.surface).toBe("var(--surface)");
+    expect(colors?.accent).toBe("var(--accent)");
   });
 });

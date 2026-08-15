@@ -57,14 +57,16 @@ function DiagnosticPageContent() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-8 py-10">
-      <p className="text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Diagnostic</p>
-      <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">Analyser un CV</h1>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Uploadez votre CV et l&apos;offre visée pour comprendre ce qui bloque côté ATS.
-      </p>
+    <main className="mx-auto max-w-2xl px-6 py-9 sm:px-8 sm:py-10">
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-accent to-accent-strong px-7 py-7 text-ink-on-accent sm:px-8">
+        <p className="text-xs font-extrabold uppercase tracking-wide opacity-85">Diagnostic</p>
+        <h1 className="mt-1.5 font-display text-3xl font-extrabold tracking-tight">Analyser un CV</h1>
+        <p className="mt-1.5 max-w-md opacity-90">
+          Dépose ton CV et l&apos;offre visée, on t&apos;explique ce qui bloque côté ATS et comment y remédier.
+        </p>
+      </div>
 
-      <div className="mt-6 flex flex-col gap-4">
+      <div className="mt-6 flex flex-col gap-3.5">
         <CVDropzone file={file} onFileSelected={setFile} />
         <OfferInput value={offer} onChange={setOffer} />
         {banner && <ErrorBanner content={banner} />}
@@ -73,11 +75,21 @@ function DiagnosticPageContent() {
         </Button>
       </div>
 
-      {report && (
-        <div className="mt-10 flex flex-col gap-6">
+      {isSubmitting && (
+        <div className="mt-10 flex flex-col items-center gap-3.5 py-10 text-center">
+          <div className="h-[120px] w-[120px] animate-spin rounded-full border-[10px] border-surface-2 border-t-accent" />
+          <p className="text-[15px] font-bold text-ink">Analyse en cours…</p>
+          <p className="max-w-[280px] text-[13.5px] text-ink-soft">
+            On compare ton CV aux filtres ATS et à l&apos;offre. Ça prend quelques secondes.
+          </p>
+        </div>
+      )}
+
+      {report && !isSubmitting && (
+        <div className="mt-11 flex flex-col gap-6">
           <DiagnosticReportView report={report} />
           {token && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <PersonalizedDocumentCard
                 title="CV optimisé"
                 generatedLabel="Générer CV optimisé"

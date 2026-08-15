@@ -55,28 +55,27 @@ export function PersonalizedDocumentCard({
   }
 
   return (
-    <Card className="p-4">
-      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{title}</p>
+    <Card className="flex flex-col gap-2.5 p-5">
+      <p className="text-[14.5px] font-bold text-ink">{title}</p>
 
-      {banner && (
-        <div className="mt-2">
-          <ErrorBanner content={banner} />
-        </div>
-      )}
+      {banner && <ErrorBanner content={banner} />}
 
       {!generatedDocument && (
-        <Button onClick={handleGenerate} isLoading={isGenerating} size="sm" className="mt-2">
-          {isGenerating ? "Génération en cours..." : generatedLabel}
-        </Button>
+        <>
+          <p className="text-[13px] text-ink-soft">Une version reformulée par l&apos;IA, prête à relire et ajuster.</p>
+          <Button onClick={handleGenerate} isLoading={isGenerating} variant="secondary" size="sm" className="w-fit">
+            {isGenerating ? "Génération en cours..." : generatedLabel}
+          </Button>
+        </>
       )}
 
       {generatedDocument && (
-        <div className="mt-2 flex flex-col gap-2">
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+        <div className="flex flex-col gap-2">
+          <p className="rounded-2xl bg-accent-soft px-4 py-2.5 text-sm font-medium text-accent-ink">
             Relisez ce document avant de l&apos;envoyer.
           </p>
           {generatedDocument.needs_review && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            <p className="rounded-2xl bg-attention-soft px-4 py-2.5 text-sm font-medium text-attention-ink">
               À vérifier : ce document pourrait contenir des éléments absents de votre CV d&apos;origine.
             </p>
           )}

@@ -56,9 +56,9 @@ const FIELDS: Array<{ key: keyof CandidateProfileFormValue; label: string; requi
 
 export function CandidateProfileForm({ value, onChange, onSubmit, isSubmitting }: CandidateProfileFormProps) {
   return (
-    <Card className="flex flex-col gap-4 p-4">
+    <Card className="flex flex-col gap-3.5 p-5">
       {FIELDS.map(({ key, label, required }) => (
-        <label key={key} className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+        <label key={key} className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
           {label}
           <Input
             type="text"

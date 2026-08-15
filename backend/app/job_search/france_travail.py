@@ -5,14 +5,22 @@ import httpx
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria
 
-TOKEN_URL = (
-    "https://entreprise.pole-emploi.fr/connexion/oauth2/access_token?realm=/partenaire"
-)
+TOKEN_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=/partenaire"
 SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
 COMMUNES_URL = "https://geo.api.gouv.fr/communes"
 
 _INSEE_CODE_RE = re.compile(r"^\d{5}$")
 _NATIONWIDE_LOCATIONS = {"france"}
+
+# France Travail's typeContrat referential only recognizes these codes; a
+# value it doesn't recognize (e.g. "alternance", "stage") makes the whole
+# search request fail with a 400, which takes the entire source down rather
+# than just narrowing results. Contract types outside this map (apprenticeship
+# offers are better served by La Bonne Alternance anyway, and are filtered
+# back out client-side by the aggregator - see aggregator.py) are simply left
+# unfiltered on this source instead of being sent through as an unrecognized
+# code. Keys are the values the frontend's contract-type dropdown sends.
+_CONTRACT_TYPE_CODES = {"cdi": "CDI", "cdd": "CDD", "interim": "MIS", "sai": "SAI"}
 
 
 class FranceTravailClient:
@@ -94,10 +102,9 @@ class FranceTravailClient:
             if commune_code:
                 params["commune"] = commune_code
         if criteria.contract_type:
-            # France Travail's typeContrat codes are uppercase (CDI, CDD, ...);
-            # a lowercase value like "cdi" is rejected with a 400, so normalize
-            # whatever casing the user typed.
-            params["typeContrat"] = criteria.contract_type.upper()
+            code = _CONTRACT_TYPE_CODES.get(criteria.contract_type.strip().lower())
+            if code:
+                params["typeContrat"] = code
 
         try:
             response = self._http.get(

@@ -98,14 +98,14 @@ function ProfilPageContent() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-8 py-10">
-      <p className="text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Profil</p>
-      <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
-        Mon profil candidat
-      </h1>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-        Ces informations servent à pré-remplir vos candidatures automatiques.
-      </p>
+    <main className="mx-auto max-w-2xl px-6 py-9 sm:px-8 sm:py-10">
+      <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-[oklch(0.62_0.11_150)] to-[oklch(0.52_0.11_155)] px-7 py-7 text-ink-on-accent sm:px-8">
+        <p className="text-xs font-extrabold uppercase tracking-wide opacity-85">Profil</p>
+        <h1 className="mt-1.5 font-display text-3xl font-extrabold tracking-tight">Mon profil candidat</h1>
+        <p className="mt-1.5 max-w-md opacity-90">
+          Ces informations servent à pré-remplir tes candidatures automatiques.
+        </p>
+      </div>
 
       {banner && (
         <div className="mt-4">
@@ -117,14 +117,14 @@ function ProfilPageContent() {
         <CandidateProfileForm value={formValue} onChange={setFormValue} onSubmit={handleSave} isSubmitting={isSaving} />
       </div>
 
-      <Card className="mt-6 p-4">
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">CV de référence</p>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+      <Card className="mt-3.5 p-5">
+        <p className="text-[14.5px] font-bold text-ink">CV de référence</p>
+        <p className="mt-1 text-[13.5px] text-ink-soft">
           {profile?.has_cv ? `Fichier actuel : ${profile.cv_filename}` : "Aucun CV de référence uploadé pour le moment."}
         </p>
-        <div className="mt-3 flex flex-col gap-3">
+        <div className="mt-3.5 flex flex-col gap-3">
           <CVDropzone file={cvFile} onFileSelected={setCvFile} />
-          <Button onClick={handleUploadCv} disabled={!cvFile} isLoading={isUploadingCv} className="w-fit">
+          <Button onClick={handleUploadCv} disabled={!cvFile} isLoading={isUploadingCv} variant="secondary" className="w-fit">
             {isUploadingCv ? "Envoi en cours..." : "Uploader mon CV de référence"}
           </Button>
         </div>

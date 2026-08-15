@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FileSearch, Send, History, User, LogOut, FileText } from "lucide-react";
+import { FileSearch, Send, History, User, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const NAV_ITEMS = [
@@ -23,45 +23,42 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-200 bg-white px-3 py-4 dark:border-ink-800 dark:bg-ink-900">
-      <Link
-        href="/"
-        className="mb-6 flex items-center gap-2 px-2 text-sm font-extrabold tracking-tight text-slate-900 dark:text-slate-50"
-      >
-        <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-        Diagnostic ATS
+    <aside className="hidden w-[236px] flex-shrink-0 flex-col border-r border-border bg-surface px-3.5 py-5 md:flex">
+      <Link href="/" className="mb-6 flex items-center gap-2.5 px-1.5">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[11px] bg-gradient-to-br from-accent to-accent2 font-display text-sm font-extrabold text-ink-on-accent">
+          D
+        </span>
+        <span className="font-display text-[15px] font-bold text-ink">Diagnostic ATS</span>
       </Link>
 
       {user && (
         <>
-          <nav className="flex flex-col gap-1">
+          <nav className="flex flex-col gap-[3px]">
             {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href;
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors ${
-                    isActive
-                      ? "bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900"
-                      : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-ink-800"
+                  className={`flex items-center gap-[11px] rounded-2xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    isActive ? "bg-accent text-ink-on-accent shadow-soft" : "text-ink-soft hover:bg-surface-2"
                   }`}
                 >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <Icon className="h-[17px] w-[17px]" aria-hidden="true" />
                   {label}
                 </Link>
               );
             })}
           </nav>
 
-          <div className="mt-auto flex flex-col gap-2 border-t border-slate-200 pt-3 text-xs dark:border-ink-800">
-            <span className="truncate px-2.5 text-slate-500 dark:text-slate-400">{user.email}</span>
+          <div className="mt-auto flex flex-col gap-1 border-t border-border pt-3.5 text-xs">
+            <span className="truncate px-3 text-ink-faint">{user.email}</span>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-ink-800"
+              className="flex items-center gap-[11px] rounded-2xl px-3 py-2.5 text-left text-sm font-semibold text-ink-soft hover:bg-surface-2"
             >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <LogOut className="h-[17px] w-[17px]" aria-hidden="true" />
               Se déconnecter
             </button>
           </div>

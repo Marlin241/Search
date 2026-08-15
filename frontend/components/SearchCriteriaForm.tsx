@@ -2,8 +2,18 @@
 
 import { Card } from "./ui/Card";
 import { Button } from "./ui/Button";
-import { Input } from "./ui/Field";
+import { Input, Select } from "./ui/Field";
 import type { SearchCriteria } from "@/lib/types";
+
+const CONTRACT_TYPES = [
+  { value: "", label: "Tous types de contrat" },
+  { value: "cdi", label: "CDI" },
+  { value: "cdd", label: "CDD" },
+  { value: "alternance", label: "Alternance" },
+  { value: "stage", label: "Stage" },
+  { value: "interim", label: "Intérim" },
+  { value: "freelance", label: "Freelance / Indépendant" },
+];
 
 export interface SearchCriteriaFormValue {
   keywords: string;
@@ -47,8 +57,8 @@ interface SearchCriteriaFormProps {
 
 export function SearchCriteriaForm({ value, onChange, onSearch, isSearching }: SearchCriteriaFormProps) {
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+    <Card className="flex flex-col gap-3.5 p-5">
+      <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
         Mots-clés
         <Input
           type="text"
@@ -57,33 +67,39 @@ export function SearchCriteriaForm({ value, onChange, onSearch, isSearching }: S
           placeholder="ex: développeur python"
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
-        Localisation
-        <Input
-          type="text"
-          value={value.location}
-          onChange={(event) => onChange({ ...value, location: event.target.value })}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
-        Type de contrat
-        <Input
-          type="text"
-          value={value.contractType}
-          onChange={(event) => onChange({ ...value, contractType: event.target.value })}
-          placeholder="ex: CDI"
-        />
-      </label>
-      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
+          Localisation
+          <Input
+            type="text"
+            value={value.location}
+            onChange={(event) => onChange({ ...value, location: event.target.value })}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
+          Type de contrat
+          <Select
+            value={value.contractType}
+            onChange={(event) => onChange({ ...value, contractType: event.target.value })}
+          >
+            {CONTRACT_TYPES.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </label>
+      </div>
+      <label className="flex items-center gap-2.5 text-sm font-semibold text-ink-soft">
         <input
           type="checkbox"
           checked={value.remote}
           onChange={(event) => onChange({ ...value, remote: event.target.checked })}
-          className="h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500 dark:border-ink-800"
+          className="h-[18px] w-[18px] rounded-[6px] border-border-strong text-accent-strong focus:ring-accent"
         />
         Télétravail uniquement
       </label>
-      <label className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+      <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink-soft">
         Mots-clés à exclure (séparés par des virgules)
         <Input
           type="text"

@@ -2,10 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
-.auth-bg-grid {
-  background-image:
-    radial-gradient(circle at 30% 20%, rgba(251, 191, 36, 0.12), transparent 45%),
-    linear-gradient(#1c2433 1px, transparent 1px),
-    linear-gradient(90deg, #1c2433 1px, transparent 1px);
-  background-size: 100% 100%, 32px 32px, 32px 32px;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: oklch(0.97 0.012 55);
+  --surface: oklch(0.995 0.006 60);
+  --surface-2: oklch(0.955 0.015 55);
+  --surface-sunken: oklch(0.935 0.016 55);
+  --border: oklch(0.885 0.018 55);
+  --border-strong: oklch(0.8 0.02 50);
+  --ink: oklch(0.27 0.03 40);
+  --ink-soft: oklch(0.48 0.025 45);
+  --ink-faint: oklch(0.64 0.02 50);
+  --ink-on-accent: oklch(0.99 0.005 60);
+  --accent: oklch(0.68 0.19 34);
+  --accent-strong: oklch(0.56 0.2 30);
+  --accent-soft: oklch(0.92 0.06 40);
+  --accent-ink: oklch(0.32 0.11 30);
+  --accent2: oklch(0.72 0.13 195);
+  --accent2-strong: oklch(0.56 0.13 200);
+  --accent2-soft: oklch(0.91 0.05 195);
+  --accent2-ink: oklch(0.34 0.07 200);
+  --success: oklch(0.62 0.11 150);
+  --success-soft: oklch(0.92 0.045 150);
+  --success-ink: oklch(0.34 0.07 152);
+  --pending: oklch(0.72 0.13 78);
+  --pending-soft: oklch(0.93 0.055 85);
+  --pending-ink: oklch(0.4 0.09 65);
+  --attention: oklch(0.58 0.09 35);
+  --attention-soft: oklch(0.92 0.035 35);
+  --attention-ink: oklch(0.38 0.07 28);
+  --shadow-color: oklch(0.35 0.03 40 / 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: oklch(0.2 0.016 45);
+    --surface: oklch(0.25 0.018 45);
+    --surface-2: oklch(0.29 0.02 45);
+    --surface-sunken: oklch(0.175 0.015 45);
+    --border: oklch(0.34 0.02 45);
+    --border-strong: oklch(0.42 0.02 45);
+    --ink: oklch(0.95 0.012 60);
+    --ink-soft: oklch(0.78 0.018 55);
+    --ink-faint: oklch(0.58 0.02 50);
+    --ink-on-accent: oklch(0.16 0.01 40);
+    --accent: oklch(0.76 0.17 34);
+    --accent-strong: oklch(0.82 0.16 37);
+    --accent-soft: oklch(0.34 0.08 35);
+    --accent-ink: oklch(0.92 0.06 45);
+    --accent2: oklch(0.78 0.12 195);
+    --accent2-strong: oklch(0.83 0.11 198);
+    --accent2-soft: oklch(0.32 0.05 195);
+    --accent2-ink: oklch(0.88 0.06 195);
+    --success: oklch(0.72 0.11 150);
+    --success-soft: oklch(0.3 0.05 150);
+    --success-ink: oklch(0.86 0.06 150);
+    --pending: oklch(0.78 0.11 80);
+    --pending-soft: oklch(0.34 0.06 80);
+    --pending-ink: oklch(0.89 0.07 80);
+    --attention: oklch(0.72 0.09 40);
+    --attention-soft: oklch(0.33 0.045 32);
+    --attention-ink: oklch(0.87 0.06 38);
+    --shadow-color: oklch(0.05 0 0 / 0.35);
+  }
+}
+
+::placeholder {
+  color: var(--ink-faint);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(10px, -14px) rotate(6deg);
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 0px, var(--surface-sunken) 40px, var(--surface-2) 80px);
+  background-size: 200px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 42% 58% 65% 35% / 45% 40% 60% 55%;
+  animation: float 9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.lift {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px -14px var(--shadow-color);
 }

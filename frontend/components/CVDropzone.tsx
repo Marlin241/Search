@@ -35,13 +35,13 @@ export function CVDropzone({ file, onFileSelected }: CVDropzoneProps) {
         onClick={() => inputRef.current?.click()}
         onDragOver={(event) => event.preventDefault()}
         onDrop={handleDrop}
-        className="cursor-pointer rounded-xl border-2 border-dashed border-slate-300 bg-white p-7 text-center transition-colors hover:border-amber-400 dark:border-ink-800 dark:bg-ink-900 dark:hover:border-amber-500"
+        className="cursor-pointer rounded-[22px] border-2 border-dashed border-border-strong bg-surface p-7 text-center transition-colors hover:border-accent"
       >
-        <Upload className="mx-auto h-6 w-6 text-slate-400 dark:text-slate-500" aria-hidden="true" />
-        <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-50">
+        <Upload className="mx-auto h-6 w-6 text-accent-strong" aria-hidden="true" />
+        <p className="mt-2.5 text-sm font-bold text-ink">
           {file ? file.name : "Glissez votre CV ici ou cliquez pour parcourir"}
         </p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">PDF ou DOCX, 5 Mo max</p>
+        <p className="mt-1 text-xs text-ink-faint">PDF ou DOCX, 5 Mo max</p>
         <input
           ref={inputRef}
           type="file"
@@ -52,7 +52,7 @@ export function CVDropzone({ file, onFileSelected }: CVDropzoneProps) {
         />
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm font-medium text-attention-ink">
           {error}
         </p>
       )}

@@ -64,6 +64,24 @@ def test_search_uppercases_contract_type():
 
 
 @respx.mock
+def test_search_omits_typecontrat_for_unsupported_contract_type():
+    # "alternance" isn't a valid France Travail typeContrat code; sending it
+    # would 400 the whole request, so it must be dropped rather than passed
+    # through uppercased.
+    respx.post(TOKEN_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok123"})
+    )
+    search_route = respx.get(SEARCH_URL).mock(
+        return_value=httpx.Response(200, json={"resultats": []})
+    )
+
+    client = FranceTravailClient(client_id="id", client_secret="secret")
+    client.search(SearchCriteria(keywords="python", contract_type="alternance"))
+
+    assert "typeContrat" not in search_route.calls[0].request.url.params
+
+
+@respx.mock
 def test_search_raises_on_auth_failure():
     respx.post(TOKEN_URL).mock(
         return_value=httpx.Response(401, json={"error": "invalid_client"})

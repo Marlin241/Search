@@ -17,7 +17,7 @@ describe("JobListingsList", () => {
 
   it("shows a warning for unavailable sources", () => {
     render(<JobListingsList listings={listings} unavailableSources={["france_travail"]} onCreateApplications={vi.fn()} isCreating={false} />);
-    expect(screen.getByText(/france_travail/i)).toBeInTheDocument();
+    expect(screen.getByText(/sources indisponibles.*france_travail/i)).toBeInTheDocument();
   });
 
   it("disables the create-applications button until at least one listing is checked", () => {

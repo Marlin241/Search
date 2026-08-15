@@ -10,16 +10,16 @@ describe("Badge", () => {
 
   it("defaults to the neutral variant", () => {
     render(<Badge>Envoyée</Badge>);
-    expect(screen.getByText("Envoyée").className).toContain("bg-slate-100");
+    expect(screen.getByText("Envoyée").className).toContain("bg-surface-2");
   });
 
-  it("applies the emerald variant class", () => {
-    render(<Badge variant="emerald">Envoyée</Badge>);
-    expect(screen.getByText("Envoyée").className).toContain("emerald");
+  it("applies the success variant class", () => {
+    render(<Badge variant="success">Envoyée</Badge>);
+    expect(screen.getByText("Envoyée").className).toContain("success");
   });
 
-  it("applies the red variant class", () => {
-    render(<Badge variant="red">Échec</Badge>);
-    expect(screen.getByText("Échec").className).toContain("red");
+  it("applies the attention variant class", () => {
+    render(<Badge variant="attention">Échec</Badge>);
+    expect(screen.getByText("Échec").className).toContain("attention");
   });
 });

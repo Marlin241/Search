@@ -1,7 +1,7 @@
 import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 
 const fieldClassName =
-  "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none dark:border-ink-800 dark:bg-ink-900 dark:text-slate-50 dark:placeholder:text-slate-500 dark:focus:border-slate-50";
+  "rounded-2xl border border-border-strong bg-surface-sunken px-4 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   ({ className = "", ...props }, ref) => <input ref={ref} className={`${fieldClassName} ${className}`} {...props} />

@@ -10,7 +10,7 @@ describe("Card", () => {
 
   it("applies the default surface classes", () => {
     render(<Card data-testid="card">Contenu</Card>);
-    expect(screen.getByTestId("card").className).toContain("rounded-2xl");
+    expect(screen.getByTestId("card").className).toContain("rounded-3xl");
   });
 
   it("merges a custom className with the defaults", () => {
@@ -20,7 +20,7 @@ describe("Card", () => {
       </Card>
     );
     const className = screen.getByTestId("card").className;
-    expect(className).toContain("rounded-2xl");
+    expect(className).toContain("rounded-3xl");
     expect(className).toContain("p-4");
   });
 });

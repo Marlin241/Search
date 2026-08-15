@@ -7,6 +7,21 @@ from app.job_search.schemas import JobListing, SearchClient, SearchCriteria
 # objects, so this text heuristic is the only source-agnostic option.
 REMOTE_INDICATORS = ("remote", "télétravail", "distanciel")
 
+# Contract types with no reliable server-side filter on any source: France
+# Travail's typeContrat referential doesn't have codes for them (see
+# france_travail.py), and Greenhouse/Lever/La Bonne Alternance don't expose a
+# contract-type filter at all, so an "Alternance" search would otherwise
+# return every contract type unfiltered - including plain CDI offers.
+# "cdi"/"cdd"/"interim" aren't listed here because France Travail already
+# filters those server-side; re-filtering them against the listing's title
+# and 500-char snippet would risk dropping genuine matches that just don't
+# happen to say "CDI" in that excerpt.
+TEXT_ONLY_CONTRACT_TYPE_INDICATORS: dict[str, tuple[str, ...]] = {
+    "alternance": ("alternance", "apprenti", "professionnalisation"),
+    "stage": ("stage", "stagiaire"),
+    "freelance": ("freelance", "indépendant", "independant", "auto-entrepreneur"),
+}
+
 
 def _matches_any(
     text_fragments: list[str | None], needles: tuple[str, ...] | list[str]
@@ -20,6 +35,14 @@ def _passes_filters(listing: JobListing, criteria: SearchCriteria) -> bool:
         [listing.title, listing.snippet], criteria.exclude_keywords
     ):
         return False
+    if criteria.contract_type:
+        indicators = TEXT_ONLY_CONTRACT_TYPE_INDICATORS.get(
+            criteria.contract_type.strip().lower()
+        )
+        if indicators and not _matches_any(
+            [listing.title, listing.snippet], indicators
+        ):
+            return False
     return not (
         criteria.remote
         and not _matches_any([listing.location, listing.snippet], REMOTE_INDICATORS)

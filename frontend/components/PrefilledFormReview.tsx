@@ -20,24 +20,18 @@ export function PrefilledFormReview({ fields, onConfirm, onCancel, isConfirming 
   }
 
   return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950">
-      <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-        Relisez et complétez le formulaire avant l&apos;envoi
-      </p>
-      <div className="mt-3 flex flex-col gap-3">
+    <div className="rounded-3xl bg-accent-soft p-5">
+      <p className="text-sm font-bold text-accent-ink">Relisez et complétez le formulaire avant l&apos;envoi</p>
+      <div className="mt-3.5 flex flex-col gap-3">
         {values.map((field) => {
           const needsCompletion = field.required && !field.value;
           return (
-            <label key={field.name} className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
+            <label key={field.name} className="flex flex-col gap-1.5 text-[13px] font-semibold text-accent-ink">
               <span>
                 {field.label}
-                {field.is_custom && (
-                  <span className="ml-2 text-xs text-amber-700 dark:text-amber-400">
-                    (généré par l&apos;IA — à vérifier)
-                  </span>
-                )}
+                {field.is_custom && <span className="ml-2 text-xs font-normal opacity-80">(généré par l&apos;IA — à vérifier)</span>}
                 {needsCompletion && (
-                  <span className="ml-2 text-xs font-semibold text-red-600 dark:text-red-400">(à compléter)</span>
+                  <span className="ml-2 text-xs font-bold text-attention-ink">(à compléter)</span>
                 )}
               </span>
               {field.field_type === "textarea" ? (
