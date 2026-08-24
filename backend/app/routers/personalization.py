@@ -1,9 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Literal
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Form,
+    HTTPException,
+    Response,
+    status,
+)
 from fpdf.errors import FPDFException
 from sqlalchemy.orm import Session
 
+from app import database
 from app.auth.dependencies import get_current_user
 from app.database import get_db
+from app.generation_jobs import state as generation_jobs_state
+from app.llm_analyzer.analyzer import SemanticAnalyzer
+from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.models.diagnostic import Diagnostic
 from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.personalized_document import PersonalizedDocument
@@ -14,18 +28,21 @@ from app.personalization.analyzer import (
     PersonalizationError,
 )
 from app.personalization.dependencies import get_cover_letter_generator, get_cv_rewriter
-from app.personalization.pdf_generator import render_cover_letter_pdf, render_cv_pdf
-from app.personalization.verification import cv_needs_review
+from app.personalization.jobs import run_cv_generation_job
+from app.personalization.pdf_generator import render_cover_letter_pdf
 from app.rate_limit.limiter import (
     RateLimitExceeded,
     check_personalization_rate_limit,
     lock_user_for_rate_limit,
 )
+from app.schemas.generation_job import GenerationJobStarted
 from app.schemas.personalization import PersonalizedDocumentOut
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
 
 router = APIRouter(prefix="/diagnostics", tags=["personalization"])
+
+_CV_GENERATION_STEPS = 5
 
 
 def _get_owned_diagnostic(db: Session, diagnostic_id: int, user_id: int) -> Diagnostic:
@@ -78,22 +95,30 @@ def _upsert_document(
 
 @router.post(
     "/{diagnostic_id}/cv",
-    response_model=PersonalizedDocumentOut,
-    status_code=status.HTTP_201_CREATED,
+    response_model=GenerationJobStarted,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def generate_cv(
     diagnostic_id: int,
+    background_tasks: BackgroundTasks,
+    template: Literal["classic", "modern", "minimal"] = Form("classic"),
+    target_language: str = Form("fr"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     rewriter: CvRewriter = Depends(get_cv_rewriter),
+    analyzer: SemanticAnalyzer = Depends(get_semantic_analyzer),
     storage: ObjectStorage = Depends(get_object_storage),
-) -> PersonalizedDocumentOut:
+) -> GenerationJobStarted:
     # Same lock-then-check pattern as diagnostics.create_diagnostic (see
     # app/rate_limit/limiter.py): take the row lock BEFORE checking the
     # rate limit so concurrent requests from the same user serialize on it,
     # closing the TOCTOU race where multiple in-flight requests could all
     # pass the count check before any of their PersonalizationRequestLog
-    # rows exist.
+    # rows exist. The actual generation now runs in a background job (see
+    # app.personalization.jobs.run_cv_generation_job) - this endpoint only
+    # launches it and returns a job_id to poll via
+    # GET /generation-jobs/{job_id}, so the rate-limit gate must still be
+    # enforced synchronously here, before any job is created.
     lock_user_for_rate_limit(db, current_user.id)
     try:
         check_personalization_rate_limit(db, current_user.id)
@@ -104,72 +129,20 @@ def generate_cv(
 
     diagnostic = _get_owned_diagnostic(db, diagnostic_id, current_user.id)
 
-    try:
-        rewritten = rewriter.rewrite(
-            diagnostic.cv_text,
-            diagnostic.offer_text,
-            diagnostic.missing_keywords,
-            diagnostic.recommendations,
-        )
-    except PersonalizationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
-
-    try:
-        pdf_bytes, page_count = render_cv_pdf(rewritten)
-    except FPDFException as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="La génération du PDF a échoué.",
-        ) from exc
-
-    # The rewrite prompt already asks the model to fit a single A4 page,
-    # but that's not guaranteed - retry once with a stricter prompt if it
-    # still overflows. Best-effort: if the retry itself fails, keep the
-    # first (over-length) result rather than failing the whole request.
-    if page_count > 1:
-        try:
-            retried = rewriter.rewrite(
-                diagnostic.cv_text,
-                diagnostic.offer_text,
-                diagnostic.missing_keywords,
-                diagnostic.recommendations,
-                stricter_length=True,
-            )
-            pdf_bytes, page_count = render_cv_pdf(retried)
-            rewritten = retried
-        except (PersonalizationError, FPDFException):
-            pass
-
-    needs_review = cv_needs_review(diagnostic.cv_text, rewritten)
-    key = _storage_key(current_user.id, diagnostic.id, "cv")
-
-    try:
-        storage.upload(key, pdf_bytes)
-    except ObjectStorageError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Le stockage du document a échoué.",
-        ) from exc
-
-    # The PersonalizationRequestLog row (which the rate limit counts) is
-    # only added here, after the rewrite and the upload have both
-    # succeeded - not earlier. If either step fails, we raise before
-    # reaching this line and nothing is added to the session, so a failed
-    # (503) generation - which delivered nothing to the user - never
-    # consumes a slot of the user's hourly personalization quota.
-    document = _upsert_document(db, diagnostic.id, "cv", key, needs_review)
-    db.add(PersonalizationRequestLog(user_id=current_user.id))
-    db.commit()
-    db.refresh(document)
-
-    return PersonalizedDocumentOut(
-        kind=document.kind,
-        needs_review=document.needs_review,
-        created_at=document.created_at,
-        updated_at=document.updated_at,
+    job_id = generation_jobs_state.create_job(current_user.id, _CV_GENERATION_STEPS)
+    background_tasks.add_task(
+        run_cv_generation_job,
+        job_id,
+        diagnostic.id,
+        current_user.id,
+        template,
+        target_language,
+        rewriter,
+        analyzer,
+        storage,
+        database.SessionLocal,
     )
+    return GenerationJobStarted(job_id=job_id)
 
 
 @router.post(

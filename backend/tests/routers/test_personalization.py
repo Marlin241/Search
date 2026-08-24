@@ -2,6 +2,8 @@ import io
 
 from docx import Document
 
+from app.llm_analyzer.analyzer import SemanticReport
+from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.main import app
 from app.personalization.dependencies import get_cover_letter_generator, get_cv_rewriter
 from app.personalization.schemas import CoverLetter, CvExperienceEntry, RewrittenCv
@@ -10,9 +12,26 @@ from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
 
 
+class FakeSemanticAnalyzer:
+    """Used for the ats_score_after recompute inside run_cv_generation_job
+    - distinct from the FakeAnalyzer used to create the diagnostic itself,
+    kept around for the whole /cv call unlike that one (see
+    _create_diagnostic, which pops its own override immediately after
+    creating the diagnostic)."""
+
+    def analyze(self, cv_text: str, offer_text: str) -> SemanticReport:
+        return SemanticReport(score=75, missing_keywords=[], recommendations=[])
+
+
 class FakeCvRewriter:
     def rewrite(
-        self, cv_text, offer_text, missing_keywords, recommendations, stricter_length=False
+        self,
+        cv_text,
+        offer_text,
+        missing_keywords,
+        recommendations,
+        stricter_length=False,
+        **kwargs,
     ):
         return RewrittenCv(
             summary="Résumé optimisé.",
@@ -31,7 +50,13 @@ class FakeCvRewriter:
 
 class FailingCvRewriter:
     def rewrite(
-        self, cv_text, offer_text, missing_keywords, recommendations, stricter_length=False
+        self,
+        cv_text,
+        offer_text,
+        missing_keywords,
+        recommendations,
+        stricter_length=False,
+        **kwargs,
     ):
         from app.personalization.analyzer import PersonalizationError
 
@@ -47,7 +72,13 @@ class OverflowingThenShortCvRewriter:
         self.stricter_length_flags: list[bool] = []
 
     def rewrite(
-        self, cv_text, offer_text, missing_keywords, recommendations, stricter_length=False
+        self,
+        cv_text,
+        offer_text,
+        missing_keywords,
+        recommendations,
+        stricter_length=False,
+        **kwargs,
     ):
         self.stricter_length_flags.append(stricter_length)
         if not stricter_length:
@@ -58,8 +89,7 @@ class OverflowingThenShortCvRewriter:
                         title="Développeuse",
                         company="Acme",
                         dates="2020-2022",
-                        bullets=["A conçu des API performantes et robustes. " * 8]
-                        * 6,
+                        bullets=["A conçu des API performantes et robustes. " * 8] * 6,
                     )
                     for _ in range(8)
                 ],
@@ -175,12 +205,29 @@ def _override_personalization_deps():
         FakeCoverLetterGenerator()
     )
     app.dependency_overrides[get_object_storage] = lambda: storage
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeSemanticAnalyzer()
 
 
 def _clear_personalization_overrides():
     app.dependency_overrides.pop(get_cv_rewriter, None)
     app.dependency_overrides.pop(get_cover_letter_generator, None)
     app.dependency_overrides.pop(get_object_storage, None)
+    app.dependency_overrides.pop(get_semantic_analyzer, None)
+
+
+def _generate_cv_and_wait(client, headers, diagnostic_id, **form_data):
+    """POST /diagnostics/{id}/cv now launches a background job (202 + job_id)
+    instead of generating synchronously. TestClient runs BackgroundTasks
+    synchronously, so by the time this returns the job has already finished
+    - this just polls once to fetch the terminal GenerationJobOut."""
+    launch = client.post(
+        f"/diagnostics/{diagnostic_id}/cv", headers=headers, data=form_data
+    )
+    assert launch.status_code == 202
+    job_id = launch.json()["job_id"]
+    job = client.get(f"/generation-jobs/{job_id}", headers=headers)
+    assert job.status_code == 200
+    return job.json()
 
 
 def test_generate_cv_returns_metadata_and_download_serves_pdf(client):
@@ -189,12 +236,12 @@ def test_generate_cv_returns_metadata_and_download_serves_pdf(client):
     diagnostic_id = _create_diagnostic(client, headers)
     _override_personalization_deps()
 
-    generate = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
-    assert generate.status_code == 201
-    body = generate.json()
-    assert body["kind"] == "cv"
-    assert body["needs_review"] is False
-    assert body["created_at"]
+    job = _generate_cv_and_wait(client, headers, diagnostic_id)
+    assert job["status"] == "done"
+    assert job["result"]["kind"] == "cv"
+    assert job["result"]["needs_review"] is False
+    assert job["result"]["ats_score_before"] is not None
+    assert job["result"]["ats_score_after"] is not None
 
     download = client.get(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
     assert download.status_code == 200
@@ -212,8 +259,8 @@ def test_generate_cv_retries_with_stricter_prompt_when_pdf_overflows_one_page(cl
     rewriter = OverflowingThenShortCvRewriter()
     app.dependency_overrides[get_cv_rewriter] = lambda: rewriter
 
-    generate = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
-    assert generate.status_code == 201
+    job = _generate_cv_and_wait(client, headers, diagnostic_id)
+    assert job["status"] == "done"
 
     # First call with the normal prompt, second (retry) with stricter_length=True.
     assert rewriter.stricter_length_flags == [False, True]
@@ -251,8 +298,8 @@ def test_regenerating_cv_replaces_the_previous_document(client):
     diagnostic_id = _create_diagnostic(client, headers)
     _override_personalization_deps()
 
-    first = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers).json()
-    second = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers).json()
+    first = _generate_cv_and_wait(client, headers, diagnostic_id)["result"]
+    second = _generate_cv_and_wait(client, headers, diagnostic_id)["result"]
 
     assert first["created_at"] == second["created_at"]
     assert second["updated_at"] >= first["updated_at"]
@@ -302,15 +349,16 @@ def test_download_cv_before_generation_returns_404(client):
     _clear_personalization_overrides()
 
 
-def test_generate_cv_returns_503_on_llm_failure(client):
+def test_generate_cv_job_ends_in_error_status_on_llm_failure(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     diagnostic_id = _create_diagnostic(client, headers)
     _override_personalization_deps()
     app.dependency_overrides[get_cv_rewriter] = lambda: FailingCvRewriter()
 
-    response = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
-    assert response.status_code == 503
+    job = _generate_cv_and_wait(client, headers, diagnostic_id)
+    assert job["status"] == "error"
+    assert job["error"]
 
     _clear_personalization_overrides()
 
@@ -323,9 +371,34 @@ def test_personalization_rate_limit_returns_429(client):
 
     for _ in range(MAX_PERSONALIZATIONS_PER_HOUR):
         response = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
-        assert response.status_code == 201
+        assert response.status_code == 202
 
     blocked = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
     assert blocked.status_code == 429
+
+    _clear_personalization_overrides()
+
+
+def test_personalization_request_log_only_written_on_job_success(client, db_session):
+    from app.models.personalization_request_log import PersonalizationRequestLog
+
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    diagnostic_id = _create_diagnostic(client, headers)
+    _override_personalization_deps()
+    app.dependency_overrides[get_cv_rewriter] = lambda: FailingCvRewriter()
+
+    def _log_count() -> int:
+        return db_session.query(PersonalizationRequestLog).count()
+
+    before = _log_count()
+    failed_job = _generate_cv_and_wait(client, headers, diagnostic_id)
+    assert failed_job["status"] == "error"
+    assert _log_count() == before
+
+    app.dependency_overrides[get_cv_rewriter] = lambda: FakeCvRewriter()
+    succeeded_job = _generate_cv_and_wait(client, headers, diagnostic_id)
+    assert succeeded_job["status"] == "done"
+    assert _log_count() == before + 1
 
     _clear_personalization_overrides()

@@ -48,9 +48,99 @@ _CV_REWRITE_TOOL = {
                 "items": {"type": "string"},
                 "description": "Skills list, reordered/reworded to surface those matching the offer.",
             },
+            "honesty_assessment": {
+                "type": "object",
+                "description": "Your candid, unvarnished assessment of how well this "
+                "candidate actually fits the offer - not a sales pitch.",
+                "properties": {
+                    "fit_summary": {
+                        "type": "string",
+                        "description": "One or two honest sentences on overall fit, "
+                        "including real gaps if there are any.",
+                    },
+                    "concerns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Genuine gaps or mismatches between the candidate "
+                        "and the offer. Empty list only if there truly are none.",
+                    },
+                    "strengths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "The candidate's strongest, most genuine points "
+                        "of alignment with the offer.",
+                    },
+                },
+                "required": ["fit_summary", "concerns", "strengths"],
+            },
+            "keywords_added": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Offer keywords this rewrite newly incorporated, because "
+                "the candidate genuinely has that experience/skill.",
+            },
+            "keywords_already_present": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Offer keywords that were already present in the "
+                "original CV, unchanged by the rewrite.",
+            },
+            "keywords_deliberately_omitted": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "keyword": {"type": "string"},
+                        "reason": {
+                            "type": "string",
+                            "description": "Why it was left out - e.g. the candidate "
+                            "has no real experience with it. Never invent matching "
+                            "experience just to add a keyword.",
+                        },
+                    },
+                    "required": ["keyword", "reason"],
+                },
+                "description": "Keywords from the offer or the prior diagnostic's "
+                "missing-keywords list that you deliberately did NOT add, because doing "
+                "so would misrepresent the candidate. It is expected and good practice "
+                "to list entries here rather than fabricate matching experience - an "
+                "empty list should only happen when every relevant keyword genuinely "
+                "applies.",
+            },
+            "changelog": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "section": {"type": "string"},
+                        "change": {"type": "string"},
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["section", "change", "reason"],
+                },
+                "description": "A human-readable summary of what changed vs. the "
+                "original CV, section by section, and why.",
+            },
         },
-        "required": ["summary", "experience", "education", "skills"],
+        "required": [
+            "summary",
+            "experience",
+            "education",
+            "skills",
+            "honesty_assessment",
+            "keywords_added",
+            "keywords_already_present",
+            "keywords_deliberately_omitted",
+            "changelog",
+        ],
     },
+}
+
+_TARGET_LANGUAGE_NAMES = {
+    "fr": "French",
+    "en": "English",
+    "es": "Spanish",
+    "de": "German",
 }
 
 _LENGTH_INSTRUCTIONS = (
@@ -162,18 +252,34 @@ class CvRewriter:
         missing_keywords: list[str],
         recommendations: list[str],
         stricter_length: bool = False,
+        template: str = "classic",
+        target_language: str = "fr",
     ) -> RewrittenCv:
+        # `template` only affects PDF rendering (see app.personalization.pdf_templates)
+        # - it never reaches the prompt, the LLM has no notion of visual layout.
         length_instructions = _LENGTH_INSTRUCTIONS
         if stricter_length:
             length_instructions = (
                 f"{_LENGTH_INSTRUCTIONS}\n\n{_SHRINK_FURTHER_INSTRUCTIONS}"
             )
+        language_name = _TARGET_LANGUAGE_NAMES.get(target_language, target_language)
         prompt = (
             f"{_ANTI_HALLUCINATION_INSTRUCTIONS}\n\n"
-            "Rewrite this CV to better match the job offer. The CV and offer "
-            "may be in French or English; respond in the same language as "
-            "the CV.\n\n"
+            "Rewrite this CV to better match the job offer. Write the "
+            f"rewritten CV in {language_name}, regardless of the language "
+            "the original CV or offer are written in.\n\n"
             f"{length_instructions}\n\n"
+            "You must also honestly assess the candidate's real fit for "
+            "this offer (honesty_assessment), and account for every "
+            "relevant keyword: list ones you genuinely added "
+            "(keywords_added), ones already present (keywords_already_present), "
+            "and - just as important - ones you deliberately left out because "
+            "adding them would misrepresent the candidate "
+            "(keywords_deliberately_omitted, with the reason). Never invent "
+            "matching experience to justify adding a keyword; it is expected "
+            "and correct to leave real gaps in keywords_deliberately_omitted "
+            "rather than fabricate them. Also summarize what changed and why "
+            "(changelog).\n\n"
             f"CV:\n{cv_text}\n\nJob offer:\n{offer_text}\n\n"
             f"Missing keywords identified by a prior diagnostic: {missing_keywords}\n"
             f"Recommendations from a prior diagnostic: {recommendations}"

@@ -1,9 +1,18 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
+from app.personalization.pdf_templates.base import CvStyleOptions
+from app.personalization.schemas import RewrittenCv
 from app.schemas.diagnostic import DiagnosticReport
 from app.schemas.personalization import PersonalizedDocumentOut
+
+
+class CvRenderPreviewIn(BaseModel):
+    content: RewrittenCv
+    template: Literal["classic", "modern", "minimal"] = "classic"
+    style: CvStyleOptions = CvStyleOptions()
 
 
 class SavedJobIn(BaseModel):

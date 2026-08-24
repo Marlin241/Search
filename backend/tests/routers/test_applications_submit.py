@@ -41,7 +41,7 @@ class FakeAnalyzer:
 
 
 class FakeCvRewriter:
-    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
+    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations, **kwargs):
         return RewrittenCv(
             summary="Résumé.",
             experience=[
@@ -62,7 +62,7 @@ class FakeHallucinatingCvRewriter:
     absent from the reference CV, so `cv_needs_review` flags it - the
     anti-hallucination guard from sous-projet 3."""
 
-    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
+    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations, **kwargs):
         return RewrittenCv(
             summary="Résumé.",
             experience=[

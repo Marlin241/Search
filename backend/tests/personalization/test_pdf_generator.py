@@ -1,4 +1,5 @@
-from app.personalization.pdf_generator import render_cover_letter_pdf, render_cv_pdf
+from app.personalization.pdf_generator import render_cover_letter_pdf
+from app.personalization.pdf_templates import CvStyleOptions, render_cv
 from app.personalization.schemas import CoverLetter, CvExperienceEntry, RewrittenCv
 
 
@@ -17,7 +18,7 @@ def test_render_cv_pdf_returns_nonempty_pdf_bytes():
         skills=["Python", "Docker", "PostgreSQL"],
     )
 
-    pdf_bytes, page_count = render_cv_pdf(cv)
+    pdf_bytes, page_count = render_cv("classic", cv, None, CvStyleOptions())
 
     assert pdf_bytes.startswith(b"%PDF")
     assert len(pdf_bytes) > 500
@@ -59,7 +60,7 @@ def test_render_cv_pdf_handles_typographic_characters_claude_commonly_emits():
         skills=["Œuvre collective"],
     )
 
-    pdf_bytes, _ = render_cv_pdf(cv)
+    pdf_bytes, _ = render_cv("classic", cv, None, CvStyleOptions())
 
     assert pdf_bytes.startswith(b"%PDF")
 
@@ -80,7 +81,7 @@ def test_render_cv_pdf_reports_page_count_above_one_when_content_overflows():
         skills=["Python", "Docker", "PostgreSQL"],
     )
 
-    _, page_count = render_cv_pdf(cv)
+    _, page_count = render_cv("classic", cv, None, CvStyleOptions())
 
     assert page_count > 1
 

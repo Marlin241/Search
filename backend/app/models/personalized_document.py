@@ -1,7 +1,15 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -25,6 +33,12 @@ class PersonalizedDocument(Base):
     kind: Mapped[str] = mapped_column(String(10), nullable=False)
     storage_key: Mapped[str] = mapped_column(String(255), nullable=False)
     needs_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Structured content behind the rendered PDF (currently: a CV's
+    # RewrittenCv.model_dump()) so the Phase 4 CV editor can re-render via
+    # POST /saved-jobs/{id}/cv/render-preview without a new LLM call.
+    content_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    ats_score_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ats_score_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )

@@ -110,7 +110,10 @@ def test_diagnostic_linked_to_saved_job_shows_up_in_detail(client):
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
-        data={"offer_text": "We need a Python developer.", "saved_job_id": str(saved_id)},
+        data={
+            "offer_text": "We need a Python developer.",
+            "saved_job_id": str(saved_id),
+        },
     )
     assert diag_response.status_code == 201
 
@@ -145,8 +148,63 @@ def test_create_diagnostic_rejects_saved_job_owned_by_another_user(client):
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
-        data={"offer_text": "We need a Python developer.", "saved_job_id": str(saved_id)},
+        data={
+            "offer_text": "We need a Python developer.",
+            "saved_job_id": str(saved_id),
+        },
     )
     assert response.status_code == 404
 
     app.dependency_overrides.pop(get_semantic_analyzer, None)
+
+
+_RENDER_PREVIEW_CONTENT = {
+    "summary": "Développeuse Python expérimentée.",
+    "experience": [
+        {
+            "title": "Développeuse",
+            "company": "Acme",
+            "dates": "2020-2022",
+            "bullets": ["A conçu des API."],
+        }
+    ],
+    "education": ["Master Informatique"],
+    "skills": ["Python"],
+}
+
+
+def test_render_cv_preview_returns_pdf_without_any_llm_call(client):
+    # No get_semantic_analyzer/get_cv_rewriter override is set up anywhere
+    # in this test - if render-preview called an LLM under the hood, this
+    # would hang or error trying to reach a real Anthropic client with the
+    # test suite's fake API key. It doesn't: this endpoint is a pure
+    # fpdf2 re-render from already-generated content.
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    saved_id = client.post("/saved-jobs", headers=headers, json=_payload()).json()["id"]
+
+    response = client.post(
+        f"/saved-jobs/{saved_id}/cv/render-preview",
+        headers=headers,
+        json={"content": _RENDER_PREVIEW_CONTENT, "template": "modern"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
+
+
+def test_render_cv_preview_404s_for_another_users_saved_job(client):
+    owner_token = _register_and_login(client, "a@example.com")
+    saved_id = client.post(
+        "/saved-jobs",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json=_payload(),
+    ).json()["id"]
+
+    attacker_token = _register_and_login(client, "b@example.com")
+    response = client.post(
+        f"/saved-jobs/{saved_id}/cv/render-preview",
+        headers={"Authorization": f"Bearer {attacker_token}"},
+        json={"content": _RENDER_PREVIEW_CONTENT},
+    )
+    assert response.status_code == 404

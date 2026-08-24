@@ -1,20 +1,22 @@
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app import database
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.models.application import Application
+from app.models.candidate_profile import CandidateProfile
 from app.models.diagnostic import Diagnostic
 from app.models.personalized_document import PersonalizedDocument
 from app.models.saved_job import SavedJob
 from app.models.user import User
 from app.offer_ingestion.scraper import ScrapingError, scrape_offer
+from app.personalization.pdf_templates import render_cv
 from app.schemas.diagnostic import DiagnosticReport
 from app.schemas.personalization import PersonalizedDocumentOut
-from app.schemas.saved_job import SavedJobIn, SavedJobOut
+from app.schemas.saved_job import CvRenderPreviewIn, SavedJobIn, SavedJobOut
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +153,8 @@ def get_saved_job(
                 needs_review=document.needs_review,
                 created_at=document.created_at,
                 updated_at=document.updated_at,
+                ats_score_before=document.ats_score_before,
+                ats_score_after=document.ats_score_after,
             )
             for document in db.query(PersonalizedDocument)
             .filter(PersonalizedDocument.diagnostic_id == latest_diagnostic.id)
@@ -168,3 +172,33 @@ def get_saved_job(
     out.application_status = application.status if application is not None else None
 
     return out
+
+
+@router.post("/{saved_job_id}/cv/render-preview")
+def render_cv_preview(
+    saved_job_id: int,
+    payload: CvRenderPreviewIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Pure re-render from an already-generated (possibly user-edited)
+    CvRenderPreviewIn.content - no LLM call. Powers the CV editor's live
+    preview: fast and a true fpdf2 render, not a CSS approximation."""
+    saved_job = (
+        db.query(SavedJob)
+        .filter(SavedJob.id == saved_job_id, SavedJob.user_id == current_user.id)
+        .first()
+    )
+    if saved_job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Offre sauvegardée introuvable.",
+        )
+
+    profile = (
+        db.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == current_user.id)
+        .first()
+    )
+    pdf_bytes, _ = render_cv(payload.template, payload.content, profile, payload.style)
+    return Response(content=pdf_bytes, media_type="application/pdf")

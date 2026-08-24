@@ -241,7 +241,7 @@ def test_list_diagnostics_includes_id_and_created_at_newest_first(client):
 
 
 class _FakeCvRewriter:
-    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations):
+    def rewrite(self, cv_text, offer_text, missing_keywords, recommendations, **kwargs):
         return RewrittenCv(
             summary="Résumé.",
             experience=[

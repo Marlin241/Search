@@ -16,6 +16,7 @@ from app.routers import (
     auth,
     candidate_profile,
     diagnostics,
+    generation_jobs,
     job_search,
     personalization,
     saved_jobs,
@@ -84,6 +85,7 @@ app.include_router(personalization.router)
 app.include_router(candidate_profile.router)
 app.include_router(job_search.router)
 app.include_router(saved_jobs.router)
+app.include_router(generation_jobs.router)
 
 
 @app.get("/health")
