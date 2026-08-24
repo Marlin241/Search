@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -9,6 +10,7 @@ import {
   Sparkles,
   SlidersHorizontal,
   ExternalLink,
+  FolderKanban,
   Send,
   Loader2,
   Check,
@@ -21,6 +23,7 @@ import {
   getSavedSearch,
   saveSavedSearch,
   createApplication,
+  openSavedJob,
 } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -55,6 +58,31 @@ const CONTRACT_OPTIONS = [
 
 export default function OffresPage() {
   const { token } = useAuth();
+  const router = useRouter();
+  const [openingWorkspaceUrl, setOpeningWorkspaceUrl] = useState<string | null>(null);
+
+  const handleOpenWorkspace = async (job: JobListing) => {
+    if (!token) return;
+    setOpeningWorkspaceUrl(job.url);
+    try {
+      const saved = await openSavedJob(token, {
+        offer_url: job.url,
+        title: job.title,
+        company: job.company,
+        location: job.location,
+        snippet: job.snippet,
+        source: job.source,
+        ats_type: job.ats_type,
+        salary: job.salary ?? null,
+      });
+      router.push(`/offres/${saved.id}`);
+    } catch (err: any) {
+      console.error("Failed to open workspace:", err);
+      alert(err?.detail || "Impossible d'ouvrir l'espace de travail.");
+    } finally {
+      setOpeningWorkspaceUrl(null);
+    }
+  };
 
   // Search state
   const [keywords, setKeywords] = useState("");
@@ -452,17 +480,35 @@ export default function OffresPage() {
                       </div>
                     </div>
 
-                    {/* External Link */}
-                    <a
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1.5 text-muted-foreground hover:text-primary transition-colors shrink-0 rounded-lg hover:bg-muted"
-                      title="Ouvrir l'offre originale"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    {/* Actions */}
+                    <div className="flex flex-col items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenWorkspace(job);
+                        }}
+                        disabled={openingWorkspaceUrl === job.url}
+                        className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-muted disabled:opacity-50"
+                        title="Ouvrir dans l'espace de travail"
+                      >
+                        {openingWorkspaceUrl === job.url ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <FolderKanban className="w-4 h-4" />
+                        )}
+                      </button>
+                      <a
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1.5 text-muted-foreground hover:text-primary transition-colors rounded-lg hover:bg-muted"
+                        title="Ouvrir l'offre originale"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
                   </div>
                 </Card>
               );
@@ -549,6 +595,15 @@ export default function OffresPage() {
                   onClick={() => setSelectedModalJob(null)}
                 >
                   Fermer
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  isLoading={openingWorkspaceUrl === selectedModalJob.url}
+                  icon={<FolderKanban className="w-3.5 h-3.5" />}
+                  onClick={() => handleOpenWorkspace(selectedModalJob)}
+                >
+                  Ouvrir l'espace de travail
                 </Button>
                 <Button
                   variant="primary"

@@ -14,6 +14,8 @@ import {
   type OnboardingProfileIn,
   type PersonalizedDocumentOut,
   type PrefilledFormOut,
+  type SavedJobIn,
+  type SavedJobOut,
   type SavedSearchIn,
   type SavedSearchOut,
   type SearchCriteria,
@@ -215,12 +217,14 @@ export async function createDiagnostic(
   token: string,
   cvFile: File,
   offerText?: string | null,
-  offerUrl?: string | null
+  offerUrl?: string | null,
+  savedJobId?: number | null
 ): Promise<DiagnosticReport> {
   const form = new FormData();
   form.append("cv_file", cvFile);
   if (offerText) form.append("offer_text", offerText);
   if (offerUrl) form.append("offer_url", offerUrl);
+  if (savedJobId != null) form.append("saved_job_id", String(savedJobId));
   return request<DiagnosticReport>(
     "/diagnostics",
     { method: "POST", body: form },
@@ -362,6 +366,30 @@ export async function saveSavedSearch(
     { method: "PUT", body: JSON.stringify(data) },
     token
   );
+}
+
+/* ─── Saved Jobs (workspace) ─── */
+
+export async function openSavedJob(
+  token: string,
+  data: SavedJobIn
+): Promise<SavedJobOut> {
+  return request<SavedJobOut>(
+    "/saved-jobs",
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function listSavedJobs(token: string): Promise<SavedJobOut[]> {
+  return request<SavedJobOut[]>("/saved-jobs", {}, token);
+}
+
+export async function getSavedJob(
+  token: string,
+  id: number
+): Promise<SavedJobOut> {
+  return request<SavedJobOut>(`/saved-jobs/${id}`, {}, token);
 }
 
 /* ─── Applications ─── */

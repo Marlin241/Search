@@ -82,6 +82,37 @@ export interface PersonalizedDocumentOut {
   updated_at: string;
 }
 
+/* ─── Saved Job (workspace) ─── */
+
+export interface SavedJobIn {
+  offer_url: string;
+  title: string;
+  company: string;
+  location?: string | null;
+  snippet: string;
+  source: string;
+  ats_type?: string | null;
+  salary?: string | null;
+}
+
+export interface SavedJobOut {
+  id: number;
+  offer_url: string;
+  title: string;
+  company: string;
+  location: string | null;
+  snippet: string;
+  source: string;
+  ats_type: string | null;
+  salary: string | null;
+  has_full_offer_text: boolean;
+  created_at: string;
+  updated_at: string;
+  latest_diagnostic: DiagnosticReport | null;
+  documents: PersonalizedDocumentOut[];
+  application_status: string | null;
+}
+
 /* ─── Job Search ─── */
 
 export interface SearchCriteria {
