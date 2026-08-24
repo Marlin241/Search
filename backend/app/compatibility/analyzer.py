@@ -1,0 +1,108 @@
+import anthropic
+from pydantic import BaseModel, ValidationError
+
+
+class CompatibilityDetail(BaseModel):
+    summary: str
+    strengths: list[str]
+    concerns: list[str]
+
+
+class CompatibilityAnalysisError(Exception):
+    pass
+
+
+_COMPATIBILITY_DETAIL_TOOL = {
+    "name": "submit_compatibility_detail",
+    "description": (
+        "Submit an honest explanation of an already-computed compatibility "
+        "score between a CV and a job offer."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "summary": {
+                "type": "string",
+                "description": "1-2 sentence honest verdict explaining the given score.",
+            },
+            "strengths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Concrete reasons this CV is a good match for this offer.",
+            },
+            "concerns": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Concrete gaps or mismatches the candidate should know about before applying.",
+            },
+        },
+        "required": ["summary", "strengths", "concerns"],
+    },
+}
+
+_MAX_ATTEMPTS = 2
+
+
+class CompatibilityDetailAnalyzer:
+    def __init__(self, client, model: str = "claude-haiku-4-5-20251001"):
+        self._client = client
+        self._model = model
+
+    def analyze(
+        self, cv_text: str, offer_text: str, score_breakdown: dict[str, int]
+    ) -> CompatibilityDetail:
+        breakdown_summary = (
+            f"Intitulé de poste: {score_breakdown['title']}/100, "
+            f"Localisation: {score_breakdown['location']}/100, "
+            f"Expérience/séniorité: {score_breakdown['seniority']}/100, "
+            f"Salaire: {score_breakdown['salary']}/100, "
+            f"Fraîcheur de l'offre: {score_breakdown['freshness']}/100, "
+            f"Score global: {score_breakdown['overall']}/100"
+        )
+        last_error: Exception | None = None
+        for _ in range(_MAX_ATTEMPTS):
+            try:
+                response = self._client.messages.create(
+                    model=self._model,
+                    max_tokens=1024,
+                    # Structured explanation, not creative writing: keeps the
+                    # explanation stable across retries for the same inputs.
+                    temperature=0,
+                    tools=[_COMPATIBILITY_DETAIL_TOOL],
+                    tool_choice={"type": "tool", "name": "submit_compatibility_detail"},
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": (
+                                "A deterministic rubric already scored this CV against this "
+                                "job offer on title/location/experience/salary/freshness "
+                                "match (below). Explain that score honestly in 1-2 sentences, "
+                                "then list concrete strengths and concerns a candidate should "
+                                "know before applying. Do not recompute or contradict the "
+                                "given score - explain it. Respond in the same language as "
+                                "the CV.\n\n"
+                                f"Score breakdown:\n{breakdown_summary}\n\n"
+                                f"CV:\n{cv_text}\n\nJob offer:\n{offer_text}"
+                            ),
+                        }
+                    ],
+                )
+                tool_use = next(
+                    (block for block in response.content if block.type == "tool_use"),
+                    None,
+                )
+                if tool_use is None:
+                    raise CompatibilityAnalysisError(
+                        "No tool_use block in Claude response"
+                    )
+                return CompatibilityDetail.model_validate(tool_use.input)
+            except (
+                ValidationError,
+                CompatibilityAnalysisError,
+                anthropic.APIError,
+            ) as exc:
+                last_error = exc
+                continue
+        raise CompatibilityAnalysisError(
+            f"Compatibility detail analysis failed after retries: {last_error}"
+        )

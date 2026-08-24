@@ -4,6 +4,7 @@ import httpx
 
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.timestamps import parse_iso_datetime
 
 TOKEN_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=/partenaire"
 SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
@@ -138,6 +139,7 @@ class FranceTravailClient:
                         source="france_travail",
                         ats_type=None,
                         salary=salary_str,
+                        posted_at=parse_iso_datetime(offre.get("dateCreation")),
                     )
                 )
         except (ValueError, KeyError, TypeError, AttributeError) as exc:

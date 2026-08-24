@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 
 from pydantic import BaseModel
@@ -20,6 +21,12 @@ class JobListing(BaseModel):
     source: str
     ats_type: str | None
     salary: str | None = None
+    posted_at: datetime | None = None
+    # Overwritten by the /job-search/search endpoint before the response is
+    # returned (see app.job_search.compatibility.score_listing); defaults to
+    # 0 here only so adapters that don't score listings themselves (all of
+    # them) don't need to pass it.
+    compatibility_score: int = 0
 
 
 class SearchClient(Protocol):

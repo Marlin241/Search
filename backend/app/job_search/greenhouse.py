@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.timestamps import parse_iso_datetime
 
 
 def _strip_html(html: str) -> str:
@@ -46,6 +47,7 @@ class GreenhouseJobBoardClient:
                             source="greenhouse",
                             ats_type="greenhouse",
                             salary=None,
+                            posted_at=parse_iso_datetime(job.get("updated_at")),
                         )
                     )
             except (ValueError, KeyError, TypeError, AttributeError) as exc:

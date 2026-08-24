@@ -99,6 +99,30 @@ def check_job_search_rate_limit(db: Session, user_id: int) -> None:
         )
 
 
+from app.models.compatibility_request_log import CompatibilityRequestLog
+
+MAX_COMPATIBILITY_DETAILS_PER_HOUR = 30
+
+
+def check_compatibility_detail_rate_limit(db: Session, user_id: int) -> None:
+    """Higher than the other LLM-cost limits (10/h) because this call uses
+    haiku (cheaper) and multiple clicks per search session are expected."""
+    one_hour_ago = utcnow() - timedelta(hours=1)
+    count = db.scalar(
+        select(func.count())
+        .select_from(CompatibilityRequestLog)
+        .where(
+            CompatibilityRequestLog.user_id == user_id,
+            CompatibilityRequestLog.created_at >= one_hour_ago,
+        )
+    )
+    if count is not None and count >= MAX_COMPATIBILITY_DETAILS_PER_HOUR:
+        raise RateLimitExceeded(
+            f"Limite de {MAX_COMPATIBILITY_DETAILS_PER_HOUR} détails de compatibilité "
+            "par heure atteinte. Réessaie plus tard."
+        )
+
+
 from app.models.prefilled_form_request_log import PrefilledFormRequestLog
 
 MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR = 10

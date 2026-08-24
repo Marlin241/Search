@@ -2,6 +2,7 @@ import httpx
 
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.timestamps import parse_iso_datetime
 
 
 class AdzunaClient:
@@ -64,6 +65,7 @@ class AdzunaClient:
                         source="adzuna",
                         ats_type=None,
                         salary=salary_str,
+                        posted_at=parse_iso_datetime(result.get("created")),
                     )
                 )
         except (ValueError, KeyError, TypeError, AttributeError) as exc:

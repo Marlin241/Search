@@ -3,6 +3,7 @@ import httpx
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.timestamps import parse_epoch_millis
 
 
 class LeverJobBoardClient:
@@ -42,6 +43,7 @@ class LeverJobBoardClient:
                             source="lever",
                             ats_type="lever",
                             salary=None,
+                            posted_at=parse_epoch_millis(posting.get("createdAt")),
                         )
                     )
             except (ValueError, KeyError, TypeError, AttributeError) as exc:

@@ -1,13 +1,21 @@
+import io
+
 import httpx
 import respx
+from docx import Document
 
+from app.compatibility.analyzer import CompatibilityAnalysisError, CompatibilityDetail
+from app.compatibility.dependencies import get_compatibility_detail_analyzer
 from app.job_search.dependencies import get_job_search_clients
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.greenhouse import GreenhouseJobBoardClient
 from app.job_search.lever import LeverJobBoardClient
 from app.job_search.schemas import JobListing
 from app.main import app
-from app.rate_limit.limiter import MAX_SEARCHES_PER_HOUR
+from app.rate_limit.limiter import (
+    MAX_COMPATIBILITY_DETAILS_PER_HOUR,
+    MAX_SEARCHES_PER_HOUR,
+)
 
 
 def _register_and_login(client, email: str = "jane@example.com") -> str:
@@ -276,3 +284,219 @@ def test_get_discovery_for_unknown_search_id_returns_done_true(client):
 def test_get_discovery_requires_auth(client):
     response = client.get("/job-search/search/some-id/discovery")
     assert response.status_code == 401
+
+
+class TwoListingsClient:
+    """One listing matches the candidate's desired title, the other doesn't -
+    used to assert the search endpoint scores and sorts by compatibility."""
+
+    def search(self, criteria):
+        return [
+            JobListing(
+                title="Comptable senior",
+                company="",
+                location="Paris",
+                snippet="...",
+                url="https://example.com/unrelated",
+                source="fake",
+                ats_type=None,
+            ),
+            JobListing(
+                title="Développeur Python",
+                company="",
+                location="Paris",
+                snippet="...",
+                url="https://example.com/match",
+                source="fake",
+                ats_type=None,
+            ),
+        ]
+
+
+def _clean_cv_docx_bytes() -> bytes:
+    document = Document()
+    document.add_paragraph("Expérience professionnelle")
+    document.add_paragraph("Développeuse Full Stack chez Acme, 2020-2022")
+    document.add_paragraph("Formation")
+    document.add_paragraph("Master Informatique")
+    document.add_paragraph("Compétences")
+    document.add_paragraph("Python, Docker")
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def _onboard_with_cv(client, headers: dict[str, str]) -> None:
+    client.put(
+        "/profile",
+        headers=headers,
+        json={
+            "full_name": "Jane Doe",
+            "phone": "0612345678",
+            "work_authorization": "FR/UE",
+        },
+    )
+    client.post(
+        "/profile/cv",
+        headers=headers,
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    client.put(
+        "/profile/onboarding",
+        headers=headers,
+        json={"desired_job_titles": ["Développeur Python"]},
+    )
+
+
+def test_search_response_includes_compatibility_score(client):
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": FakeWorkingClient()}
+    )
+    token = _register_and_login(client)
+
+    response = client.post(
+        "/job-search/search",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"keywords": "python"},
+    )
+
+    assert response.status_code == 200
+    assert "compatibility_score" in response.json()["listings"][0]
+
+
+def test_search_sorts_listings_by_compatibility_score_descending(client):
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": TwoListingsClient()}
+    )
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    _onboard_with_cv(client, headers)
+
+    response = client.post(
+        "/job-search/search", headers=headers, json={"keywords": "python"}
+    )
+
+    listings = response.json()["listings"]
+    assert listings[0]["title"] == "Développeur Python"
+    assert listings[0]["compatibility_score"] >= listings[1]["compatibility_score"]
+
+
+class FakeCompatibilityDetailAnalyzer:
+    def analyze(self, cv_text, offer_text, score_breakdown):
+        return CompatibilityDetail(
+            summary="Bon profil pour ce poste.",
+            strengths=["Expérience Python pertinente"],
+            concerns=["Pas de mention de Docker dans l'offre"],
+        )
+
+
+class FailingCompatibilityDetailAnalyzer:
+    def analyze(self, cv_text, offer_text, score_breakdown):
+        raise CompatibilityAnalysisError("LLM indisponible")
+
+
+def _sample_listing_payload() -> dict:
+    return {
+        "listing": {
+            "title": "Développeur Python",
+            "company": "Acme",
+            "location": "Paris",
+            "snippet": "Poste de développeur Python, 3 ans d'expérience.",
+            "url": "https://example.com/job/1",
+            "source": "adzuna",
+            "ats_type": None,
+        }
+    }
+
+
+def test_compatibility_detail_returns_breakdown_and_explanation(client):
+    app.dependency_overrides[get_compatibility_detail_analyzer] = lambda: (
+        FakeCompatibilityDetailAnalyzer()
+    )
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    _onboard_with_cv(client, headers)
+
+    response = client.post(
+        "/job-search/compatibility-detail",
+        headers=headers,
+        json=_sample_listing_payload(),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["summary"] == "Bon profil pour ce poste."
+    assert "overall" in body["breakdown"]
+
+    app.dependency_overrides.pop(get_compatibility_detail_analyzer, None)
+
+
+def test_compatibility_detail_requires_cv(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/job-search/compatibility-detail",
+        headers=headers,
+        json=_sample_listing_payload(),
+    )
+
+    assert response.status_code == 422
+
+
+def test_compatibility_detail_requires_auth(client):
+    response = client.post(
+        "/job-search/compatibility-detail", json=_sample_listing_payload()
+    )
+    assert response.status_code == 401
+
+
+def test_compatibility_detail_propagates_llm_failure_as_503(client):
+    app.dependency_overrides[get_compatibility_detail_analyzer] = lambda: (
+        FailingCompatibilityDetailAnalyzer()
+    )
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    _onboard_with_cv(client, headers)
+
+    response = client.post(
+        "/job-search/compatibility-detail",
+        headers=headers,
+        json=_sample_listing_payload(),
+    )
+
+    assert response.status_code == 503
+
+    app.dependency_overrides.pop(get_compatibility_detail_analyzer, None)
+
+
+def test_compatibility_detail_rate_limited_after_max_per_hour(client):
+    app.dependency_overrides[get_compatibility_detail_analyzer] = lambda: (
+        FakeCompatibilityDetailAnalyzer()
+    )
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    _onboard_with_cv(client, headers)
+
+    for _ in range(MAX_COMPATIBILITY_DETAILS_PER_HOUR):
+        response = client.post(
+            "/job-search/compatibility-detail",
+            headers=headers,
+            json=_sample_listing_payload(),
+        )
+        assert response.status_code == 200
+
+    response = client.post(
+        "/job-search/compatibility-detail",
+        headers=headers,
+        json=_sample_listing_payload(),
+    )
+    assert response.status_code == 429
+
+    app.dependency_overrides.pop(get_compatibility_detail_analyzer, None)

@@ -7,6 +7,11 @@ from sqlalchemy.orm import Session
 
 from app import database
 from app.auth.dependencies import get_current_user
+from app.compatibility.analyzer import (
+    CompatibilityAnalysisError,
+    CompatibilityDetailAnalyzer,
+)
+from app.compatibility.dependencies import get_compatibility_detail_analyzer
 from app.database import get_db
 from app.job_search.aggregator import search_jobs
 from app.job_search.background_discovery import (
@@ -15,6 +20,7 @@ from app.job_search.background_discovery import (
     run_discovery,
 )
 from app.job_search.company_cache import get_cached_mapping
+from app.job_search.compatibility import score_breakdown, score_listing
 from app.job_search.dependencies import get_job_search_clients
 from app.job_search.discovery import (
     MAX_COMPANIES_PER_DISCOVERY,
@@ -32,13 +38,21 @@ from app.job_search.unsubscribe import (
     InvalidUnsubscribeTokenError,
     verify_unsubscribe_token,
 )
+from app.models.candidate_profile import CandidateProfile
+from app.models.compatibility_request_log import CompatibilityRequestLog
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.saved_search import SavedSearch
 from app.models.user import User
 from app.rate_limit.limiter import (
     RateLimitExceeded,
+    check_compatibility_detail_rate_limit,
     check_job_search_rate_limit,
     lock_user_for_rate_limit,
+)
+from app.schemas.compatibility import (
+    CompatibilityDetailIn,
+    CompatibilityDetailOut,
+    CompatibilityScoreBreakdown,
 )
 from app.schemas.job_search import (
     JobSearchDiscoveryResponse,
@@ -130,11 +144,70 @@ def search(
             cast(SluggableSearchClient, clients["lever"]),
         )
 
+    all_listings = listings + known_listings
+    profile = (
+        db.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == current_user.id)
+        .first()
+    )
+    for job_listing in all_listings:
+        job_listing.compatibility_score = score_listing(job_listing, profile)
+    all_listings.sort(key=lambda listing: listing.compatibility_score, reverse=True)
+
     return JobSearchResponse(
-        listings=listings + known_listings,
+        listings=all_listings,
         unavailable_sources=unavailable_sources,
         search_id=search_id,
         discovery_pending=bool(unknown_companies),
+    )
+
+
+@router.post("/compatibility-detail", response_model=CompatibilityDetailOut)
+def get_compatibility_detail(
+    payload: CompatibilityDetailIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    analyzer: CompatibilityDetailAnalyzer = Depends(get_compatibility_detail_analyzer),
+) -> CompatibilityDetailOut:
+    lock_user_for_rate_limit(db, current_user.id)
+    try:
+        check_compatibility_detail_rate_limit(db, current_user.id)
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+
+    profile = (
+        db.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == current_user.id)
+        .first()
+    )
+    if profile is None or not profile.cv_text:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Un CV est nécessaire pour obtenir le détail de compatibilité.",
+        )
+
+    breakdown = score_breakdown(payload.listing, profile)
+    offer_text = (
+        f"{payload.listing.title}\n{payload.listing.company}\n{payload.listing.snippet}"
+    )
+
+    try:
+        detail = analyzer.analyze(profile.cv_text, offer_text, breakdown)
+    except CompatibilityAnalysisError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+    db.add(CompatibilityRequestLog(user_id=current_user.id))
+    db.commit()
+
+    return CompatibilityDetailOut(
+        breakdown=CompatibilityScoreBreakdown(**breakdown),
+        summary=detail.summary,
+        strengths=detail.strengths,
+        concerns=detail.concerns,
     )
 
 

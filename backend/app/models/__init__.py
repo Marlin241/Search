@@ -1,6 +1,7 @@
 from app.models.application import Application
 from app.models.candidate_profile import CandidateProfile
 from app.models.company_ats_mapping import CompanyAtsMapping
+from app.models.compatibility_request_log import CompatibilityRequestLog
 from app.models.diagnostic import Diagnostic
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.notified_listing import NotifiedListing
@@ -14,6 +15,7 @@ __all__ = [
     "Application",
     "CandidateProfile",
     "CompanyAtsMapping",
+    "CompatibilityRequestLog",
     "Diagnostic",
     "JobSearchRequestLog",
     "NotifiedListing",
