@@ -41,10 +41,11 @@ class GreenhouseJobBoardClient:
                             title=title,
                             company=company_slug,
                             location=(job.get("location") or {}).get("name"),
-                            snippet=_strip_html(job.get("content", ""))[:500],
+                            snippet=_strip_html(job.get("content", "")),
                             url=job.get("absolute_url", ""),
                             source="greenhouse",
                             ats_type="greenhouse",
+                            salary=None,
                         )
                     )
             except (ValueError, KeyError, TypeError, AttributeError) as exc:

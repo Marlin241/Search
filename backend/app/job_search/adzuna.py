@@ -36,18 +36,36 @@ class AdzunaClient:
 
         try:
             payload = response.json()
-            listings = [
-                JobListing(
-                    title=result.get("title", ""),
-                    company=(result.get("company") or {}).get("display_name", ""),
-                    location=(result.get("location") or {}).get("display_name"),
-                    snippet=(result.get("description") or "")[:500],
-                    url=result.get("redirect_url", ""),
-                    source="adzuna",
-                    ats_type=None,
+            listings = []
+            for result in payload.get("results", []):
+                salary_min = result.get("salary_min")
+                salary_max = result.get("salary_max")
+                salary_str = None
+                if salary_min and salary_max:
+                    salary_str = (
+                        f"{int(salary_min):,} - {int(salary_max):,} € / an".replace(
+                            ",", " "
+                        )
+                    )
+                elif salary_min:
+                    salary_str = f"À partir de {int(salary_min):,} € / an".replace(
+                        ",", " "
+                    )
+                elif salary_max:
+                    salary_str = f"Jusqu'à {int(salary_max):,} € / an".replace(",", " ")
+
+                listings.append(
+                    JobListing(
+                        title=result.get("title", ""),
+                        company=(result.get("company") or {}).get("display_name", ""),
+                        location=(result.get("location") or {}).get("display_name"),
+                        snippet=result.get("description") or "",
+                        url=result.get("redirect_url", ""),
+                        source="adzuna",
+                        ats_type=None,
+                        salary=salary_str,
+                    )
                 )
-                for result in payload.get("results", [])
-            ]
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             raise JobSearchSourceError("Adzuna: réponse invalide.") from exc
 

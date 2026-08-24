@@ -19,6 +19,7 @@ class JobListing(BaseModel):
     url: str
     source: str
     ats_type: str | None
+    salary: str | None = None
 
 
 class SearchClient(Protocol):

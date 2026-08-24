@@ -118,18 +118,28 @@ class FranceTravailClient:
 
         try:
             payload = response.json()
-            listings = [
-                JobListing(
-                    title=offre.get("intitule", ""),
-                    company=(offre.get("entreprise") or {}).get("nom", ""),
-                    location=(offre.get("lieuTravail") or {}).get("libelle"),
-                    snippet=(offre.get("description") or "")[:500],
-                    url=(offre.get("origineOffre") or {}).get("urlOrigine", ""),
-                    source="france_travail",
-                    ats_type=None,
+            listings = []
+            for offre in payload.get("resultats", []):
+                salary_data = offre.get("salaire") or {}
+                salary_parts = []
+                if salary_data.get("libelle"):
+                    salary_parts.append(salary_data["libelle"])
+                if salary_data.get("complement1"):
+                    salary_parts.append(salary_data["complement1"])
+                salary_str = " - ".join(salary_parts) if salary_parts else None
+
+                listings.append(
+                    JobListing(
+                        title=offre.get("intitule", ""),
+                        company=(offre.get("entreprise") or {}).get("nom", ""),
+                        location=(offre.get("lieuTravail") or {}).get("libelle"),
+                        snippet=offre.get("description") or "",
+                        url=(offre.get("origineOffre") or {}).get("urlOrigine", ""),
+                        source="france_travail",
+                        ats_type=None,
+                        salary=salary_str,
+                    )
                 )
-                for offre in payload.get("resultats", [])
-            ]
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
             raise JobSearchSourceError("France Travail: réponse invalide.") from exc
 

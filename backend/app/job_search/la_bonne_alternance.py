@@ -83,6 +83,8 @@ class LaBonneAlternanceClient:
                     continue
                 workplace = job.get("workplace") or {}
                 apply_ = job.get("apply") or {}
+                salary_data = offer.get("salary") or {}
+                salary_str = salary_data.get("label") or None
                 listings.append(
                     JobListing(
                         title=title,
@@ -90,10 +92,11 @@ class LaBonneAlternanceClient:
                         or workplace.get("legal_name")
                         or "",
                         location=(workplace.get("location") or {}).get("address"),
-                        snippet=(offer.get("description") or "")[:500],
+                        snippet=offer.get("description") or "",
                         url=apply_.get("url", ""),
                         source="la_bonne_alternance",
                         ats_type=None,
+                        salary=salary_str,
                     )
                 )
         except (ValueError, KeyError, TypeError, AttributeError) as exc:

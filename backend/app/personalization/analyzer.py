@@ -127,11 +127,11 @@ def _submit_via_tool_use(
                 # reasoning, so thinking is disabled: max_tokens is then
                 # dedicated entirely to the response.
                 thinking={"type": "disabled"},
-                # Low temperature for the same reason as the diagnostic
-                # analyzer: this is structured extraction/rewriting, not
-                # creative writing, so results shouldn't drift between
-                # otherwise-identical calls (API default is 1.0).
-                temperature=0,
+                # claude-sonnet-5 removes the `temperature` parameter
+                # (400 invalid_request_error if set) - determinism for this
+                # structured extraction/rewriting task now comes from
+                # thinking being disabled and the forced tool_choice below,
+                # not from sampling temperature.
                 tools=[tool],
                 tool_choice={"type": "tool", "name": tool["name"]},
                 messages=[{"role": "user", "content": prompt}],

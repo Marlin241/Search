@@ -37,10 +37,11 @@ class LeverJobBoardClient:
                             title=title,
                             company=company_slug,
                             location=categories.get("location"),
-                            snippet=(posting.get("descriptionPlain") or "")[:500],
+                            snippet=posting.get("descriptionPlain") or "",
                             url=posting.get("hostedUrl", ""),
                             source="lever",
                             ats_type="lever",
+                            salary=None,
                         )
                     )
             except (ValueError, KeyError, TypeError, AttributeError) as exc:
