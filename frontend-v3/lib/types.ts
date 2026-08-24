@@ -101,6 +101,24 @@ export interface JobListing {
   source: string;
   ats_type: string | null;
   salary?: string | null;
+  posted_at?: string | null;
+  compatibility_score: number;
+}
+
+export interface CompatibilityScoreBreakdown {
+  title: number;
+  location: number;
+  seniority: number;
+  salary: number;
+  freshness: number;
+  overall: number;
+}
+
+export interface CompatibilityDetailOut {
+  breakdown: CompatibilityScoreBreakdown;
+  summary: string;
+  strengths: string[];
+  concerns: string[];
 }
 
 export interface JobSearchResponse {

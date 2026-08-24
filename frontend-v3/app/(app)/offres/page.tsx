@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -30,6 +30,9 @@ import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Dialog } from "@/components/ui/Dialog";
+import { CompatibilityBadge } from "@/components/jobs/CompatibilityBadge";
+import { CompatibilityDetailModal } from "@/components/jobs/CompatibilityDetailModal";
+import { SortControl, type SortOrder } from "@/components/jobs/SortControl";
 import {
   cn,
   getInitials,
@@ -64,6 +67,20 @@ export default function OffresPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchId, setSearchId] = useState<string | null>(null);
   const [discoveryPending, setDiscoveryPending] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("compatibility");
+  const [compatibilityModalJob, setCompatibilityModalJob] = useState<JobListing | null>(null);
+
+  const sortedListings = useMemo(() => {
+    if (sortOrder === "compatibility") return listings;
+    // "recent": listings without a posted_at sink to the bottom rather than
+    // being treated as oldest, since missing data isn't the same as "old".
+    return [...listings].sort((a, b) => {
+      if (!a.posted_at && !b.posted_at) return 0;
+      if (!a.posted_at) return 1;
+      if (!b.posted_at) return -1;
+      return new Date(b.posted_at).getTime() - new Date(a.posted_at).getTime();
+    });
+  }, [listings, sortOrder]);
 
   // Selection & batch apply
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
@@ -314,18 +331,21 @@ export default function OffresPage() {
       {/* Results Section */}
       <div className="space-y-4">
         {listings.length > 0 && (
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-semibold text-muted-foreground">
-              {listings.length} opportunité{listings.length > 1 ? "s" : ""} trouvée{listings.length > 1 ? "s" : ""}
-            </span>
-            <button
-              onClick={selectAll}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              {selectedUrls.size === listings.length
-                ? "Tout désélectionner"
-                : "Tout sélectionner"}
-            </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+            <div className="flex items-center justify-between sm:justify-start gap-4">
+              <span className="text-xs font-semibold text-muted-foreground">
+                {listings.length} opportunité{listings.length > 1 ? "s" : ""} trouvée{listings.length > 1 ? "s" : ""}
+              </span>
+              <button
+                onClick={selectAll}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {selectedUrls.size === listings.length
+                  ? "Tout désélectionner"
+                  : "Tout sélectionner"}
+              </button>
+            </div>
+            <SortControl value={sortOrder} onChange={setSortOrder} />
           </div>
         )}
 
@@ -345,8 +365,8 @@ export default function OffresPage() {
                 </div>
               </Card>
             ))
-          ) : listings.length > 0 ? (
-            listings.map((job, idx) => {
+          ) : sortedListings.length > 0 ? (
+            sortedListings.map((job, idx) => {
               const isSelected = selectedUrls.has(job.url);
               const salaryHint =
                 job.salary || extractSalary(job.snippet || "") || extractSalary(job.title || "");
@@ -393,6 +413,15 @@ export default function OffresPage() {
 
                       {/* Meta badges */}
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCompatibilityModalJob(job);
+                          }}
+                        >
+                          <CompatibilityBadge score={job.compatibility_score} />
+                        </button>
                         {job.location && (
                           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                             <MapPin className="w-3 h-3 text-muted-foreground/80" />
@@ -550,6 +579,13 @@ export default function OffresPage() {
           </div>
         )}
       </Dialog>
+
+      {/* Compatibility Detail Modal */}
+      <CompatibilityDetailModal
+        listing={compatibilityModalJob}
+        token={token}
+        onClose={() => setCompatibilityModalJob(null)}
+      />
 
       {/* Sticky batch apply bottom bar */}
       <AnimatePresence>

@@ -4,9 +4,11 @@ import {
   type ApplicationOut,
   type CandidateProfileIn,
   type CandidateProfileOut,
+  type CompatibilityDetailOut,
   type ConfirmApplicationIn,
   type DiagnosticReport,
   type ExtractedPhotoOut,
+  type JobListing,
   type JobSearchDiscoveryResponse,
   type JobSearchResponse,
   type OnboardingProfileIn,
@@ -326,6 +328,17 @@ export async function fetchJobSearchDiscovery(
   return request<JobSearchDiscoveryResponse>(
     `/job-search/search/${searchId}/discovery`,
     {},
+    token
+  );
+}
+
+export async function getCompatibilityDetail(
+  token: string,
+  listing: JobListing
+): Promise<CompatibilityDetailOut> {
+  return request<CompatibilityDetailOut>(
+    "/job-search/compatibility-detail",
+    { method: "POST", body: JSON.stringify({ listing }) },
     token
   );
 }
