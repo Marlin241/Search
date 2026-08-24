@@ -6,8 +6,10 @@ import {
   type CandidateProfileOut,
   type ConfirmApplicationIn,
   type DiagnosticReport,
+  type ExtractedPhotoOut,
   type JobSearchDiscoveryResponse,
   type JobSearchResponse,
+  type OnboardingProfileIn,
   type PersonalizedDocumentOut,
   type PrefilledFormOut,
   type SavedSearchIn,
@@ -141,6 +143,68 @@ export async function uploadReferenceCv(
 
 export async function deleteProfile(token: string): Promise<void> {
   return request<void>("/profile", { method: "DELETE" }, token);
+}
+
+export async function submitOnboarding(
+  token: string,
+  data: OnboardingProfileIn
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>(
+    "/profile/onboarding",
+    { method: "PUT", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function extractCvPhotos(
+  token: string,
+  file: File
+): Promise<ExtractedPhotoOut[]> {
+  const form = new FormData();
+  form.append("cv_file", file);
+  return request<ExtractedPhotoOut[]>(
+    "/profile/cv/extract-photos",
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function uploadManualPhoto(
+  token: string,
+  file: File
+): Promise<ExtractedPhotoOut> {
+  const form = new FormData();
+  form.append("photo_file", file);
+  return request<ExtractedPhotoOut>(
+    "/profile/photo/upload",
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function setProfilePhoto(
+  token: string,
+  photoKey: string | null
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>(
+    "/profile/photo",
+    { method: "PUT", body: JSON.stringify({ photo_key: photoKey }) },
+    token
+  );
+}
+
+export async function getProfilePhoto(
+  token: string,
+  previewUrlOrSuffix: string
+): Promise<Blob> {
+  // Photos are served behind auth (GET /profile/photo/{suffix} requires a
+  // Bearer token), so they can't be a plain <img src="..."> - fetch as an
+  // authenticated blob and let the caller turn it into an object URL, same
+  // pattern as downloadCv/downloadLetter.
+  const suffix = previewUrlOrSuffix.startsWith("/profile/photo/")
+    ? previewUrlOrSuffix.slice("/profile/photo/".length)
+    : previewUrlOrSuffix;
+  return requestBlob(`/profile/photo/${suffix}`, token);
 }
 
 /* ─── Diagnostics ─── */

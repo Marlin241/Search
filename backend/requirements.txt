@@ -10,6 +10,7 @@ bcrypt
 pyjwt
 python-multipart
 pdfplumber
+pymupdf
 python-docx
 httpx
 beautifulsoup4

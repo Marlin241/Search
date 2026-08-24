@@ -10,13 +10,15 @@ class ObjectStorage:
         self._client = client
         self._bucket = bucket
 
-    def upload(self, key: str, content: bytes) -> None:
+    def upload(
+        self, key: str, content: bytes, content_type: str = "application/pdf"
+    ) -> None:
         try:
             self._client.put_object(
                 Bucket=self._bucket,
                 Key=key,
                 Body=content,
-                ContentType="application/pdf",
+                ContentType=content_type,
             )
         except (BotoCoreError, ClientError) as exc:
             raise ObjectStorageError(f"Échec de l'upload de l'objet '{key}'.") from exc

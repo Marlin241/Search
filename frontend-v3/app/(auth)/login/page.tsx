@@ -43,10 +43,11 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         await login(email, password);
+        router.push("/dashboard");
       } else {
         await register(email, password);
+        router.push("/onboarding");
       }
-      router.push("/dashboard");
     } catch (err: any) {
       setError(err?.detail || err?.message || "Une erreur est survenue.");
     } finally {

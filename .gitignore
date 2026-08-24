@@ -17,3 +17,4 @@ frontend-v2/.env.local
 frontend-v3/node_modules/
 frontend-v3/.next/
 frontend-v3/.env.local
+frontend-v3/tsconfig.tsbuildinfo

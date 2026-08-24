@@ -32,6 +32,17 @@ class CandidateProfile(Base):
     cv_has_multi_column: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     cv_has_images: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     cv_detected_sections: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    desired_job_titles: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    seniority_level: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    desired_locations: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    remote_preference: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    contract_types: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    salary_min: Mapped[int | None] = mapped_column(nullable=True)
+    salary_max: Mapped[int | None] = mapped_column(nullable=True)
+    weekly_application_goal: Mapped[int | None] = mapped_column(nullable=True)
+    profile_photo_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )

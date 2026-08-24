@@ -33,6 +33,31 @@ export interface CandidateProfileOut {
   cv_filename: string | null;
   has_cv: boolean;
   updated_at: string;
+  desired_job_titles: string[] | null;
+  seniority_level: string | null;
+  desired_locations: string[] | null;
+  remote_preference: boolean;
+  contract_types: string[] | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  weekly_application_goal: number | null;
+  has_profile_photo: boolean;
+}
+
+export interface OnboardingProfileIn {
+  desired_job_titles: string[];
+  seniority_level: string | null;
+  desired_locations: string[];
+  remote_preference: boolean;
+  contract_types: string[];
+  salary_min: number | null;
+  salary_max: number | null;
+  weekly_application_goal: number | null;
+}
+
+export interface ExtractedPhotoOut {
+  key: string;
+  preview_url: string;
 }
 
 /* ─── Diagnostic ─── */
