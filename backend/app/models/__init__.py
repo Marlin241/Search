@@ -8,6 +8,7 @@ from app.models.notified_listing import NotifiedListing
 from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.personalized_document import PersonalizedDocument
 from app.models.prefilled_form_request_log import PrefilledFormRequestLog
+from app.models.saved_job import SavedJob
 from app.models.saved_search import SavedSearch
 from app.models.user import User
 
@@ -22,6 +23,7 @@ __all__ = [
     "PersonalizationRequestLog",
     "PersonalizedDocument",
     "PrefilledFormRequestLog",
+    "SavedJob",
     "SavedSearch",
     "User",
 ]

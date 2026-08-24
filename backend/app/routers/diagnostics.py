@@ -12,6 +12,7 @@ from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.models.application import Application
 from app.models.diagnostic import Diagnostic
 from app.models.personalized_document import PersonalizedDocument
+from app.models.saved_job import SavedJob
 from app.models.user import User
 from app.offer_ingestion.ingestion import OfferIngestionError, get_offer_text
 from app.rate_limit.limiter import (
@@ -34,6 +35,7 @@ def create_diagnostic(
     cv_file: UploadFile = File(...),
     offer_text: str | None = Form(None, max_length=50000),
     offer_url: str | None = Form(None),
+    saved_job_id: int | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     analyzer: SemanticAnalyzer = Depends(get_semantic_analyzer),
@@ -89,10 +91,23 @@ def create_diagnostic(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
 
+    if saved_job_id is not None:
+        owned = (
+            db.query(SavedJob)
+            .filter(SavedJob.id == saved_job_id, SavedJob.user_id == current_user.id)
+            .first()
+        )
+        if owned is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Offre sauvegardée introuvable.",
+            )
+
     report = build_diagnostic_report(structural, semantic)
 
     diagnostic = Diagnostic(
         user_id=current_user.id,
+        saved_job_id=saved_job_id,
         cv_text=parsed_cv.text,
         offer_text=offer,
         overall_score=report.overall_score,

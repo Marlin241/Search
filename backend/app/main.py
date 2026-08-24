@@ -18,6 +18,7 @@ from app.routers import (
     diagnostics,
     job_search,
     personalization,
+    saved_jobs,
 )
 
 settings = get_settings()
@@ -82,6 +83,7 @@ app.include_router(diagnostics.router)
 app.include_router(personalization.router)
 app.include_router(candidate_profile.router)
 app.include_router(job_search.router)
+app.include_router(saved_jobs.router)
 
 
 @app.get("/health")

@@ -17,6 +17,9 @@ class Diagnostic(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    saved_job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("saved_jobs.id", ondelete="SET NULL"), nullable=True
+    )
     cv_text: Mapped[str] = mapped_column(Text, nullable=False)
     offer_text: Mapped[str] = mapped_column(Text, nullable=False)
     overall_score: Mapped[int] = mapped_column(Integer, nullable=False)
