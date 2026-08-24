@@ -127,8 +127,8 @@ def _submit_via_tool_use(
                 # reasoning, so thinking is disabled: max_tokens is then
                 # dedicated entirely to the response.
                 thinking={"type": "disabled"},
-                # claude-sonnet-5 removes the `temperature` parameter
-                # (400 invalid_request_error if set) - determinism for this
+                # anthropic>=1.0 dropped `temperature` from
+                # messages.create() entirely - determinism for this
                 # structured extraction/rewriting task now comes from
                 # thinking being disabled and the forced tool_choice below,
                 # not from sampling temperature.

@@ -52,12 +52,10 @@ class SemanticAnalyzer:
                 response = self._client.messages.create(
                     model=self._model,
                     max_tokens=1024,
-                    # Structured scoring, not open-ended writing: a low
-                    # temperature keeps the score stable across repeated
-                    # calls with the same CV/offer pair instead of drifting
-                    # on every retry (the API defaults to temperature=1.0,
-                    # and Claude has no `seed` param to pin outputs).
-                    temperature=0,
+                    # anthropic>=1.0 dropped `temperature` from
+                    # messages.create() entirely (was previously used here to
+                    # keep structured scoring stable across retries) -
+                    # determinism now comes from the forced tool_choice below.
                     tools=[_DIAGNOSTIC_TOOL],
                     tool_choice={"type": "tool", "name": "submit_diagnostic"},
                     messages=[

@@ -65,9 +65,11 @@ class CompatibilityDetailAnalyzer:
                 response = self._client.messages.create(
                     model=self._model,
                     max_tokens=1024,
-                    # Structured explanation, not creative writing: keeps the
-                    # explanation stable across retries for the same inputs.
-                    temperature=0,
+                    # anthropic>=1.0 dropped `temperature` from
+                    # messages.create() entirely - determinism for this
+                    # structured explanation comes from the forced
+                    # tool_choice below instead (see app.llm_analyzer.analyzer
+                    # for the same fix on the diagnostic analyzer).
                     tools=[_COMPATIBILITY_DETAIL_TOOL],
                     tool_choice={"type": "tool", "name": "submit_compatibility_detail"},
                     messages=[
