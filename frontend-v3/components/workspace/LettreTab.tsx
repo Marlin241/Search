@@ -15,6 +15,7 @@ import {
   notifyGenerationError,
   notifyGenerationSuccess,
 } from "@/components/generation/GenerationFeedbackToast";
+import { AiDisclaimerNote } from "@/components/generation/AiDisclaimerNote";
 import type { LetterGenerationResult, LetterTone, SavedJobOut } from "@/lib/types";
 
 const LETTER_GENERATION_STEPS = [
@@ -162,9 +163,12 @@ export function LettreTab({
           )}
 
           {job?.status === "done" && (
-            <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">Qualité perçue de cette lettre :</p>
-              <QualityRatingStars value={rating} onChange={setRating} />
+            <div className="border-t border-border pt-4 space-y-3">
+              <AiDisclaimerNote />
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">Qualité perçue de cette lettre :</p>
+                <QualityRatingStars value={rating} onChange={setRating} />
+              </div>
             </div>
           )}
         </CardContent>

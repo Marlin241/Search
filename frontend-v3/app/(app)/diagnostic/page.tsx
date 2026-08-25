@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/Input";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Dialog } from "@/components/ui/Dialog";
+import { AiDisclaimerNote } from "@/components/generation/AiDisclaimerNote";
 import {
   cn,
   formatDate,
@@ -569,6 +570,7 @@ export default function DiagnosticPage() {
                 <Sparkles className="w-4 h-4 text-primary" />
                 Conseils personnalisés de notre IA
               </h3>
+              <AiDisclaimerNote />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 {report.recommendations?.map((rec, i) => (
                   <div

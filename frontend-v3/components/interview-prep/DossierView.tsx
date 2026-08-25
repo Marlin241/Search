@@ -1,5 +1,6 @@
 import { Newspaper } from "lucide-react";
 import { AIProgressChecklist } from "@/components/generation/AIProgressChecklist";
+import { AiDisclaimerNote } from "@/components/generation/AiDisclaimerNote";
 import { CompanyFactsCard } from "@/components/interview-prep/CompanyFactsCard";
 import { ProbableQuestionsList } from "@/components/interview-prep/ProbableQuestionsList";
 import { PracticalExercises } from "@/components/interview-prep/PracticalExercises";
@@ -33,6 +34,8 @@ export function DossierView({ dossier }: { dossier: InterviewPrepDossierOut }) {
 
   return (
     <div className="space-y-5">
+      <AiDisclaimerNote />
+
       <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
         <p className="text-sm font-semibold text-foreground">{content.narrative_angle}</p>
       </div>

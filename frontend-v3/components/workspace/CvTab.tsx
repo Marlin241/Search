@@ -28,6 +28,7 @@ import {
   notifyGenerationError,
   notifyGenerationSuccess,
 } from "@/components/generation/GenerationFeedbackToast";
+import { AiDisclaimerNote } from "@/components/generation/AiDisclaimerNote";
 import type { CvTemplate, SavedJobOut } from "@/lib/types";
 
 const CV_GENERATION_STEPS = [
@@ -275,6 +276,7 @@ export function CvTab({
       {job?.status === "done" && job.result && (
         <div className="space-y-4">
           <Card className="p-6 space-y-4">
+            <AiDisclaimerNote />
             <AtsScoreDelta
               before={job.result.ats_score_before}
               after={job.result.ats_score_after}

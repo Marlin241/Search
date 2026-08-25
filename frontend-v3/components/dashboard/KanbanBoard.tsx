@@ -142,6 +142,7 @@ export function KanbanBoard({ token }: { token: string }) {
                 application={application}
                 token={token}
                 onInterviewScheduled={refresh}
+                onApplicationUpdated={refresh}
               />
             ))}
           </KanbanColumn>
