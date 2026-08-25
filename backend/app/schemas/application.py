@@ -1,9 +1,12 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.ats_adapters.schemas import FormField
 from app.schemas.diagnostic import DiagnosticReport
+
+FunnelStage = Literal["postule", "entretien_programme", "proposition", "refusee"]
 
 
 class ApplicationCreateIn(BaseModel):
@@ -24,11 +27,16 @@ class ApplicationOut(BaseModel):
     job_title: str
     ats_type: str | None
     status: str
+    funnel_stage: str
     error_message: str | None
     submitted_at: datetime | None
     created_at: datetime
     updated_at: datetime
     diagnostic: DiagnosticReport
+
+
+class FunnelStageIn(BaseModel):
+    funnel_stage: FunnelStage
 
 
 class PrefilledFormOut(BaseModel):

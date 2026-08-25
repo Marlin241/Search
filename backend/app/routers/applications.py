@@ -41,6 +41,7 @@ from app.schemas.application import (
     ApplicationCreateIn,
     ApplicationOut,
     ConfirmApplicationIn,
+    FunnelStageIn,
     PrefilledFormOut,
 )
 from app.schemas.diagnostic import DiagnosticReport
@@ -53,7 +54,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
-def _to_out(application: Application) -> ApplicationOut:
+def to_application_out(application: Application) -> ApplicationOut:
     diagnostic = application.diagnostic  # lazy-loaded via the ORM relationship (Task 2)
     return ApplicationOut(
         id=application.id,
@@ -64,6 +65,7 @@ def _to_out(application: Application) -> ApplicationOut:
         job_title=application.job_title,
         ats_type=application.ats_type,
         status=application.status,
+        funnel_stage=application.funnel_stage,
         error_message=application.error_message,
         submitted_at=application.submitted_at,
         created_at=application.created_at,
@@ -121,7 +123,7 @@ def create(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
 
-    return _to_out(application)
+    return to_application_out(application)
 
 
 @router.get("", response_model=list[ApplicationOut])
@@ -135,7 +137,7 @@ def list_applications(
         .order_by(Application.created_at.desc())
         .all()
     )
-    return [_to_out(a) for a in applications]
+    return [to_application_out(a) for a in applications]
 
 
 def get_owned_application(
@@ -159,7 +161,23 @@ def get_application(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ApplicationOut:
-    return _to_out(get_owned_application(db, application_id, current_user.id))
+    return to_application_out(
+        get_owned_application(db, application_id, current_user.id)
+    )
+
+
+@router.patch("/{application_id}/funnel-stage", response_model=ApplicationOut)
+def update_funnel_stage(
+    application_id: int,
+    payload: FunnelStageIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ApplicationOut:
+    application = get_owned_application(db, application_id, current_user.id)
+    application.funnel_stage = payload.funnel_stage
+    db.commit()
+    db.refresh(application)
+    return to_application_out(application)
 
 
 @router.get("/{application_id}/prefilled-form", response_model=PrefilledFormOut)
@@ -331,7 +349,7 @@ def confirm_application(
         application.status = APPLICATION_STATUS_A_SOUMETTRE_MANUELLEMENT
         db.commit()
         db.refresh(application)
-        return _to_out(application)
+        return to_application_out(application)
 
     if payload.fields is None:
         raise HTTPException(
@@ -424,7 +442,7 @@ def confirm_application(
     application.submitted_at = utcnow()
     db.commit()
     db.refresh(application)
-    return _to_out(application)
+    return to_application_out(application)
 
 
 @router.post("/{application_id}/mark-sent", response_model=ApplicationOut)
@@ -442,4 +460,4 @@ def mark_sent_manually(
     application.status = APPLICATION_STATUS_SOUMISE_MANUELLE_CONFIRMEE
     db.commit()
     db.refresh(application)
-    return _to_out(application)
+    return to_application_out(application)

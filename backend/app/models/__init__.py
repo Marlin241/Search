@@ -4,6 +4,7 @@ from app.models.company_ats_mapping import CompanyAtsMapping
 from app.models.company_research_cache import CompanyResearchCache
 from app.models.compatibility_request_log import CompatibilityRequestLog
 from app.models.diagnostic import Diagnostic
+from app.models.interview import Interview
 from app.models.interview_prep_dossier import InterviewPrepDossier
 from app.models.interview_prep_request_log import InterviewPrepRequestLog
 from app.models.job_search_request_log import JobSearchRequestLog
@@ -22,6 +23,7 @@ __all__ = [
     "CompanyResearchCache",
     "CompatibilityRequestLog",
     "Diagnostic",
+    "Interview",
     "InterviewPrepDossier",
     "InterviewPrepRequestLog",
     "JobSearchRequestLog",

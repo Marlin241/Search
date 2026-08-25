@@ -15,9 +15,11 @@ from app.routers import (
     applications,
     auth,
     candidate_profile,
+    dashboard,
     diagnostics,
     generation_jobs,
     interview_prep,
+    interviews,
     job_search,
     personalization,
     saved_jobs,
@@ -88,6 +90,8 @@ app.include_router(job_search.router)
 app.include_router(saved_jobs.router)
 app.include_router(generation_jobs.router)
 app.include_router(interview_prep.router)
+app.include_router(interviews.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health")

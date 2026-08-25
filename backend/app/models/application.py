@@ -15,6 +15,19 @@ APPLICATION_STATUS_A_SOUMETTRE_MANUELLEMENT = "a_soumettre_manuellement"
 APPLICATION_STATUS_SOUMISE_MANUELLE_CONFIRMEE = "soumise_manuelle_confirmee"
 APPLICATION_STATUS_ECHEC_SOUMISSION = "echec_soumission"
 
+# Kanban funnel stage - orthogonal to `status` above (submission mechanics).
+# `status` tracks whether the ATS submission itself succeeded; funnel_stage
+# tracks where the candidate is in the human recruiting process afterward,
+# and is only ever changed by the user dragging a card on the dashboard
+# (see routers/applications.py::update_funnel_stage). The Kanban's
+# "Sauvegardées" (pre-application) column is not a funnel_stage value - it's
+# derived from SavedJob rows with no matching Application (see
+# routers/dashboard.py).
+FUNNEL_STAGE_POSTULE = "postule"
+FUNNEL_STAGE_ENTRETIEN_PROGRAMME = "entretien_programme"
+FUNNEL_STAGE_PROPOSITION = "proposition"
+FUNNEL_STAGE_REFUSEE = "refusee"
+
 
 class Application(Base):
     __tablename__ = "applications"
@@ -46,5 +59,8 @@ class Application(Base):
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
     reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    funnel_stage: Mapped[str] = mapped_column(
+        String(30), nullable=False, default=FUNNEL_STAGE_POSTULE
+    )
 
     diagnostic: Mapped["Diagnostic"] = relationship()
