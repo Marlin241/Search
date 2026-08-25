@@ -4,6 +4,7 @@ import { CompanyFactsCard } from "@/components/interview-prep/CompanyFactsCard";
 import { ProbableQuestionsList } from "@/components/interview-prep/ProbableQuestionsList";
 import { PracticalExercises } from "@/components/interview-prep/PracticalExercises";
 import { CoachingChecklist } from "@/components/interview-prep/CoachingChecklist";
+import { isSafeHttpUrl } from "@/lib/utils";
 import type { GenerationJobOut, InterviewPrepDossierOut } from "@/lib/types";
 
 export function DossierViewProgress({
@@ -48,7 +49,7 @@ export function DossierView({ dossier }: { dossier: InterviewPrepDossierOut }) {
               <li key={i} className="rounded-xl border border-border p-3">
                 <p className="text-sm font-semibold text-foreground">{news.headline}</p>
                 <p className="text-xs text-muted-foreground mt-1">{news.summary}</p>
-                {news.source_url && (
+                {news.source_url && isSafeHttpUrl(news.source_url) && (
                   <a
                     href={news.source_url}
                     target="_blank"

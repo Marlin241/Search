@@ -6,6 +6,21 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * True only for http(s) URLs. Used before rendering an LLM-sourced URL
+ * (e.g. a web-search citation) as a clickable link: the model's output can
+ * be influenced by content it read during search, so an href built from it
+ * must not be trusted to be a safe scheme (javascript:, data:, etc.).
+ */
+export function isSafeHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /** Format a date string into a human-readable French format */
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "—";
