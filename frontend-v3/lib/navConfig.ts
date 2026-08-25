@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Search,
-  Send,
   FileCheck2,
   UserCheck,
   type LucideIcon,
@@ -14,10 +13,12 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
+// "Mes candidatures" (flat list) was retired in favor of the dashboard's
+// Kanban board (Phase 7) - /candidatures now just redirects to /dashboard
+// for old links/bookmarks, so it no longer needs its own nav entry.
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Tableau de bord", mobileLabel: "Accueil", icon: LayoutDashboard },
   { href: "/offres", label: "Offres d'emploi", mobileLabel: "Offres", icon: Search },
-  { href: "/candidatures", label: "Mes candidatures", mobileLabel: "Suivi", icon: Send },
   { href: "/diagnostic", label: "Diagnostic ATS", mobileLabel: "ATS", icon: FileCheck2 },
   { href: "/profil", label: "Mon profil", mobileLabel: "Profil", icon: UserCheck },
 ];

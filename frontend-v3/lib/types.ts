@@ -356,6 +356,7 @@ export interface ApplicationOut {
   job_title: string;
   ats_type: string | null;
   status: ApplicationStatus;
+  funnel_stage: FunnelStage;
   error_message: string | null;
   submitted_at: string | null;
   created_at: string;
@@ -369,6 +370,61 @@ export type ApplicationStatus =
   | "a_soumettre_manuellement"
   | "soumise_manuelle_confirmee"
   | "echec_soumission";
+
+/* ─── Dashboard: Kanban + calendar ─── */
+
+export type FunnelStage =
+  | "postule"
+  | "entretien_programme"
+  | "proposition"
+  | "refusee";
+
+export interface KanbanSavedJobCard {
+  id: number;
+  title: string;
+  company: string;
+  offer_url: string;
+  created_at: string;
+}
+
+export interface KanbanBoardOut {
+  sauvegardees: KanbanSavedJobCard[];
+  postule: ApplicationOut[];
+  entretien_programme: ApplicationOut[];
+  proposition: ApplicationOut[];
+  refusee: ApplicationOut[];
+}
+
+export type InterviewType = "rh" | "manager" | "direction" | "jury" | "autre";
+
+export interface InterviewIn {
+  scheduled_at: string;
+  interview_type: InterviewType;
+  location_or_link?: string | null;
+  notes?: string | null;
+}
+
+export interface InterviewOut {
+  id: number;
+  application_id: number;
+  scheduled_at: string;
+  interview_type: InterviewType;
+  location_or_link: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterviewCalendarEntryOut {
+  id: number;
+  application_id: number;
+  scheduled_at: string;
+  interview_type: InterviewType;
+  location_or_link: string | null;
+  notes: string | null;
+  company_name: string;
+  job_title: string;
+}
 
 export interface FormField {
   name: string;

@@ -11,13 +11,18 @@ import {
   type CvTemplate,
   type DiagnosticReport,
   type ExtractedPhotoOut,
+  type FunnelStage,
   type GenerationJobOut,
   type GenerationJobStarted,
+  type InterviewCalendarEntryOut,
+  type InterviewIn,
+  type InterviewOut,
   type InterviewPrepDossierOut,
   type InterviewPrepRequestIn,
   type JobListing,
   type JobSearchDiscoveryResponse,
   type JobSearchResponse,
+  type KanbanBoardOut,
   type LetterTone,
   type OnboardingProfileIn,
   type PrefilledFormOut,
@@ -527,4 +532,77 @@ export async function markApplicationSentManually(
     { method: "POST" },
     token
   );
+}
+
+export async function updateFunnelStage(
+  token: string,
+  applicationId: number,
+  funnelStage: FunnelStage
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
+    `/applications/${applicationId}/funnel-stage`,
+    { method: "PATCH", body: JSON.stringify({ funnel_stage: funnelStage }) },
+    token
+  );
+}
+
+/* ─── Dashboard: Kanban + calendar ─── */
+
+export async function getDashboardKanban(token: string): Promise<KanbanBoardOut> {
+  return request<KanbanBoardOut>("/dashboard/kanban", {}, token);
+}
+
+export async function getDashboardCalendar(
+  token: string,
+  month: string
+): Promise<InterviewCalendarEntryOut[]> {
+  return request<InterviewCalendarEntryOut[]>(
+    `/dashboard/calendar?month=${encodeURIComponent(month)}`,
+    {},
+    token
+  );
+}
+
+/* ─── Interviews ─── */
+
+export async function createInterview(
+  token: string,
+  applicationId: number,
+  payload: InterviewIn
+): Promise<InterviewOut> {
+  return request<InterviewOut>(
+    `/applications/${applicationId}/interviews`,
+    { method: "POST", body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export async function listInterviews(
+  token: string,
+  applicationId: number
+): Promise<InterviewOut[]> {
+  return request<InterviewOut[]>(
+    `/applications/${applicationId}/interviews`,
+    {},
+    token
+  );
+}
+
+export async function updateInterview(
+  token: string,
+  interviewId: number,
+  payload: Partial<InterviewIn>
+): Promise<InterviewOut> {
+  return request<InterviewOut>(
+    `/interviews/${interviewId}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export async function deleteInterview(
+  token: string,
+  interviewId: number
+): Promise<void> {
+  return request<void>(`/interviews/${interviewId}`, { method: "DELETE" }, token);
 }
