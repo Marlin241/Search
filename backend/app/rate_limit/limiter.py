@@ -123,6 +123,31 @@ def check_compatibility_detail_rate_limit(db: Session, user_id: int) -> None:
         )
 
 
+from app.models.interview_prep_request_log import InterviewPrepRequestLog
+
+MAX_INTERVIEW_PREP_PER_HOUR = 5
+
+
+def check_interview_prep_rate_limit(db: Session, user_id: int) -> None:
+    """Low cap relative to the other LLM-cost limits (10/h, 30/h) because
+    this pipeline can chain a web-search call (2-5 min) plus a structured
+    extraction call - the most expensive/slow generation this app offers."""
+    one_hour_ago = utcnow() - timedelta(hours=1)
+    count = db.scalar(
+        select(func.count())
+        .select_from(InterviewPrepRequestLog)
+        .where(
+            InterviewPrepRequestLog.user_id == user_id,
+            InterviewPrepRequestLog.created_at >= one_hour_ago,
+        )
+    )
+    if count is not None and count >= MAX_INTERVIEW_PREP_PER_HOUR:
+        raise RateLimitExceeded(
+            f"Limite de {MAX_INTERVIEW_PREP_PER_HOUR} préparations d'entretien "
+            "par heure atteinte. Réessaie plus tard."
+        )
+
+
 from app.models.prefilled_form_request_log import PrefilledFormRequestLog
 
 MAX_PREFILLED_FORM_PREVIEWS_PER_HOUR = 10

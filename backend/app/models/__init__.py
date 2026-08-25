@@ -1,8 +1,11 @@
 from app.models.application import Application
 from app.models.candidate_profile import CandidateProfile
 from app.models.company_ats_mapping import CompanyAtsMapping
+from app.models.company_research_cache import CompanyResearchCache
 from app.models.compatibility_request_log import CompatibilityRequestLog
 from app.models.diagnostic import Diagnostic
+from app.models.interview_prep_dossier import InterviewPrepDossier
+from app.models.interview_prep_request_log import InterviewPrepRequestLog
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.notified_listing import NotifiedListing
 from app.models.personalization_request_log import PersonalizationRequestLog
@@ -16,8 +19,11 @@ __all__ = [
     "Application",
     "CandidateProfile",
     "CompanyAtsMapping",
+    "CompanyResearchCache",
     "CompatibilityRequestLog",
     "Diagnostic",
+    "InterviewPrepDossier",
+    "InterviewPrepRequestLog",
     "JobSearchRequestLog",
     "NotifiedListing",
     "PersonalizationRequestLog",
