@@ -112,13 +112,28 @@ class OverflowingThenShortCvRewriter:
 
 
 class FakeCoverLetterGenerator:
-    def generate(self, cv_text, offer_text, missing_keywords, recommendations):
+    def __init__(self):
+        self.tones_seen: list[str] = []
+
+    def generate(
+        self, cv_text, offer_text, missing_keywords, recommendations, tone="sobre"
+    ):
+        self.tones_seen.append(tone)
         return CoverLetter(
             greeting="Madame, Monsieur,",
-            body_paragraphs=["Je vous écris pour candidater à ce poste."],
+            body_paragraphs=[f"Je vous écris pour candidater à ce poste ({tone})."],
             closing_formula="Cordialement,",
             signature="Jane Doe",
         )
+
+
+class FailingCoverLetterGenerator:
+    def generate(
+        self, cv_text, offer_text, missing_keywords, recommendations, tone="sobre"
+    ):
+        from app.personalization.analyzer import PersonalizationError
+
+        raise PersonalizationError("boom")
 
 
 class FakeObjectStorage(ObjectStorage):
@@ -230,6 +245,19 @@ def _generate_cv_and_wait(client, headers, diagnostic_id, **form_data):
     return job.json()
 
 
+def _generate_lettre_and_wait(client, headers, diagnostic_id, **form_data):
+    """POST /diagnostics/{id}/lettre launches a background job (202 +
+    job_id), same as the CV endpoint - see _generate_cv_and_wait."""
+    launch = client.post(
+        f"/diagnostics/{diagnostic_id}/lettre", headers=headers, data=form_data
+    )
+    assert launch.status_code == 202
+    job_id = launch.json()["job_id"]
+    job = client.get(f"/generation-jobs/{job_id}", headers=headers)
+    assert job.status_code == 200
+    return job.json()
+
+
 def test_generate_cv_returns_metadata_and_download_serves_pdf(client):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
@@ -281,13 +309,45 @@ def test_generate_lettre_returns_metadata_and_download_serves_pdf(client):
     diagnostic_id = _create_diagnostic(client, headers)
     _override_personalization_deps()
 
-    generate = client.post(f"/diagnostics/{diagnostic_id}/lettre", headers=headers)
-    assert generate.status_code == 201
-    assert generate.json()["kind"] == "lettre"
+    job = _generate_lettre_and_wait(client, headers, diagnostic_id)
+    assert job["status"] == "done"
+    assert job["result"]["kind"] == "lettre"
+    assert job["result"]["needs_review"] is False
 
     download = client.get(f"/diagnostics/{diagnostic_id}/lettre", headers=headers)
     assert download.status_code == 200
     assert download.content.startswith(b"%PDF")
+
+    _clear_personalization_overrides()
+
+
+def test_generate_lettre_passes_tone_through_to_generator(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    diagnostic_id = _create_diagnostic(client, headers)
+    _override_personalization_deps()
+    generator = FakeCoverLetterGenerator()
+    app.dependency_overrides[get_cover_letter_generator] = lambda: generator
+
+    job = _generate_lettre_and_wait(client, headers, diagnostic_id, tone="direct")
+    assert job["status"] == "done"
+    assert generator.tones_seen == ["direct"]
+
+    _clear_personalization_overrides()
+
+
+def test_generate_lettre_job_ends_in_error_status_on_llm_failure(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    diagnostic_id = _create_diagnostic(client, headers)
+    _override_personalization_deps()
+    app.dependency_overrides[get_cover_letter_generator] = (
+        lambda: FailingCoverLetterGenerator()
+    )
+
+    job = _generate_lettre_and_wait(client, headers, diagnostic_id)
+    assert job["status"] == "error"
+    assert job["error"]
 
     _clear_personalization_overrides()
 

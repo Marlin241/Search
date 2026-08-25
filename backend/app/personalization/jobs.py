@@ -13,7 +13,12 @@ from app.models.candidate_profile import CandidateProfile
 from app.models.diagnostic import Diagnostic
 from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.personalized_document import PersonalizedDocument
-from app.personalization.analyzer import CvRewriter, PersonalizationError
+from app.personalization.analyzer import (
+    CoverLetterGenerator,
+    CvRewriter,
+    PersonalizationError,
+)
+from app.personalization.pdf_generator import render_cover_letter_pdf
 from app.personalization.pdf_templates import CvStyleOptions, render_cv
 from app.personalization.schemas import RewrittenCv
 from app.personalization.verification import cv_needs_review
@@ -193,6 +198,90 @@ def run_cv_generation_job(
         # stuck at status="running" forever with no way for the client to
         # know it died.
         logger.exception("CV generation job %s failed unexpectedly", job_id)
+        state.fail(job_id, str(exc))
+    finally:
+        db.close()
+
+
+def run_letter_generation_job(
+    job_id: str,
+    diagnostic_id: int,
+    user_id: int,
+    tone: Literal["sobre", "chaleureux", "direct", "formel"],
+    generator: CoverLetterGenerator,
+    storage: ObjectStorage,
+    db_session_factory: Callable[[], Session],
+) -> None:
+    db = db_session_factory()
+    try:
+        state.advance(job_id, 1, "Analyse de l'offre")
+        diagnostic = (
+            db.query(Diagnostic)
+            .filter(Diagnostic.id == diagnostic_id, Diagnostic.user_id == user_id)
+            .first()
+        )
+        if diagnostic is None:
+            state.fail(job_id, "Diagnostic introuvable.")
+            return
+
+        state.advance(job_id, 2, "Rédaction de la lettre")
+        try:
+            letter = generator.generate(
+                diagnostic.cv_text,
+                diagnostic.offer_text,
+                diagnostic.missing_keywords,
+                diagnostic.recommendations,
+                tone=tone,
+            )
+        except PersonalizationError as exc:
+            state.fail(job_id, str(exc))
+            return
+
+        state.advance(job_id, 3, "Mise en page PDF")
+        try:
+            pdf_bytes = render_cover_letter_pdf(letter)
+        except FPDFException:
+            state.fail(job_id, "La génération du PDF a échoué.")
+            return
+
+        key = _storage_key(user_id, diagnostic.id, "lettre")
+        try:
+            storage.upload(key, pdf_bytes)
+        except ObjectStorageError as exc:
+            state.fail(job_id, str(exc))
+            return
+
+        document = (
+            db.query(PersonalizedDocument)
+            .filter(
+                PersonalizedDocument.diagnostic_id == diagnostic.id,
+                PersonalizedDocument.kind == "lettre",
+            )
+            .first()
+        )
+        if document is None:
+            document = PersonalizedDocument(
+                diagnostic_id=diagnostic.id, kind="lettre", storage_key=key
+            )
+            db.add(document)
+        document.storage_key = key
+        document.needs_review = False
+
+        db.add(PersonalizationRequestLog(user_id=user_id))
+        db.commit()
+        db.refresh(document)
+
+        state.complete(
+            job_id,
+            result={
+                "kind": document.kind,
+                "needs_review": document.needs_review,
+                "created_at": document.created_at.isoformat(),
+                "updated_at": document.updated_at.isoformat(),
+            },
+        )
+    except Exception as exc:
+        logger.exception("Letter generation job %s failed unexpectedly", job_id)
         state.fail(job_id, str(exc))
     finally:
         db.close()

@@ -79,7 +79,9 @@ class FakeHallucinatingCvRewriter:
 
 
 class FakeCoverLetterGenerator:
-    def generate(self, cv_text, offer_text, missing_keywords, recommendations):
+    def generate(
+        self, cv_text, offer_text, missing_keywords, recommendations, tone="sobre"
+    ):
         return CoverLetter(
             greeting="Madame, Monsieur,",
             body_paragraphs=["Je candidate à ce poste."],

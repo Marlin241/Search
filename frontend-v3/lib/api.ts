@@ -6,6 +6,7 @@ import {
   type CandidateProfileOut,
   type CompatibilityDetailOut,
   type ConfirmApplicationIn,
+  type CvGenerationResult,
   type CvStyleOptions,
   type CvTemplate,
   type DiagnosticReport,
@@ -15,8 +16,8 @@ import {
   type JobListing,
   type JobSearchDiscoveryResponse,
   type JobSearchResponse,
+  type LetterTone,
   type OnboardingProfileIn,
-  type PersonalizedDocumentOut,
   type PrefilledFormOut,
   type RewrittenCv,
   type SavedJobIn,
@@ -271,11 +272,11 @@ export async function generateCv(
   );
 }
 
-export async function getGenerationJob(
+export async function getGenerationJob<TResult = CvGenerationResult>(
   token: string,
   jobId: string
-): Promise<GenerationJobOut> {
-  return request<GenerationJobOut>(`/generation-jobs/${jobId}`, {}, token);
+): Promise<GenerationJobOut<TResult>> {
+  return request<GenerationJobOut<TResult>>(`/generation-jobs/${jobId}`, {}, token);
 }
 
 export async function renderCvPreview(
@@ -309,11 +310,14 @@ export async function renderCvPreview(
 
 export async function generateLetter(
   token: string,
-  diagnosticId: number
-): Promise<PersonalizedDocumentOut> {
-  return request<PersonalizedDocumentOut>(
+  diagnosticId: number,
+  tone: LetterTone = "sobre"
+): Promise<GenerationJobStarted> {
+  const form = new FormData();
+  form.append("tone", tone);
+  return request<GenerationJobStarted>(
     `/diagnostics/${diagnosticId}/lettre`,
-    { method: "POST" },
+    { method: "POST", body: form },
     token
   );
 }

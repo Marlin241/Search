@@ -1,3 +1,5 @@
+from typing import Literal
+
 import anthropic
 from pydantic import BaseModel, ValidationError
 
@@ -289,6 +291,28 @@ class CvRewriter:
         )
 
 
+_TONE_INSTRUCTIONS = {
+    "sobre": (
+        "Write in a measured, professional, understated tone - no "
+        "superlatives or exclamation marks, confident but not boastful."
+    ),
+    "chaleureux": (
+        "Write in a warm, personable, genuinely enthusiastic tone while "
+        "staying professional - let real interest in the role and company "
+        "come through, not just competence."
+    ),
+    "direct": (
+        "Write in a concise, direct, to-the-point tone - short sentences, "
+        "no filler phrases, get to the candidate's value quickly."
+    ),
+    "formel": (
+        "Write in a traditional, formal register - conventional formal "
+        "phrasing throughout, no colloquialisms, closer to a formal "
+        "administrative letter than a casual pitch."
+    ),
+}
+
+
 class CoverLetterGenerator:
     def __init__(self, client, model: str = PERSONALIZATION_MODEL):
         self._client = client
@@ -300,12 +324,15 @@ class CoverLetterGenerator:
         offer_text: str,
         missing_keywords: list[str],
         recommendations: list[str],
+        tone: Literal["sobre", "chaleureux", "direct", "formel"] = "sobre",
     ) -> CoverLetter:
+        tone_instructions = _TONE_INSTRUCTIONS[tone]
         prompt = (
             "Write a cover letter for this candidate applying to this job "
             "offer, based only on their CV - do not invent experience or "
             "skills not present in the CV. The CV and offer may be in "
             "French or English; respond in the same language as the CV.\n\n"
+            f"Tone: {tone_instructions}\n\n"
             f"CV:\n{cv_text}\n\nJob offer:\n{offer_text}\n\n"
             f"Missing keywords identified by a prior diagnostic: {missing_keywords}\n"
             f"Recommendations from a prior diagnostic: {recommendations}"

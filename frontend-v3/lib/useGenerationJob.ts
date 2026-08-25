@@ -3,14 +3,17 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getGenerationJob } from "@/lib/api";
-import type { GenerationJobOut } from "@/lib/types";
+import type { CvGenerationResult, GenerationJobOut } from "@/lib/types";
 
 const POLL_INTERVAL_MS = 1500;
 
-export function useGenerationJob(token: string | null, jobId: string | null) {
-  const query = useQuery<GenerationJobOut>({
+export function useGenerationJob<TResult = CvGenerationResult>(
+  token: string | null,
+  jobId: string | null
+) {
+  const query = useQuery<GenerationJobOut<TResult>>({
     queryKey: ["generation-job", jobId],
-    queryFn: () => getGenerationJob(token as string, jobId as string),
+    queryFn: () => getGenerationJob<TResult>(token as string, jobId as string),
     enabled: !!token && !!jobId,
   });
 

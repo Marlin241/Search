@@ -1,14 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Download, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Download, Mail, Sparkles } from "lucide-react";
 import { downloadLetter, generateLetter } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Dialog } from "@/components/ui/Dialog";
-import { Mail } from "lucide-react";
-import type { SavedJobOut } from "@/lib/types";
+import { useGenerationJob } from "@/lib/useGenerationJob";
+import { AIProgressChecklist } from "@/components/generation/AIProgressChecklist";
+import { QualityRatingStars } from "@/components/generation/QualityRatingStars";
+import { TonePicker } from "@/components/generation/TonePicker";
+import {
+  notifyGenerationError,
+  notifyGenerationSuccess,
+} from "@/components/generation/GenerationFeedbackToast";
+import type { LetterGenerationResult, LetterTone, SavedJobOut } from "@/lib/types";
+
+const LETTER_GENERATION_STEPS = [
+  "Analyse de l'offre",
+  "Rédaction de la lettre",
+  "Mise en page PDF",
+];
 
 export function LettreTab({
   savedJob,
@@ -19,12 +32,36 @@ export function LettreTab({
   token: string;
   onGoToCvTab: () => void;
 }) {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasLetterGenerated, setHasLetterGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [tone, setTone] = useState<LetterTone>("sobre");
+  const [rating, setRating] = useState(0);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const handledJobIdRef = useRef<string | null>(null);
 
+  const { job } = useGenerationJob<LetterGenerationResult>(token, jobId);
+  const isGenerating = job?.status === "running" || (!!jobId && !job);
+
+  const existingLetter = savedJob.documents.find((doc) => doc.kind === "lettre");
   const diagnosticId = savedJob.latest_diagnostic?.id;
+
+  useEffect(() => {
+    if (!jobId || !job || job.status === "running") return;
+    if (handledJobIdRef.current === jobId) return;
+    handledJobIdRef.current = jobId;
+
+    if (job.status === "done" && diagnosticId) {
+      downloadLetter(token, diagnosticId).then((blob) => {
+        setPreviewUrl(URL.createObjectURL(blob));
+      });
+      notifyGenerationSuccess("Lettre de motivation générée avec succès.");
+    } else if (job.status === "error") {
+      const message = job.error || "La génération de la lettre a échoué.";
+      setError(message);
+      notifyGenerationError(message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, jobId]);
 
   if (!diagnosticId) {
     return (
@@ -46,17 +83,14 @@ export function LettreTab({
   }
 
   const handleGenerate = async () => {
-    setIsGenerating(true);
     setError(null);
     try {
-      await generateLetter(token, diagnosticId);
-      setHasLetterGenerated(true);
-      const blob = await downloadLetter(token, diagnosticId);
-      setPreviewUrl(URL.createObjectURL(blob));
+      const started = await generateLetter(token, diagnosticId, tone);
+      setJobId(started.job_id);
     } catch (err: any) {
-      setError(err?.detail || "La génération de la lettre a échoué.");
-    } finally {
-      setIsGenerating(false);
+      const message = err?.detail || "La génération de la lettre a échoué.";
+      setError(message);
+      notifyGenerationError(message);
     }
   };
 
@@ -88,30 +122,51 @@ export function LettreTab({
           <p className="text-xs text-muted-foreground">
             Générez une lettre de motivation personnalisée à partir de votre CV et de cette offre.
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              isLoading={isGenerating}
-              onClick={handleGenerate}
-              icon={<Sparkles className="w-4 h-4" />}
-            >
-              {hasLetterGenerated ? "Régénérer la Lettre" : "Rédiger Lettre sur-mesure (IA)"}
-            </Button>
-            {hasLetterGenerated && (
-              <>
-                <Button variant="secondary" size="sm" onClick={handlePreview}>
-                  Visualiser
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleDownload}
-                  icon={<Download className="w-4 h-4" />}
-                />
-              </>
-            )}
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <TonePicker value={tone} onChange={setTone} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={isGenerating}
+                onClick={handleGenerate}
+                icon={<Sparkles className="w-4 h-4" />}
+              >
+                {existingLetter ? "Régénérer la Lettre" : "Rédiger Lettre sur-mesure (IA)"}
+              </Button>
+              {existingLetter && (
+                <>
+                  <Button variant="secondary" size="sm" onClick={handlePreview}>
+                    Visualiser
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleDownload}
+                    icon={<Download className="w-4 h-4" />}
+                  />
+                </>
+              )}
+            </div>
           </div>
+
+          {isGenerating && job && (
+            <div className="border-t border-border pt-4">
+              <AIProgressChecklist
+                steps={LETTER_GENERATION_STEPS}
+                currentStepIndex={job.step_index}
+                status={job.status}
+              />
+            </div>
+          )}
+
+          {job?.status === "done" && (
+            <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">Qualité perçue de cette lettre :</p>
+              <QualityRatingStars value={rating} onChange={setRating} />
+            </div>
+          )}
         </CardContent>
       </Card>
 

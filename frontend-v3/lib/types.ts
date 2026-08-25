@@ -147,12 +147,23 @@ export interface CvGenerationResult {
   updated_at: string;
 }
 
-export interface GenerationJobOut {
+export type LetterTone = "sobre" | "chaleureux" | "direct" | "formel";
+
+export interface LetterGenerationResult {
+  kind: "lettre";
+  needs_review: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenerationJobOut<
+  TResult = CvGenerationResult | LetterGenerationResult,
+> {
   status: "running" | "done" | "error";
   current_step: string;
   step_index: number;
   total_steps: number;
-  result: CvGenerationResult | null;
+  result: TResult | null;
   error: string | null;
 }
 
