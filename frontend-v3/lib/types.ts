@@ -167,6 +167,73 @@ export interface GenerationJobOut<
   error: string | null;
 }
 
+/* ─── Interview Prep ─── */
+
+export interface CompanyFacts {
+  founding_year: number | null;
+  headquarters: string | null;
+  sector: string | null;
+  revenue: string | null;
+  ceo: string | null;
+  confidence: "verified_web_search" | "general_knowledge_unverified";
+}
+
+export interface RecentNewsItem {
+  headline: string;
+  summary: string;
+  source_url: string | null;
+}
+
+export interface ProbableQuestion {
+  question: string;
+  targets_weak_point: string | null;
+  model_answer: string;
+}
+
+export interface PracticalExercise {
+  title: string;
+  prompt: string;
+  pitfalls_to_avoid: string[];
+  difficulty: "facile" | "moyen" | "difficile";
+}
+
+export interface CoachingChecklistContent {
+  before: string[];
+  during: string[];
+  after: string[];
+}
+
+export interface InterviewPrepDossierContent {
+  narrative_angle: string;
+  company_facts: CompanyFacts;
+  recent_news: RecentNewsItem[];
+  probable_questions: ProbableQuestion[];
+  practical_exercises: PracticalExercise[];
+  coaching_checklist: CoachingChecklistContent;
+}
+
+export interface InterviewPrepSource {
+  title?: string;
+  url?: string;
+}
+
+export interface InterviewPrepDossierOut {
+  saved_job_id: number;
+  persona: string;
+  extra_context: string | null;
+  web_search_used: boolean;
+  dossier: InterviewPrepDossierContent;
+  sources: InterviewPrepSource[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterviewPrepRequestIn {
+  persona: string;
+  extra_context: string | null;
+  use_web_search: boolean;
+}
+
 /* ─── Saved Job (workspace) ─── */
 
 export interface SavedJobIn {

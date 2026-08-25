@@ -114,7 +114,9 @@ export default function JobWorkspacePage() {
       {activeTab === "lettre" && token && (
         <LettreTab savedJob={savedJob} token={token} onGoToCvTab={() => setTab("cv")} />
       )}
-      {activeTab === "entretien" && <EntretienTab />}
+      {activeTab === "entretien" && token && (
+        <EntretienTab savedJob={savedJob} token={token} onGoToCvTab={() => setTab("cv")} />
+      )}
     </div>
   );
 }

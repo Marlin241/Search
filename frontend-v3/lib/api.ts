@@ -13,6 +13,8 @@ import {
   type ExtractedPhotoOut,
   type GenerationJobOut,
   type GenerationJobStarted,
+  type InterviewPrepDossierOut,
+  type InterviewPrepRequestIn,
   type JobListing,
   type JobSearchDiscoveryResponse,
   type JobSearchResponse,
@@ -440,6 +442,31 @@ export async function getSavedJob(
   id: number
 ): Promise<SavedJobOut> {
   return request<SavedJobOut>(`/saved-jobs/${id}`, {}, token);
+}
+
+/* ─── Interview Prep ─── */
+
+export async function startInterviewPrep(
+  token: string,
+  savedJobId: number,
+  payload: InterviewPrepRequestIn
+): Promise<GenerationJobStarted> {
+  return request<GenerationJobStarted>(
+    `/saved-jobs/${savedJobId}/interview-prep`,
+    { method: "POST", body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export async function getInterviewPrep(
+  token: string,
+  savedJobId: number
+): Promise<InterviewPrepDossierOut> {
+  return request<InterviewPrepDossierOut>(
+    `/saved-jobs/${savedJobId}/interview-prep`,
+    {},
+    token
+  );
 }
 
 /* ─── Applications ─── */
