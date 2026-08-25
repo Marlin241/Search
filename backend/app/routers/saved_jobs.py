@@ -155,6 +155,7 @@ def get_saved_job(
                 updated_at=document.updated_at,
                 ats_score_before=document.ats_score_before,
                 ats_score_after=document.ats_score_after,
+                content_json=document.content_json,
             )
             for document in db.query(PersonalizedDocument)
             .filter(PersonalizedDocument.diagnostic_id == latest_diagnostic.id)

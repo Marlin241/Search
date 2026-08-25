@@ -75,11 +75,85 @@ export interface DiagnosticReport {
 
 /* ─── Personalized Document ─── */
 
+export interface CvExperienceEntry {
+  title: string;
+  company: string;
+  dates: string;
+  bullets: string[];
+}
+
+export interface HonestyAssessment {
+  fit_summary: string;
+  concerns: string[];
+  strengths: string[];
+}
+
+export interface KeywordOmission {
+  keyword: string;
+  reason: string;
+}
+
+export interface ChangelogEntry {
+  section: string;
+  change: string;
+  reason: string;
+}
+
+export interface RewrittenCv {
+  summary: string;
+  experience: CvExperienceEntry[];
+  education: string[];
+  skills: string[];
+  honesty_assessment: HonestyAssessment;
+  keywords_added: string[];
+  keywords_already_present: string[];
+  keywords_deliberately_omitted: KeywordOmission[];
+  changelog: ChangelogEntry[];
+}
+
+export type CvTemplate = "classic" | "modern" | "minimal";
+
+export interface CvStyleOptions {
+  font?: "dejavu";
+  accent_color?: string;
+  margins?: number;
+  spacing?: "compact" | "normal" | "relaxed";
+}
+
 export interface PersonalizedDocumentOut {
   kind: "cv" | "lettre";
   needs_review: boolean;
   created_at: string;
   updated_at: string;
+  ats_score_before?: number | null;
+  ats_score_after?: number | null;
+  content_json?: RewrittenCv | null;
+}
+
+/* ─── Generation Jobs ─── */
+
+export interface GenerationJobStarted {
+  job_id: string;
+}
+
+export interface CvGenerationResult {
+  kind: "cv";
+  needs_review: boolean;
+  ats_score_before: number;
+  ats_score_after: number;
+  content: RewrittenCv;
+  template: CvTemplate;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenerationJobOut {
+  status: "running" | "done" | "error";
+  current_step: string;
+  step_index: number;
+  total_steps: number;
+  result: CvGenerationResult | null;
+  error: string | null;
 }
 
 /* ─── Saved Job (workspace) ─── */

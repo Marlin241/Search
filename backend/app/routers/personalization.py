@@ -129,6 +129,20 @@ def generate_cv(
 
     diagnostic = _get_owned_diagnostic(db, diagnostic_id, current_user.id)
 
+    # Release the FOR UPDATE row lock taken above BEFORE launching the
+    # background job. FastAPI keeps this request's `db` session open until
+    # every BackgroundTasks callback finishes, not just until the response
+    # is sent - so without this commit, the lock would stay held for the
+    # entire generation job. The job's own session later inserts a
+    # PersonalizationRequestLog row referencing this same user (FK), which
+    # needs a share lock on the user row to do so - that would deadlock
+    # against this still-open FOR UPDATE lock, since the job can never
+    # finish (and thus never let BackgroundTasks let this session close)
+    # while it's blocked waiting on a lock only this session's commit can
+    # release. Nothing else in this handler needs to stay in the same
+    # transaction as the lock, so committing here is safe.
+    db.commit()
+
     job_id = generation_jobs_state.create_job(current_user.id, _CV_GENERATION_STEPS)
     background_tasks.add_task(
         run_cv_generation_job,

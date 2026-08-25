@@ -6,14 +6,19 @@ import {
   type CandidateProfileOut,
   type CompatibilityDetailOut,
   type ConfirmApplicationIn,
+  type CvStyleOptions,
+  type CvTemplate,
   type DiagnosticReport,
   type ExtractedPhotoOut,
+  type GenerationJobOut,
+  type GenerationJobStarted,
   type JobListing,
   type JobSearchDiscoveryResponse,
   type JobSearchResponse,
   type OnboardingProfileIn,
   type PersonalizedDocumentOut,
   type PrefilledFormOut,
+  type RewrittenCv,
   type SavedJobIn,
   type SavedJobOut,
   type SavedSearchIn,
@@ -252,13 +257,54 @@ export async function deleteAllDiagnostics(
 
 export async function generateCv(
   token: string,
-  diagnosticId: number
-): Promise<PersonalizedDocumentOut> {
-  return request<PersonalizedDocumentOut>(
+  diagnosticId: number,
+  template: CvTemplate = "classic",
+  targetLanguage: string = "fr"
+): Promise<GenerationJobStarted> {
+  const form = new FormData();
+  form.append("template", template);
+  form.append("target_language", targetLanguage);
+  return request<GenerationJobStarted>(
     `/diagnostics/${diagnosticId}/cv`,
-    { method: "POST" },
+    { method: "POST", body: form },
     token
   );
+}
+
+export async function getGenerationJob(
+  token: string,
+  jobId: string
+): Promise<GenerationJobOut> {
+  return request<GenerationJobOut>(`/generation-jobs/${jobId}`, {}, token);
+}
+
+export async function renderCvPreview(
+  token: string,
+  savedJobId: number,
+  payload: { content: RewrittenCv; template: CvTemplate; style: CvStyleOptions }
+): Promise<Blob> {
+  const res = await fetch(
+    `${API_BASE}/saved-jobs/${savedJobId}/cv/render-preview`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    let detail = `Erreur ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? detail;
+    } catch {
+      /* ignore parse error */
+    }
+    handleResponseError(res.status, detail);
+  }
+  return res.blob();
 }
 
 export async function generateLetter(

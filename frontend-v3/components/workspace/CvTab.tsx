@@ -1,14 +1,42 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AlertTriangle, Download, FileCheck2, Sparkles, UploadCloud } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  Download,
+  FileCheck2,
+  PenLine,
+  Sparkles,
+  UploadCloud,
+} from "lucide-react";
 import { createDiagnostic, downloadCv, generateCv } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { Dialog } from "@/components/ui/Dialog";
 import { cn, isValidCvFile, MAX_FILE_SIZE } from "@/lib/utils";
-import type { SavedJobOut } from "@/lib/types";
+import { useGenerationJob } from "@/lib/useGenerationJob";
+import { AIProgressChecklist } from "@/components/generation/AIProgressChecklist";
+import { HonestyBox } from "@/components/generation/HonestyBox";
+import { AtsScoreDelta } from "@/components/generation/AtsScoreDelta";
+import { KeywordTransparency } from "@/components/generation/KeywordTransparency";
+import { ChangelogList } from "@/components/generation/ChangelogList";
+import { TemplatePicker } from "@/components/generation/TemplatePicker";
+import { LanguagePicker } from "@/components/generation/LanguagePicker";
+import {
+  notifyGenerationError,
+  notifyGenerationSuccess,
+} from "@/components/generation/GenerationFeedbackToast";
+import type { CvTemplate, SavedJobOut } from "@/lib/types";
+
+const CV_GENERATION_STEPS = [
+  "Analyse du CV",
+  "Génération du contenu",
+  "Vérification anti-hallucination",
+  "Mise en page PDF",
+  "Calcul du score ATS",
+];
 
 export function CvTab({
   savedJob,
@@ -22,11 +50,38 @@ export function CvTab({
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [hasCvGenerated, setHasCvGenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [template, setTemplate] = useState<CvTemplate>("classic");
+  const [targetLanguage, setTargetLanguage] = useState("fr");
+  const [jobId, setJobId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { job } = useGenerationJob(token, jobId);
+  const isGenerating = job?.status === "running" || (!!jobId && !job);
+  const handledJobIdRef = useRef<string | null>(null);
+
+  const existingCv = savedJob.documents.find((doc) => doc.kind === "cv");
+  const diagnosticId = savedJob.latest_diagnostic?.id;
+
+  useEffect(() => {
+    if (!jobId || !job || job.status === "running") return;
+    if (handledJobIdRef.current === jobId) return;
+    handledJobIdRef.current = jobId;
+
+    if (job.status === "done" && job.result && diagnosticId) {
+      downloadCv(token, diagnosticId).then((blob) => {
+        setPreviewUrl(URL.createObjectURL(blob));
+      });
+      notifyGenerationSuccess("CV optimisé généré avec succès.");
+      onDiagnosticCreated();
+    } else if (job.status === "error") {
+      const message = job.error || "La génération du CV a échoué.";
+      setError(message);
+      notifyGenerationError(message);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, jobId]);
 
   const validateAndSetFile = (file: File) => {
     if (!isValidCvFile(file)) {
@@ -46,13 +101,7 @@ export function CvTab({
     setIsAnalyzing(true);
     setError(null);
     try {
-      await createDiagnostic(
-        token,
-        cvFile,
-        savedJob.snippet,
-        null,
-        savedJob.id
-      );
+      await createDiagnostic(token, cvFile, savedJob.snippet, null, savedJob.id);
       onDiagnosticCreated();
     } catch (err: any) {
       setError(err?.detail || "Erreur lors du diagnostic.");
@@ -61,21 +110,16 @@ export function CvTab({
     }
   };
 
-  const diagnosticId = savedJob.latest_diagnostic?.id;
-
   const handleGenerate = async () => {
     if (!diagnosticId) return;
-    setIsGenerating(true);
     setError(null);
     try {
-      await generateCv(token, diagnosticId);
-      setHasCvGenerated(true);
-      const blob = await downloadCv(token, diagnosticId);
-      setPreviewUrl(URL.createObjectURL(blob));
+      const started = await generateCv(token, diagnosticId, template, targetLanguage);
+      setJobId(started.job_id);
     } catch (err: any) {
-      setError(err?.detail || "La génération du CV a échoué.");
-    } finally {
-      setIsGenerating(false);
+      const message = err?.detail || "La génération du CV a échoué.";
+      setError(message);
+      notifyGenerationError(message);
     }
   };
 
@@ -169,41 +213,82 @@ export function CvTab({
       )}
 
       <Card className="p-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            <ScoreRing score={report.overall_score} size="lg" label="Score Global" />
-            <div className="flex sm:flex-col gap-4">
-              <ScoreRing score={report.structural_score} size="sm" label="Structure ATS" />
-              <ScoreRing score={report.semantic_score} size="sm" label="Sémantique" />
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex flex-wrap items-center justify-center gap-6">
+              <ScoreRing score={report.overall_score} size="lg" label="Score Global" />
+              <div className="flex sm:flex-col gap-4">
+                <ScoreRing score={report.structural_score} size="sm" label="Structure ATS" />
+                <ScoreRing score={report.semantic_score} size="sm" label="Sémantique" />
+              </div>
+            </div>
+
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-2">
+                <TemplatePicker value={template} onChange={setTemplate} />
+                <LanguagePicker value={targetLanguage} onChange={setTargetLanguage} />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isLoading={isGenerating}
+                  onClick={handleGenerate}
+                  icon={<Sparkles className="w-4 h-4" />}
+                >
+                  {existingCv ? "Régénérer le CV optimisé" : "Générer CV optimisé (IA)"}
+                </Button>
+                {existingCv && (
+                  <>
+                    <Button variant="secondary" size="sm" onClick={handlePreview}>
+                      Visualiser
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleDownload}
+                      icon={<Download className="w-4 h-4" />}
+                    />
+                    <Link href={`/offres/${savedJob.id}/cv/editor`}>
+                      <Button variant="outline" size="sm" icon={<PenLine className="w-4 h-4" />}>
+                        Éditer
+                      </Button>
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              isLoading={isGenerating}
-              onClick={handleGenerate}
-              icon={<Sparkles className="w-4 h-4" />}
-            >
-              {hasCvGenerated ? "Régénérer le CV optimisé" : "Générer CV optimisé (IA)"}
-            </Button>
-            {hasCvGenerated && (
-              <>
-                <Button variant="secondary" size="sm" onClick={handlePreview}>
-                  Visualiser
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleDownload}
-                  icon={<Download className="w-4 h-4" />}
-                />
-              </>
-            )}
-          </div>
+          {isGenerating && job && (
+            <div className="border-t border-border pt-4">
+              <AIProgressChecklist
+                steps={CV_GENERATION_STEPS}
+                currentStepIndex={job.step_index}
+                status={job.status}
+              />
+            </div>
+          )}
         </div>
       </Card>
+
+      {job?.status === "done" && job.result && (
+        <div className="space-y-4">
+          <Card className="p-6 space-y-4">
+            <AtsScoreDelta
+              before={job.result.ats_score_before}
+              after={job.result.ats_score_after}
+            />
+            <HonestyBox assessment={job.result.content.honesty_assessment} />
+            <KeywordTransparency
+              added={job.result.content.keywords_added}
+              alreadyPresent={job.result.content.keywords_already_present}
+              omitted={job.result.content.keywords_deliberately_omitted}
+            />
+            <ChangelogList entries={job.result.content.changelog} />
+          </Card>
+        </div>
+      )}
 
       <Dialog
         isOpen={!!previewUrl}
