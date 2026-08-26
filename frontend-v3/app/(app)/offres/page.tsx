@@ -63,8 +63,16 @@ const CONTRACT_OPTIONS = [
 // re-hitting the backend (which itself caches upstream results for 15 min,
 // but a round trip still costs a request + rate-limit slot). A manual
 // search always overwrites this entry with fresh results.
-const SEARCH_CACHE_KEY = "offres-search-cache";
+//
+// Keyed per user id, NOT a bare constant: sessionStorage survives a
+// logout/login in the same tab (a normal flow on a shared device), so an
+// unscoped key would silently hand the next account whoever-was-logged-in-
+// before's search results and criteria on mount - a cross-user data leak.
 const SEARCH_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function searchCacheKey(userId: number): string {
+  return `offres-search-cache:${userId}`;
+}
 
 interface CachedSearch {
   keywords: string;
@@ -76,9 +84,9 @@ interface CachedSearch {
   savedAt: number;
 }
 
-function readSearchCache(): CachedSearch | null {
+function readSearchCache(userId: number): CachedSearch | null {
   try {
-    const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
+    const raw = sessionStorage.getItem(searchCacheKey(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedSearch;
     if (Date.now() - parsed.savedAt >= SEARCH_CACHE_TTL_MS) return null;
@@ -90,16 +98,16 @@ function readSearchCache(): CachedSearch | null {
   }
 }
 
-function writeSearchCache(entry: CachedSearch): void {
+function writeSearchCache(userId: number, entry: CachedSearch): void {
   try {
-    sessionStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(entry));
+    sessionStorage.setItem(searchCacheKey(userId), JSON.stringify(entry));
   } catch {
     // ignore - see readSearchCache
   }
 }
 
 export default function OffresPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const router = useRouter();
   const [openingWorkspaceUrl, setOpeningWorkspaceUrl] = useState<string | null>(null);
 
@@ -194,13 +202,16 @@ export default function OffresPage() {
             // discovery results too, without touching savedAt (this must
             // not extend the cache's own 15 min lifetime).
             try {
-              const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
-              if (raw) {
-                const cached = JSON.parse(raw) as CachedSearch;
-                sessionStorage.setItem(
-                  SEARCH_CACHE_KEY,
-                  JSON.stringify({ ...cached, listings: merged })
-                );
+              if (user) {
+                const key = searchCacheKey(user.id);
+                const raw = sessionStorage.getItem(key);
+                if (raw) {
+                  const cached = JSON.parse(raw) as CachedSearch;
+                  sessionStorage.setItem(
+                    key,
+                    JSON.stringify({ ...cached, listings: merged })
+                  );
+                }
               }
             } catch {
               // ignore
@@ -221,10 +232,10 @@ export default function OffresPage() {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [token, searchId, discoveryPending]);
+  }, [token, user, searchId, discoveryPending]);
 
   const runSearch = async (searchKeywords: string, searchLocation: string) => {
-    if (!token || !searchKeywords.trim()) return;
+    if (!token || !user || !searchKeywords.trim()) return;
 
     setIsSearching(true);
     setSelectedUrls(new Set());
@@ -247,7 +258,7 @@ export default function OffresPage() {
       setListings(res.listings || []);
       setSearchId(res.search_id);
       setDiscoveryPending(res.discovery_pending);
-      writeSearchCache({
+      writeSearchCache(user.id, {
         keywords: trimmedKeywords,
         location: trimmedLocation,
         contractType,
@@ -274,9 +285,9 @@ export default function OffresPage() {
   // profile's declared preferences and searching automatically - a
   // starting point, not a lock: the form stays fully editable either way.
   useEffect(() => {
-    if (!token) return;
+    if (!token || !user) return;
 
-    const cached = readSearchCache();
+    const cached = readSearchCache(user.id);
     if (cached) {
       setKeywords(cached.keywords);
       setLocation(cached.location);
@@ -300,7 +311,7 @@ export default function OffresPage() {
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, user]);
 
   const toggleSelect = (url: string) => {
     setSelectedUrls((prev) => {
