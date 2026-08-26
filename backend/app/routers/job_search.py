@@ -13,6 +13,7 @@ from app.compatibility.analyzer import (
 )
 from app.compatibility.dependencies import get_compatibility_detail_analyzer
 from app.database import get_db
+from app.job_search import search_cache
 from app.job_search.aggregator import search_jobs
 from app.job_search.background_discovery import (
     create_pending_search,
@@ -95,7 +96,18 @@ def search(
         "adzuna": cast(SearchClient, clients["adzuna"]),
         "la_bonne_alternance": cast(SearchClient, clients["la_bonne_alternance"]),
     }
-    listings, unavailable_sources = search_jobs(criteria, primary_clients)
+    # Upstream results for a given set of criteria don't depend on who's
+    # asking, so a cache hit here skips France Travail/Adzuna/La Bonne
+    # Alternance entirely for repeat/near-repeat searches within the TTL.
+    # The per-user quota below still counts every request regardless -
+    # it's an abuse guard, not a proxy for upstream cost.
+    cache_key = search_cache.build_cache_key(criteria)
+    cached = search_cache.get(cache_key)
+    if cached is not None:
+        listings, unavailable_sources = cached
+    else:
+        listings, unavailable_sources = search_jobs(criteria, primary_clients)
+        search_cache.set(cache_key, listings, unavailable_sources)
 
     db.add(JobSearchRequestLog(user_id=current_user.id))
     db.commit()

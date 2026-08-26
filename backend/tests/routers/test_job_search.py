@@ -133,6 +133,64 @@ def test_search_rate_limited_after_max_per_hour(client):
     assert response.status_code == 429
 
 
+class CountingClient:
+    """Tracks how many times .search() was actually invoked, to prove
+    identical criteria hit the cache instead of calling the upstream client
+    again, while different criteria still reach it."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def search(self, criteria):
+        self.calls += 1
+        return [
+            JobListing(
+                title="Développeur Python",
+                company="",
+                location="Paris",
+                snippet="...",
+                url="https://example.com/1",
+                source="fake",
+                ats_type=None,
+            )
+        ]
+
+
+def test_search_reuses_cached_result_for_identical_criteria(client):
+    counting_client = CountingClient()
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": counting_client}
+    )
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    first = client.post(
+        "/job-search/search", headers=headers, json={"keywords": "python"}
+    )
+    second = client.post(
+        "/job-search/search", headers=headers, json={"keywords": "  Python  "}
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert counting_client.calls == 1
+    assert second.json()["listings"] == first.json()["listings"]
+
+
+def test_search_does_not_share_cache_across_different_criteria(client):
+    counting_client = CountingClient()
+    app.dependency_overrides[get_job_search_clients] = lambda: _default_clients(
+        {"france_travail": counting_client}
+    )
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.post("/job-search/search", headers=headers, json={"keywords": "python"})
+    client.post("/job-search/search", headers=headers, json={"keywords": "java"})
+
+    assert counting_client.calls == 2
+
+
 def test_search_with_no_companies_in_results_is_not_discovery_pending(client):
     class NoCompanyClient:
         def search(self, criteria):

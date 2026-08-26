@@ -15,6 +15,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import database
 from app.database import Base, get_db
+from app.job_search import search_cache
 from app.main import app
 
 
@@ -38,6 +39,13 @@ def db_session():
 
 @pytest.fixture()
 def client(db_session, monkeypatch):
+    # search_cache is a module-level, process-global dict (see its docstring
+    # for why it's not per-user) - without clearing it here, one test's
+    # cached /job-search/search result for a given set of criteria (e.g. the
+    # common {"keywords": "python"} used across many tests) would leak into
+    # another test that expects its own mocked client to be hit fresh.
+    search_cache._cache.clear()
+
     def override_get_db():
         yield db_session
 
