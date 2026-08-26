@@ -15,6 +15,7 @@ import {
   Loader2,
   Check,
   Bell,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -57,6 +58,46 @@ const CONTRACT_OPTIONS = [
   { value: "freelance", label: "Freelance" },
 ];
 
+// Session-local cache of the last search: revisiting this page within the
+// TTL redisplays results instantly with zero network calls, instead of
+// re-hitting the backend (which itself caches upstream results for 15 min,
+// but a round trip still costs a request + rate-limit slot). A manual
+// search always overwrites this entry with fresh results.
+const SEARCH_CACHE_KEY = "offres-search-cache";
+const SEARCH_CACHE_TTL_MS = 15 * 60 * 1000;
+
+interface CachedSearch {
+  keywords: string;
+  location: string;
+  contractType: string;
+  remote: boolean;
+  excludeKeywords: string;
+  listings: JobListing[];
+  savedAt: number;
+}
+
+function readSearchCache(): CachedSearch | null {
+  try {
+    const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedSearch;
+    if (Date.now() - parsed.savedAt >= SEARCH_CACHE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    // Private browsing / storage disabled / corrupted entry: degrade to
+    // "no cache" rather than breaking the page.
+    return null;
+  }
+}
+
+function writeSearchCache(entry: CachedSearch): void {
+  try {
+    sessionStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // ignore - see readSearchCache
+  }
+}
+
 export default function OffresPage() {
   const { token } = useAuth();
   const router = useRouter();
@@ -98,6 +139,7 @@ export default function OffresPage() {
   const [discoveryPending, setDiscoveryPending] = useState(false);
   const [sortOrder, setSortOrder] = useState<SortOrder>("compatibility");
   const [compatibilityModalJob, setCompatibilityModalJob] = useState<JobListing | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<{ savedAt: number } | null>(null);
 
   const sortedListings = useMemo(() => {
     if (sortOrder === "compatibility") return listings;
@@ -146,7 +188,25 @@ export default function OffresPage() {
       try {
         const res = await fetchJobSearchDiscovery(token, searchId);
         if (res.new_listings.length > 0) {
-          setListings((prev) => [...prev, ...res.new_listings]);
+          setListings((prev) => {
+            const merged = [...prev, ...res.new_listings];
+            // Keep the session cache's listings in sync with late-arriving
+            // discovery results too, without touching savedAt (this must
+            // not extend the cache's own 15 min lifetime).
+            try {
+              const raw = sessionStorage.getItem(SEARCH_CACHE_KEY);
+              if (raw) {
+                const cached = JSON.parse(raw) as CachedSearch;
+                sessionStorage.setItem(
+                  SEARCH_CACHE_KEY,
+                  JSON.stringify({ ...cached, listings: merged })
+                );
+              }
+            } catch {
+              // ignore
+            }
+            return merged;
+          });
         }
         if (res.done) {
           setDiscoveryPending(false);
@@ -168,10 +228,13 @@ export default function OffresPage() {
 
     setIsSearching(true);
     setSelectedUrls(new Set());
+    setCacheInfo(null);
 
+    const trimmedKeywords = searchKeywords.trim();
+    const trimmedLocation = searchLocation.trim();
     const criteria: SearchCriteria = {
-      keywords: searchKeywords.trim(),
-      location: searchLocation.trim() || undefined,
+      keywords: trimmedKeywords,
+      location: trimmedLocation || undefined,
       contract_type: contractType || undefined,
       remote: remote || undefined,
       exclude_keywords: excludeKeywords
@@ -184,6 +247,15 @@ export default function OffresPage() {
       setListings(res.listings || []);
       setSearchId(res.search_id);
       setDiscoveryPending(res.discovery_pending);
+      writeSearchCache({
+        keywords: trimmedKeywords,
+        location: trimmedLocation,
+        contractType,
+        remote,
+        excludeKeywords,
+        listings: res.listings || [],
+        savedAt: Date.now(),
+      });
     } catch (err) {
       console.error("Job search error:", err);
     } finally {
@@ -196,12 +268,27 @@ export default function OffresPage() {
     await runSearch(keywords, location);
   };
 
-  // On arrival with an empty search (first visit after onboarding, or any
-  // later fresh visit), prefill from the profile's declared preferences and
-  // search automatically - a starting point, not a lock: the form stays
-  // fully editable and this never overwrites a search the user already typed.
+  // On arrival, first try to restore the last search from this session's
+  // cache - instant, zero network calls at all. Only when there's no valid
+  // (unexpired) cache entry do we fall back to prefilling from the
+  // profile's declared preferences and searching automatically - a
+  // starting point, not a lock: the form stays fully editable either way.
   useEffect(() => {
-    if (!token || keywords.trim()) return;
+    if (!token) return;
+
+    const cached = readSearchCache();
+    if (cached) {
+      setKeywords(cached.keywords);
+      setLocation(cached.location);
+      setContractType(cached.contractType);
+      setRemote(cached.remote);
+      setExcludeKeywords(cached.excludeKeywords);
+      setListings(cached.listings);
+      setCacheInfo({ savedAt: cached.savedAt });
+      return;
+    }
+
+    if (keywords.trim()) return;
     getCandidateProfile(token)
       .then((profile) => {
         const firstTitle = profile.desired_job_titles?.[0];
@@ -369,6 +456,24 @@ export default function OffresPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Cached results banner */}
+      {cacheInfo && (
+        <div className="flex items-center justify-between gap-3 p-3 bg-muted/40 border border-border/60 rounded-xl text-xs text-muted-foreground">
+          <span>
+            Résultats du cache — actualisés il y a{" "}
+            {Math.max(1, Math.round((Date.now() - cacheInfo.savedAt) / 60000))} min
+          </span>
+          <button
+            type="button"
+            onClick={() => runSearch(keywords, location)}
+            className="flex items-center gap-1.5 font-semibold text-primary hover:underline shrink-0"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Actualiser
+          </button>
+        </div>
+      )}
 
       {/* Discovery pending banner */}
       {discoveryPending && (
