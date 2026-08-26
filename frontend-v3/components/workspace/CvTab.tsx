@@ -11,6 +11,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { createDiagnostic, downloadCv, generateCv, getCandidateProfile } from "@/lib/api";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ScoreRing } from "@/components/ui/ScoreRing";
@@ -306,6 +307,68 @@ export function CvTab({
           )}
         </div>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-5 space-y-3">
+          <h3 className="text-sm font-bold font-display text-foreground flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning" />
+            Mots-clés manquants détectés
+          </h3>
+          {report.missing_keywords && report.missing_keywords.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {report.missing_keywords.map((kw, i) => (
+                <Badge key={i} variant="warning">
+                  {kw}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Aucun mot-clé critique manquant. Votre CV correspond bien au vocabulaire de l'offre.
+            </p>
+          )}
+        </Card>
+
+        <Card className="p-5 space-y-3">
+          <h3 className="text-sm font-bold font-display text-foreground flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning" />
+            Alertes structurelles ATS
+          </h3>
+          {report.structural_issues && report.structural_issues.length > 0 ? (
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              {report.structural_issues.map((issue, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-warning font-bold">•</span>
+                  <span>{issue}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Formatage idéal pour les robots ATS (pas de tableaux bloquants ni d'images parasites).
+            </p>
+          )}
+        </Card>
+
+        <Card className="md:col-span-2 p-5 space-y-3">
+          <h3 className="text-sm font-bold font-display text-foreground flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            Conseils personnalisés de notre IA
+          </h3>
+          <AiDisclaimerNote />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {report.recommendations?.map((rec, i) => (
+              <div
+                key={i}
+                className="p-3.5 rounded-xl bg-muted/40 border border-border/50 text-xs text-foreground/90 space-y-1"
+              >
+                <span className="font-bold text-primary mr-1.5">0{i + 1}.</span>
+                <span>{rec}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
 
       {job?.status === "done" && job.result && (
         <div className="space-y-4">
