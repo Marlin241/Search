@@ -17,7 +17,8 @@ def test_create_candidate_profile_with_contact_fields(db_session):
 
     profile = CandidateProfile(
         user_id=user.id,
-        full_name="Jane Doe",
+        first_name="Jane",
+        last_name="Doe",
         phone="0612345678",
         work_authorization="Autorisée à travailler en France/UE",
     )
@@ -41,7 +42,8 @@ def test_cv_fields_store_parsed_reference_cv(db_session):
 
     profile = CandidateProfile(
         user_id=user.id,
-        full_name="Jane Doe",
+        first_name="Jane",
+        last_name="Doe",
         phone="0612345678",
         work_authorization="Autorisée à travailler en France/UE",
         cv_text="Jane Doe\nExpérience...",
@@ -68,7 +70,8 @@ def test_unique_constraint_on_user_id(db_session):
     db_session.add(
         CandidateProfile(
             user_id=user.id,
-            full_name="Jane",
+            first_name="Jane",
+            last_name="",
             phone="0600000000",
             work_authorization="FR/UE",
         )
@@ -78,7 +81,8 @@ def test_unique_constraint_on_user_id(db_session):
     db_session.add(
         CandidateProfile(
             user_id=user.id,
-            full_name="Jane 2",
+            first_name="Jane",
+            last_name="2",
             phone="0611111111",
             work_authorization="FR/UE",
         )

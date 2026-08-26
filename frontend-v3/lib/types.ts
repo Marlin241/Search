@@ -13,7 +13,8 @@ export interface Token {
 /* ─── Candidate Profile ─── */
 
 export interface CandidateProfileIn {
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone: string;
   address?: string | null;
   linkedin_url?: string | null;
@@ -23,6 +24,8 @@ export interface CandidateProfileIn {
 }
 
 export interface CandidateProfileOut {
+  first_name: string;
+  last_name: string;
   full_name: string;
   phone: string;
   address: string | null;
@@ -45,6 +48,8 @@ export interface CandidateProfileOut {
 }
 
 export interface OnboardingProfileIn {
+  first_name: string;
+  last_name: string;
   desired_job_titles: string[];
   seniority_level: string | null;
   desired_locations: string[];

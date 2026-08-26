@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { ProgressDots } from "./ProgressDots";
+import { StepName } from "./StepName";
 import { StepJobTitles } from "./StepJobTitles";
 import { StepLocationAndContract } from "./StepLocationAndContract";
 import { StepGoalsAndCv } from "./StepGoalsAndCv";
@@ -22,14 +23,18 @@ import { StepPhotoPicker } from "./StepPhotoPicker";
 import { StepConfirm } from "./StepConfirm";
 import type { ExtractedPhotoOut } from "@/lib/types";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 export function OnboardingWizard() {
   const router = useRouter();
-  const { token, user } = useAuth();
+  const { token } = useAuth();
 
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Step 0
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
   // Step 1
   const [desiredJobTitles, setDesiredJobTitles] = useState<string[]>([]);
@@ -52,8 +57,9 @@ export function OnboardingWizard() {
   const [selectedPhotoKey, setSelectedPhotoKey] = useState<string | null>(null);
 
   const canGoNext = (): boolean => {
-    if (step === 0) return desiredJobTitles.length > 0 && !!seniorityLevel;
-    if (step === 2) return cvFile !== null;
+    if (step === 0) return firstName.trim().length > 0 && lastName.trim().length > 0;
+    if (step === 1) return desiredJobTitles.length > 0 && !!seniorityLevel;
+    if (step === 3) return cvFile !== null;
     return true;
   };
 
@@ -106,6 +112,8 @@ export function OnboardingWizard() {
     setIsSubmitting(true);
     try {
       await submitOnboarding(token, {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
         desired_job_titles: desiredJobTitles,
         seniority_level: seniorityLevel,
         desired_locations: desiredLocations,
@@ -143,6 +151,14 @@ export function OnboardingWizard() {
             transition={{ duration: 0.2 }}
           >
             {step === 0 && (
+              <StepName
+                firstName={firstName}
+                onFirstNameChange={setFirstName}
+                lastName={lastName}
+                onLastNameChange={setLastName}
+              />
+            )}
+            {step === 1 && (
               <StepJobTitles
                 desiredJobTitles={desiredJobTitles}
                 onDesiredJobTitlesChange={setDesiredJobTitles}
@@ -150,7 +166,7 @@ export function OnboardingWizard() {
                 onSeniorityLevelChange={setSeniorityLevel}
               />
             )}
-            {step === 1 && (
+            {step === 2 && (
               <StepLocationAndContract
                 desiredLocations={desiredLocations}
                 onDesiredLocationsChange={setDesiredLocations}
@@ -166,7 +182,7 @@ export function OnboardingWizard() {
                 }}
               />
             )}
-            {step === 2 && (
+            {step === 3 && (
               <StepGoalsAndCv
                 weeklyGoal={weeklyGoal}
                 onWeeklyGoalChange={setWeeklyGoal}
@@ -179,18 +195,20 @@ export function OnboardingWizard() {
                 }}
               />
             )}
-            {step === 3 && (
+            {step === 4 && (
               <StepPhotoPicker
                 candidates={photoCandidates}
                 isExtracting={isExtractingPhotos}
                 selectedKey={selectedPhotoKey}
                 onSelect={setSelectedPhotoKey}
-                fullName={user?.email ?? ""}
+                fullName={`${firstName} ${lastName}`.trim()}
                 onManualUpload={handleManualPhotoUpload}
               />
             )}
-            {step === 4 && (
+            {step === 5 && (
               <StepConfirm
+                firstName={firstName}
+                lastName={lastName}
                 desiredJobTitles={desiredJobTitles}
                 desiredLocations={desiredLocations}
                 remotePreference={remotePreference}

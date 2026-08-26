@@ -33,6 +33,8 @@ router = APIRouter(prefix="/profile", tags=["candidate_profile"])
 
 def _to_out(profile: CandidateProfile) -> CandidateProfileOut:
     return CandidateProfileOut(
+        first_name=profile.first_name,
+        last_name=profile.last_name,
         full_name=profile.full_name,
         phone=profile.phone,
         address=profile.address,
@@ -65,7 +67,11 @@ def _get_or_create_profile(db: Session, user_id: int) -> CandidateProfile:
     profile = _get_profile(db, user_id)
     if profile is None:
         profile = CandidateProfile(
-            user_id=user_id, full_name="", phone="", work_authorization=""
+            user_id=user_id,
+            first_name="",
+            last_name="",
+            phone="",
+            work_authorization="",
         )
         db.add(profile)
     return profile
@@ -104,7 +110,8 @@ def upsert_profile(
     current_user: User = Depends(get_current_user),
 ) -> CandidateProfileOut:
     profile = _get_or_create_profile(db, current_user.id)
-    profile.full_name = payload.full_name
+    profile.first_name = payload.first_name
+    profile.last_name = payload.last_name
     profile.phone = payload.phone
     profile.address = payload.address
     profile.linkedin_url = payload.linkedin_url
@@ -123,6 +130,8 @@ def submit_onboarding(
     current_user: User = Depends(get_current_user),
 ) -> CandidateProfileOut:
     profile = _get_or_create_profile(db, current_user.id)
+    profile.first_name = payload.first_name
+    profile.last_name = payload.last_name
     profile.desired_job_titles = payload.desired_job_titles
     profile.seniority_level = payload.seniority_level
     profile.desired_locations = payload.desired_locations

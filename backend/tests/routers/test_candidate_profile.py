@@ -36,7 +36,8 @@ def test_put_profile_creates_then_updates(client):
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane Doe",
+            "first_name": "Jane",
+            "last_name": "Doe",
             "phone": "0612345678",
             "work_authorization": "Autorisée à travailler en France/UE",
         },
@@ -49,7 +50,8 @@ def test_put_profile_creates_then_updates(client):
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane A. Doe",
+            "first_name": "Jane",
+            "last_name": "A. Doe",
             "phone": "0612345678",
             "work_authorization": "Autorisée à travailler en France/UE",
             "salary_expectation": "45-55k€",
@@ -70,7 +72,8 @@ def test_upload_cv_parses_and_stores_reference_cv(client):
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane Doe",
+            "first_name": "Jane",
+            "last_name": "Doe",
             "phone": "0612345678",
             "work_authorization": "FR/UE",
         },
@@ -101,7 +104,8 @@ def test_upload_cv_rejects_unsupported_format(client):
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane Doe",
+            "first_name": "Jane",
+            "last_name": "Doe",
             "phone": "0612345678",
             "work_authorization": "FR/UE",
         },
@@ -141,7 +145,13 @@ def test_profile_endpoints_require_auth(client):
     assert client.get("/profile").status_code == 401
     assert (
         client.put(
-            "/profile", json={"full_name": "x", "phone": "x", "work_authorization": "x"}
+            "/profile",
+            json={
+                "first_name": "x",
+                "last_name": "x",
+                "phone": "x",
+                "work_authorization": "x",
+            },
         ).status_code
         == 401
     )
@@ -157,7 +167,8 @@ def test_delete_profile_removes_the_stored_profile(client):
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane Doe",
+            "first_name": "Jane",
+            "last_name": "Doe",
             "phone": "0612345678",
             "work_authorization": "FR/UE",
         },
@@ -196,7 +207,8 @@ def test_delete_profile_only_deletes_the_current_users_profile(client):
         "/profile",
         headers=other_headers,
         json={
-            "full_name": "Other User",
+            "first_name": "Other",
+            "last_name": "User",
             "phone": "0600000000",
             "work_authorization": "FR/UE",
         },
@@ -206,7 +218,8 @@ def test_delete_profile_only_deletes_the_current_users_profile(client):
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane Doe",
+            "first_name": "Jane",
+            "last_name": "Doe",
             "phone": "0612345678",
             "work_authorization": "FR/UE",
         },

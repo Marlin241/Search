@@ -21,12 +21,15 @@ import {
   updateCandidateProfile,
   uploadReferenceCv,
   deleteProfile,
+  submitOnboarding,
 } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
+import { StepJobTitles } from "@/components/onboarding/StepJobTitles";
+import { StepLocationAndContract } from "@/components/onboarding/StepLocationAndContract";
 import {
   cn,
   formatDate,
@@ -45,13 +48,25 @@ export default function ProfilPage() {
   const { token, user } = useAuth();
 
   const [profile, setProfile] = useState<CandidateProfileOut | null>(null);
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [workAuth, setWorkAuth] = useState("french_citizen");
   const [salaryExpectation, setSalaryExpectation] = useState("");
+
+  // Préférences de recherche (collectées à l'onboarding, éditables ici aussi)
+  const [desiredJobTitles, setDesiredJobTitles] = useState<string[]>([]);
+  const [seniorityLevel, setSeniorityLevel] = useState<string | null>(null);
+  const [desiredLocations, setDesiredLocations] = useState<string[]>([]);
+  const [remotePreference, setRemotePreference] = useState(false);
+  const [contractTypes, setContractTypes] = useState<string[]>([]);
+  const [salaryMin, setSalaryMin] = useState(25000);
+  const [salaryMax, setSalaryMax] = useState(45000);
+  const [weeklyGoal, setWeeklyGoal] = useState(5);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,13 +86,24 @@ export default function ProfilPage() {
     getCandidateProfile(token)
       .then((res) => {
         setProfile(res);
-        setFullName(res.full_name || "");
+        setFirstName(res.first_name || "");
+        setLastName(res.last_name || "");
         setPhone(res.phone || "");
         setAddress(res.address || "");
         setLinkedinUrl(res.linkedin_url || "");
         setPortfolioUrl(res.portfolio_url || "");
         setWorkAuth(res.work_authorization || "french_citizen");
         setSalaryExpectation(res.salary_expectation || "");
+        setDesiredJobTitles(res.desired_job_titles || []);
+        setSeniorityLevel(res.seniority_level);
+        setDesiredLocations(res.desired_locations || []);
+        setRemotePreference(res.remote_preference);
+        setContractTypes(res.contract_types || []);
+        if (res.salary_min !== null) setSalaryMin(res.salary_min);
+        if (res.salary_max !== null) setSalaryMax(res.salary_max);
+        if (res.weekly_application_goal !== null) {
+          setWeeklyGoal(res.weekly_application_goal);
+        }
       })
       .catch((err) => console.log("Profile not yet created or empty"))
       .finally(() => setIsLoading(false));
@@ -93,7 +119,8 @@ export default function ProfilPage() {
 
     try {
       const updated = await updateCandidateProfile(token, {
-        full_name: fullName,
+        first_name: firstName,
+        last_name: lastName,
         phone,
         address: address || null,
         linkedin_url: linkedinUrl || null,
@@ -108,6 +135,36 @@ export default function ProfilPage() {
       setErrorMsg(err?.detail || "Erreur lors de la mise à jour du profil.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    if (!token) return;
+
+    setIsSavingPrefs(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const updated = await submitOnboarding(token, {
+        first_name: firstName,
+        last_name: lastName,
+        desired_job_titles: desiredJobTitles,
+        seniority_level: seniorityLevel,
+        desired_locations: desiredLocations,
+        remote_preference: remotePreference,
+        contract_types: contractTypes,
+        salary_min: salaryMin,
+        salary_max: salaryMax,
+        weekly_application_goal: weeklyGoal,
+      });
+      setProfile(updated);
+      setSuccessMsg("Vos préférences de recherche ont été mises à jour.");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrorMsg(err?.detail || "Erreur lors de la mise à jour des préférences.");
+    } finally {
+      setIsSavingPrefs(false);
     }
   };
 
@@ -142,11 +199,20 @@ export default function ProfilPage() {
     try {
       await deleteProfile(token);
       setProfile(null);
-      setFullName("");
+      setFirstName("");
+      setLastName("");
       setPhone("");
       setAddress("");
       setLinkedinUrl("");
       setPortfolioUrl("");
+      setDesiredJobTitles([]);
+      setSeniorityLevel(null);
+      setDesiredLocations([]);
+      setRemotePreference(false);
+      setContractTypes([]);
+      setSalaryMin(25000);
+      setSalaryMax(45000);
+      setWeeklyGoal(5);
       setIsDeleteOpen(false);
       setSuccessMsg("Vos données de profil ont été supprimées.");
     } catch (err) {
@@ -259,10 +325,18 @@ export default function ProfilPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Nom complet"
-                placeholder="ex: Thomas Martin"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                label="Prénom"
+                placeholder="ex: Thomas"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+              />
+
+              <Input
+                label="Nom"
+                placeholder="ex: Martin"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
                 required
               />
 
@@ -328,6 +402,74 @@ export default function ProfilPage() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Search preferences - collected at onboarding, editable here too */}
+      <Card>
+        <CardContent className="p-6 space-y-6">
+          <div>
+            <h3 className="text-base font-bold font-display text-foreground">
+              Préférences de recherche
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ces critères pilotent le tri et le ranking des offres qui vous
+              sont proposées.
+            </p>
+          </div>
+
+          <StepJobTitles
+            desiredJobTitles={desiredJobTitles}
+            onDesiredJobTitlesChange={setDesiredJobTitles}
+            seniorityLevel={seniorityLevel}
+            onSeniorityLevelChange={setSeniorityLevel}
+          />
+
+          <StepLocationAndContract
+            desiredLocations={desiredLocations}
+            onDesiredLocationsChange={setDesiredLocations}
+            remotePreference={remotePreference}
+            onRemotePreferenceChange={setRemotePreference}
+            contractTypes={contractTypes}
+            onContractTypesChange={setContractTypes}
+            salaryMin={salaryMin}
+            salaryMax={salaryMax}
+            onSalaryChange={(min, max) => {
+              setSalaryMin(min);
+              setSalaryMax(max);
+            }}
+          />
+
+          <div className="space-y-3">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Objectif de candidatures par semaine
+            </label>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min={1}
+                max={50}
+                value={weeklyGoal}
+                onChange={(e) => setWeeklyGoal(Number(e.target.value))}
+                className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-muted accent-primary [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+              />
+              <span className="w-16 shrink-0 rounded-lg bg-primary/10 py-1.5 text-center font-display text-sm font-bold text-primary">
+                {weeklyGoal}/sem.
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              type="button"
+              variant="primary"
+              isLoading={isSavingPrefs}
+              icon={<Save className="w-4 h-4" />}
+              onClick={handleSavePreferences}
+            >
+              Enregistrer mes préférences
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -119,10 +119,12 @@ def create_application(
 
 def missing_required_profile_fields(profile: CandidateProfile | None) -> list[str]:
     if profile is None:
-        return ["full_name", "phone", "work_authorization"]
+        return ["first_name", "last_name", "phone", "work_authorization"]
     missing = []
-    if not profile.full_name:
-        missing.append("full_name")
+    if not profile.first_name:
+        missing.append("first_name")
+    if not profile.last_name:
+        missing.append("last_name")
     if not profile.phone:
         missing.append("phone")
     if not profile.work_authorization:

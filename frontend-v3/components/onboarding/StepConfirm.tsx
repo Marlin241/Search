@@ -3,6 +3,8 @@
 import { Sparkles } from "lucide-react";
 
 export interface StepConfirmProps {
+  firstName: string;
+  lastName: string;
   desiredJobTitles: string[];
   desiredLocations: string[];
   remotePreference: boolean;
@@ -14,6 +16,8 @@ export interface StepConfirmProps {
 }
 
 export function StepConfirm({
+  firstName,
+  lastName,
   desiredJobTitles,
   desiredLocations,
   remotePreference,
@@ -24,6 +28,7 @@ export function StepConfirm({
   cvFileName,
 }: StepConfirmProps) {
   const rows: { label: string; value: string }[] = [
+    { label: "Nom", value: `${firstName} ${lastName}`.trim() || "—" },
     { label: "Métiers", value: desiredJobTitles.join(", ") || "—" },
     {
       label: "Localisation",

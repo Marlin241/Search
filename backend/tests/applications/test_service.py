@@ -37,7 +37,8 @@ def _make_user_with_profile(
 
     profile = CandidateProfile(
         user_id=user.id,
-        full_name="Jane Doe",
+        first_name="Jane",
+        last_name="Doe",
         phone="0600000000",
         work_authorization="FR/UE",
         cv_text=cv_text,

@@ -71,7 +71,8 @@ _SAMPLE_HTML = """
 def _profile() -> CandidateProfile:
     return CandidateProfile(
         user_id=1,
-        full_name="Jane Doe",
+        first_name="Jane",
+        last_name="Doe",
         phone="0612345678",
         work_authorization="FR/UE",
         linkedin_url="https://linkedin.com/in/janedoe",

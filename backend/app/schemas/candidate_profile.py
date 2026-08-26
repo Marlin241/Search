@@ -4,7 +4,8 @@ from pydantic import BaseModel
 
 
 class CandidateProfileIn(BaseModel):
-    full_name: str
+    first_name: str
+    last_name: str
     phone: str
     address: str | None = None
     linkedin_url: str | None = None
@@ -14,6 +15,8 @@ class CandidateProfileIn(BaseModel):
 
 
 class CandidateProfileOut(BaseModel):
+    first_name: str
+    last_name: str
     full_name: str
     phone: str
     address: str | None
@@ -36,6 +39,8 @@ class CandidateProfileOut(BaseModel):
 
 
 class OnboardingProfileIn(BaseModel):
+    first_name: str
+    last_name: str
     desired_job_titles: list[str] = []
     seniority_level: str | None = None
     desired_locations: list[str] = []

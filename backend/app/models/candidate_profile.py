@@ -17,7 +17,8 @@ class CandidateProfile(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
     )
-    full_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    first_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    last_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     phone: Mapped[str] = mapped_column(String(50), nullable=False, default="")
     address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     linkedin_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -51,3 +52,11 @@ class CandidateProfile(Base):
     )
 
     user: Mapped["User"] = relationship()
+
+    @property
+    def full_name(self) -> str:
+        """Derived, not stored - kept for the several read sites (PDF header,
+        ATS form prefill) that only need a single display string, so they
+        don't need to change now that first/last name are captured
+        separately."""
+        return f"{self.first_name} {self.last_name}".strip()

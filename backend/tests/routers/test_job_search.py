@@ -331,7 +331,8 @@ def _onboard_with_cv(client, headers: dict[str, str]) -> None:
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane Doe",
+            "first_name": "Jane",
+            "last_name": "Doe",
             "phone": "0612345678",
             "work_authorization": "FR/UE",
         },
@@ -350,7 +351,11 @@ def _onboard_with_cv(client, headers: dict[str, str]) -> None:
     client.put(
         "/profile/onboarding",
         headers=headers,
-        json={"desired_job_titles": ["Développeur Python"]},
+        json={
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "desired_job_titles": ["Développeur Python"],
+        },
     )
 
 

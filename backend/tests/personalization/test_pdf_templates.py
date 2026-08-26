@@ -25,7 +25,9 @@ def test_all_three_templates_render_valid_single_page_pdf():
 
 
 def test_render_cv_includes_candidate_header_when_profile_has_a_name():
-    profile = CandidateProfile(user_id=1, full_name="Jane Doe", phone="0601020304")
+    profile = CandidateProfile(
+        user_id=1, first_name="Jane", last_name="Doe", phone="0601020304"
+    )
     pdf_bytes, _ = render_cv("classic", _CV, profile, CvStyleOptions())
     # fpdf2 encodes text as PDF content streams, not as searchable plain
     # text in the raw bytes - so this only proves the header path executed

@@ -139,7 +139,8 @@ def _setup_profile(client, headers: dict) -> None:
         "/profile",
         headers=headers,
         json={
-            "full_name": "Jane Doe",
+            "first_name": "Jane",
+            "last_name": "Doe",
             "phone": "0612345678",
             "work_authorization": "FR/UE",
         },
