@@ -5,11 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.aggregator.aggregator import build_diagnostic_report
 from app.auth.dependencies import get_current_user
+from app.cv_parser.models import CVParseResult
 from app.cv_parser.parser import MAX_CV_SIZE_BYTES, CVParsingError, parse_cv
 from app.database import get_db
 from app.llm_analyzer.analyzer import LLMAnalysisError, SemanticAnalyzer
 from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.models.application import Application
+from app.models.candidate_profile import CandidateProfile
 from app.models.diagnostic import Diagnostic
 from app.models.personalized_document import PersonalizedDocument
 from app.models.saved_job import SavedJob
@@ -32,7 +34,7 @@ router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
 @router.post("", response_model=DiagnosticReport, status_code=status.HTTP_201_CREATED)
 def create_diagnostic(
-    cv_file: UploadFile = File(...),
+    cv_file: UploadFile | None = File(None),
     offer_text: str | None = Form(None, max_length=50000),
     offer_url: str | None = Form(None),
     saved_job_id: int | None = Form(None),
@@ -56,24 +58,48 @@ def create_diagnostic(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
         ) from exc
 
-    # Check the declared upload size (from Content-Length, via Starlette's
-    # UploadFile.size) before reading the body into memory, so an oversized
-    # upload doesn't get fully buffered just to be rejected afterwards. Some
-    # clients don't send a size (cv_file.size is None); in that case we fall
-    # back to the existing post-read check inside parse_cv.
-    if cv_file.size is not None and cv_file.size > MAX_CV_SIZE_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Le fichier dépasse la taille maximale autorisée (5 Mo).",
-        )
+    if cv_file is not None:
+        # Check the declared upload size (from Content-Length, via
+        # Starlette's UploadFile.size) before reading the body into memory,
+        # so an oversized upload doesn't get fully buffered just to be
+        # rejected afterwards. Some clients don't send a size (cv_file.size
+        # is None); in that case we fall back to the existing post-read
+        # check inside parse_cv.
+        if cv_file.size is not None and cv_file.size > MAX_CV_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Le fichier dépasse la taille maximale autorisée (5 Mo).",
+            )
 
-    try:
-        cv_bytes = cv_file.file.read()
-        parsed_cv = parse_cv(cv_bytes, cv_file.filename or "")
-    except CVParsingError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        ) from exc
+        try:
+            cv_bytes = cv_file.file.read()
+            parsed_cv = parse_cv(cv_bytes, cv_file.filename or "")
+        except CVParsingError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+    else:
+        # No file uploaded: fall back to the candidate's stored reference CV
+        # (same source `applications/service.py::create_application` already
+        # reuses for one-click apply), so users don't have to re-upload the
+        # same CV for every offer once it's on their profile.
+        profile = (
+            db.query(CandidateProfile)
+            .filter(CandidateProfile.user_id == current_user.id)
+            .first()
+        )
+        if profile is None or not profile.cv_text:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Aucun CV de référence trouvé. Importez un CV sur votre profil ou téléversez-en un ici.",
+            )
+        parsed_cv = CVParseResult(
+            text=profile.cv_text,
+            has_tables=bool(profile.cv_has_tables),
+            has_multi_column=bool(profile.cv_has_multi_column),
+            has_images=bool(profile.cv_has_images),
+            detected_sections=set(profile.cv_detected_sections or []),
+        )
 
     try:
         offer = get_offer_text(offer_text, offer_url)

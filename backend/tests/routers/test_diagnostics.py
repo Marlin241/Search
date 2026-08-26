@@ -89,6 +89,60 @@ def test_create_diagnostic_without_offer_returns_422(client):
     app.dependency_overrides.pop(get_semantic_analyzer, None)
 
 
+def test_create_diagnostic_without_cv_file_reuses_reference_cv(client):
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.put(
+        "/profile",
+        headers=headers,
+        json={
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "phone": "0612345678",
+            "work_authorization": "FR/UE",
+        },
+    )
+    client.post(
+        "/profile/cv",
+        headers=headers,
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+
+    response = client.post(
+        "/diagnostics",
+        headers=headers,
+        data={"offer_text": "We need a Python developer with Docker experience."},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["semantic_score"] == 60
+
+    app.dependency_overrides.pop(get_semantic_analyzer, None)
+
+
+def test_create_diagnostic_without_cv_file_or_reference_cv_returns_422(client):
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+    token = _register_and_login(client)
+
+    response = client.post(
+        "/diagnostics",
+        headers={"Authorization": f"Bearer {token}"},
+        data={"offer_text": "We need a Python developer with Docker experience."},
+    )
+
+    assert response.status_code == 422
+    app.dependency_overrides.pop(get_semantic_analyzer, None)
+
+
 def test_list_and_delete_diagnostics(client):
     app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
     token = _register_and_login(client)

@@ -228,13 +228,15 @@ export async function getProfilePhoto(
 
 export async function createDiagnostic(
   token: string,
-  cvFile: File,
+  cvFile: File | null,
   offerText?: string | null,
   offerUrl?: string | null,
   savedJobId?: number | null
 ): Promise<DiagnosticReport> {
   const form = new FormData();
-  form.append("cv_file", cvFile);
+  // Omitting cv_file entirely (rather than appending null/undefined) tells
+  // the backend to fall back to the candidate's stored reference CV.
+  if (cvFile) form.append("cv_file", cvFile);
   if (offerText) form.append("offer_text", offerText);
   if (offerUrl) form.append("offer_url", offerUrl);
   if (savedJobId != null) form.append("saved_job_id", String(savedJobId));

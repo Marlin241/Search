@@ -10,7 +10,7 @@ import {
   Sparkles,
   UploadCloud,
 } from "lucide-react";
-import { createDiagnostic, downloadCv, generateCv } from "@/lib/api";
+import { createDiagnostic, downloadCv, generateCv, getCandidateProfile } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ScoreRing } from "@/components/ui/ScoreRing";
@@ -51,6 +51,8 @@ export function CvTab({
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
+  const [hasReferenceCv, setHasReferenceCv] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [template, setTemplate] = useState<CvTemplate>("classic");
@@ -84,6 +86,12 @@ export function CvTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job, jobId]);
 
+  useEffect(() => {
+    getCandidateProfile(token)
+      .then((profile) => setHasReferenceCv(profile.has_cv))
+      .catch(() => setHasReferenceCv(false));
+  }, [token]);
+
   const validateAndSetFile = (file: File) => {
     if (!isValidCvFile(file)) {
       setFileError("Format non supporté. Veuillez choisir un fichier PDF ou DOCX.");
@@ -108,6 +116,19 @@ export function CvTab({
       setError(err?.detail || "Erreur lors du diagnostic.");
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleAnalyzeReferenceCv = async () => {
+    setIsAnalyzingReference(true);
+    setError(null);
+    try {
+      await createDiagnostic(token, null, savedJob.snippet, null, savedJob.id);
+      onDiagnosticCreated();
+    } catch (err: any) {
+      setError(err?.detail || "Erreur lors du diagnostic.");
+    } finally {
+      setIsAnalyzingReference(false);
     }
   };
 
@@ -147,6 +168,19 @@ export function CvTab({
           <p className="text-xs text-muted-foreground">
             Lancez un diagnostic ATS de votre CV pour cette offre afin de débloquer la génération du CV optimisé.
           </p>
+
+          {hasReferenceCv && (
+            <Button
+              variant="secondary"
+              fullWidth
+              isLoading={isAnalyzingReference}
+              disabled={isAnalyzing}
+              icon={<FileCheck2 className="w-4 h-4" />}
+              onClick={handleAnalyzeReferenceCv}
+            >
+              Utiliser mon CV de référence
+            </Button>
+          )}
 
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -190,7 +224,7 @@ export function CvTab({
           <Button
             variant="primary"
             fullWidth
-            disabled={!cvFile}
+            disabled={!cvFile || isAnalyzingReference}
             isLoading={isAnalyzing}
             icon={<Sparkles className="w-4 h-4" />}
             onClick={handleAnalyze}
