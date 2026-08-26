@@ -83,6 +83,12 @@ export function CompatibilityDetailModal({
               <ScoreRing score={listing.compatibility_score} size="lg" label="Score global" />
             </div>
 
+            <p className="text-center text-xs text-muted-foreground">
+              Les pourcentages reflètent vos critères de recherche ; le résumé
+              et les points ci-dessous s&apos;appuient en plus sur le contenu
+              de votre CV.
+            </p>
+
             <div className="space-y-2.5">
               {BREAKDOWN_LABELS.map(({ key, label }) => {
                 const value = detail.breakdown[key];

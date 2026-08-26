@@ -21,10 +21,10 @@ export function CompatibilityBadge({ score, className }: CompatibilityBadgeProps
         scoreColor(score),
         className
       )}
-      title="Score de compatibilité avec votre profil"
+      title="Croisement avec vos critères de recherche (métier, localisation, séniorité, salaire) — n'analyse pas le contenu de votre CV"
     >
       <Sparkles className="h-3 w-3" aria-hidden="true" />
-      {score}% compatible
+      {score}% selon vos critères
     </span>
   );
 }

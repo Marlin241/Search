@@ -20,6 +20,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   searchJobs,
   fetchJobSearchDiscovery,
+  getCandidateProfile,
   getSavedSearch,
   saveSavedSearch,
   createApplication,
@@ -162,16 +163,15 @@ export default function OffresPage() {
     };
   }, [token, searchId, discoveryPending]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !keywords.trim()) return;
+  const runSearch = async (searchKeywords: string, searchLocation: string) => {
+    if (!token || !searchKeywords.trim()) return;
 
     setIsSearching(true);
     setSelectedUrls(new Set());
 
     const criteria: SearchCriteria = {
-      keywords: keywords.trim(),
-      location: location.trim() || undefined,
+      keywords: searchKeywords.trim(),
+      location: searchLocation.trim() || undefined,
       contract_type: contractType || undefined,
       remote: remote || undefined,
       exclude_keywords: excludeKeywords
@@ -190,6 +190,30 @@ export default function OffresPage() {
       setIsSearching(false);
     }
   };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runSearch(keywords, location);
+  };
+
+  // On arrival with an empty search (first visit after onboarding, or any
+  // later fresh visit), prefill from the profile's declared preferences and
+  // search automatically - a starting point, not a lock: the form stays
+  // fully editable and this never overwrites a search the user already typed.
+  useEffect(() => {
+    if (!token || keywords.trim()) return;
+    getCandidateProfile(token)
+      .then((profile) => {
+        const firstTitle = profile.desired_job_titles?.[0];
+        if (!firstTitle) return;
+        const firstLocation = profile.desired_locations?.[0] ?? "";
+        setKeywords(firstTitle);
+        setLocation(firstLocation);
+        runSearch(firstTitle, firstLocation);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const toggleSelect = (url: string) => {
     setSelectedUrls((prev) => {
