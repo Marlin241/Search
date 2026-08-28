@@ -1,0 +1,331 @@
+import {
+  ApiError,
+  type ApplicationCreateIn,
+  type ApplicationOut,
+  type CandidateProfileIn,
+  type CandidateProfileOut,
+  type ConfirmApplicationIn,
+  type DiagnosticReport,
+  type JobSearchDiscoveryResponse,
+  type JobSearchResponse,
+  type PersonalizedDocumentOut,
+  type PrefilledFormOut,
+  type SavedSearchIn,
+  type SavedSearchOut,
+  type SearchCriteria,
+  type Token,
+  type User,
+} from "./types";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+
+/* ─── Helpers ─── */
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string | null
+): Promise<T> {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (
+    !(options.body instanceof FormData) &&
+    !headers["Content-Type"]
+  ) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? detail;
+    } catch {
+      /* ignore parse error */
+    }
+    throw new ApiError(res.status, detail);
+  }
+
+  if (res.status === 204) return undefined as T;
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) return res.json();
+  return res as unknown as T;
+}
+
+/* ─── Auth ─── */
+
+export async function register(
+  email: string,
+  password: string
+): Promise<User> {
+  return request<User>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function login(
+  email: string,
+  password: string
+): Promise<Token> {
+  const form = new URLSearchParams();
+  form.append("username", email);
+  form.append("password", password);
+  return request<Token>("/auth/login", {
+    method: "POST",
+    body: form,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+}
+
+export async function fetchMe(token: string): Promise<User> {
+  return request<User>("/auth/me", {}, token);
+}
+
+/* ─── Candidate Profile ─── */
+
+export async function getCandidateProfile(
+  token: string
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>("/profile", {}, token);
+}
+
+export async function updateCandidateProfile(
+  token: string,
+  data: CandidateProfileIn
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>(
+    "/profile",
+    { method: "PUT", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function uploadReferenceCv(
+  token: string,
+  file: File
+): Promise<CandidateProfileOut> {
+  const form = new FormData();
+  form.append("cv_file", file);
+  return request<CandidateProfileOut>(
+    "/profile/cv",
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function deleteProfile(token: string): Promise<void> {
+  return request<void>("/profile", { method: "DELETE" }, token);
+}
+
+/* ─── Diagnostics ─── */
+
+export async function createDiagnostic(
+  token: string,
+  cvFile: File,
+  offerText?: string | null,
+  offerUrl?: string | null
+): Promise<DiagnosticReport> {
+  const form = new FormData();
+  form.append("cv_file", cvFile);
+  if (offerText) form.append("offer_text", offerText);
+  if (offerUrl) form.append("offer_url", offerUrl);
+  return request<DiagnosticReport>(
+    "/diagnostics",
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function listDiagnostics(
+  token: string
+): Promise<DiagnosticReport[]> {
+  return request<DiagnosticReport[]>("/diagnostics", {}, token);
+}
+
+export async function deleteAllDiagnostics(
+  token: string
+): Promise<void> {
+  return request<void>(
+    "/diagnostics",
+    { method: "DELETE" },
+    token
+  );
+}
+
+/* ─── Personalization ─── */
+
+export async function generateCv(
+  token: string,
+  diagnosticId: number
+): Promise<PersonalizedDocumentOut> {
+  return request<PersonalizedDocumentOut>(
+    `/diagnostics/${diagnosticId}/cv`,
+    { method: "POST" },
+    token
+  );
+}
+
+export async function generateLetter(
+  token: string,
+  diagnosticId: number
+): Promise<PersonalizedDocumentOut> {
+  return request<PersonalizedDocumentOut>(
+    `/diagnostics/${diagnosticId}/lettre`,
+    { method: "POST" },
+    token
+  );
+}
+
+async function requestBlob(
+  path: string,
+  token?: string | null
+): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    headers,
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? detail;
+    } catch {
+      /* ignore parse error */
+    }
+    throw new ApiError(res.status, detail);
+  }
+
+  return res.blob();
+}
+
+export async function downloadCv(
+  token: string,
+  diagnosticId: number
+): Promise<Blob> {
+  return requestBlob(`/diagnostics/${diagnosticId}/cv`, token);
+}
+
+export async function downloadLetter(
+  token: string,
+  diagnosticId: number
+): Promise<Blob> {
+  return requestBlob(`/diagnostics/${diagnosticId}/lettre`, token);
+}
+
+/* ─── Job Search ─── */
+
+export async function searchJobs(
+  token: string,
+  criteria: SearchCriteria
+): Promise<JobSearchResponse> {
+  return request<JobSearchResponse>(
+    "/job-search/search",
+    { method: "POST", body: JSON.stringify(criteria) },
+    token
+  );
+}
+
+export async function fetchJobSearchDiscovery(
+  token: string,
+  searchId: string
+): Promise<JobSearchDiscoveryResponse> {
+  return request<JobSearchDiscoveryResponse>(
+    `/job-search/search/${searchId}/discovery`,
+    {},
+    token
+  );
+}
+
+export async function getSavedSearch(
+  token: string
+): Promise<SavedSearchOut> {
+  return request<SavedSearchOut>(
+    "/job-search/saved-search",
+    {},
+    token
+  );
+}
+
+export async function saveSavedSearch(
+  token: string,
+  data: SavedSearchIn
+): Promise<SavedSearchOut> {
+  return request<SavedSearchOut>(
+    "/job-search/saved-search",
+    { method: "PUT", body: JSON.stringify(data) },
+    token
+  );
+}
+
+/* ─── Applications ─── */
+
+export async function createApplication(
+  token: string,
+  data: ApplicationCreateIn
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
+    "/applications",
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function listApplications(
+  token: string
+): Promise<ApplicationOut[]> {
+  return request<ApplicationOut[]>("/applications", {}, token);
+}
+
+export async function getApplication(
+  token: string,
+  id: number
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(`/applications/${id}`, {}, token);
+}
+
+export async function getPrefilledForm(
+  token: string,
+  id: number
+): Promise<PrefilledFormOut> {
+  return request<PrefilledFormOut>(
+    `/applications/${id}/prefilled-form`,
+    {},
+    token
+  );
+}
+
+export async function confirmApplication(
+  token: string,
+  id: number,
+  data: ConfirmApplicationIn
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
+    `/applications/${id}/confirm`,
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function markApplicationSentManually(
+  token: string,
+  id: number
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
+    `/applications/${id}/mark-sent`,
+    { method: "POST" },
+    token
+  );
+}

@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from "react";
 
-export type BadgeVariant = "neutral" | "accent" | "success" | "pending" | "attention";
+export type BadgeVariant = "neutral" | "accent" | "accent2" | "success" | "pending" | "attention";
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
@@ -9,6 +9,7 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   neutral: "bg-surface-2 text-ink-soft",
   accent: "bg-accent-soft text-accent-ink",
+  accent2: "bg-accent2-soft text-accent2-ink",
   success: "bg-success-soft text-success-ink",
   pending: "bg-pending-soft text-pending-ink",
   attention: "bg-attention-soft text-attention-ink",
