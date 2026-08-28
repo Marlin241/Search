@@ -82,6 +82,11 @@ def _default_clients(overrides: dict[str, object]) -> dict[str, object]:
         "la_bonne_alternance": EmptyPrimaryClient(),
         "greenhouse": EmptyGreenhouseOrLeverClient(),
         "lever": EmptyGreenhouseOrLeverClient(),
+        "reliefweb": EmptyPrimaryClient(),
+        "jobicy": EmptyPrimaryClient(),
+        "weworkremotely": EmptyPrimaryClient(),
+        "remoteok": EmptyPrimaryClient(),
+        "ngojobs": EmptyPrimaryClient(),
     }
     base.update(overrides)
     return base
@@ -234,6 +239,11 @@ def test_search_discovers_unknown_company_and_polling_returns_new_listing(client
         "la_bonne_alternance": EmptyPrimaryClient(),
         "greenhouse": GreenhouseJobBoardClient(),
         "lever": LeverJobBoardClient(),
+        "reliefweb": EmptyPrimaryClient(),
+        "jobicy": EmptyPrimaryClient(),
+        "weworkremotely": EmptyPrimaryClient(),
+        "remoteok": EmptyPrimaryClient(),
+        "ngojobs": EmptyPrimaryClient(),
     }
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
@@ -284,6 +294,11 @@ def test_search_with_dakar_location_returns_waves_real_listing_synchronously(cli
         "la_bonne_alternance": EmptyPrimaryClient(),
         "greenhouse": GreenhouseJobBoardClient(),
         "lever": LeverJobBoardClient(),
+        "reliefweb": EmptyPrimaryClient(),
+        "jobicy": EmptyPrimaryClient(),
+        "weworkremotely": EmptyPrimaryClient(),
+        "remoteok": EmptyPrimaryClient(),
+        "ngojobs": EmptyPrimaryClient(),
     }
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}

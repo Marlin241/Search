@@ -22,6 +22,21 @@ class Settings(BaseSettings):
     adzuna_app_key: str = ""
     adzuna_country: str = "fr"
     la_bonne_alternance_api_key: str = ""
+    reliefweb_appname: str = "ats-diagnostic-search"
+    reliefweb_countries: list[str] = [
+        "Senegal",
+        "Ivory Coast",
+        "Cameroon",
+        "Gabon",
+        "Benin",
+        "Togo",
+        "Mali",
+        "Burkina Faso",
+        "Congo",
+    ]
+    ngojobs_feed_urls: list[str] = ["https://ngojobsinafrica.com/media-rss/"]
+    weworkremotely_feed_urls: list[str] = ["https://weworkremotely.com/remote-jobs.rss"]
+    remoteok_feed_urls: list[str] = ["https://remoteok.com/remote-jobs.rss"]
     resend_api_key: str = ""
     resend_from_email: str = ""
     backend_base_url: str = "http://localhost:8000"

@@ -38,14 +38,12 @@ def test_second_call_within_ttl_does_not_refetch():
 @respx.mock
 def test_raises_job_search_source_error_on_http_error():
     respx.get(FEED_URL).mock(return_value=httpx.Response(503))
-    with httpx.Client() as client:
-        with pytest.raises(JobSearchSourceError):
-            feed_cache.get_or_fetch(FEED_URL, client, timedelta(minutes=30))
+    with httpx.Client() as client, pytest.raises(JobSearchSourceError):
+        feed_cache.get_or_fetch(FEED_URL, client, timedelta(minutes=30))
 
 
 @respx.mock
 def test_raises_job_search_source_error_on_transport_error():
     respx.get(FEED_URL).mock(side_effect=httpx.ConnectError("boom"))
-    with httpx.Client() as client:
-        with pytest.raises(JobSearchSourceError):
-            feed_cache.get_or_fetch(FEED_URL, client, timedelta(minutes=30))
+    with httpx.Client() as client, pytest.raises(JobSearchSourceError):
+        feed_cache.get_or_fetch(FEED_URL, client, timedelta(minutes=30))

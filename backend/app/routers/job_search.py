@@ -95,6 +95,11 @@ def search(
         "france_travail": cast(SearchClient, clients["france_travail"]),
         "adzuna": cast(SearchClient, clients["adzuna"]),
         "la_bonne_alternance": cast(SearchClient, clients["la_bonne_alternance"]),
+        "reliefweb": cast(SearchClient, clients["reliefweb"]),
+        "jobicy": cast(SearchClient, clients["jobicy"]),
+        "weworkremotely": cast(SearchClient, clients["weworkremotely"]),
+        "remoteok": cast(SearchClient, clients["remoteok"]),
+        "ngojobs": cast(SearchClient, clients["ngojobs"]),
     }
     # Upstream results for a given set of criteria don't depend on who's
     # asking, so a cache hit here skips France Travail/Adzuna/La Bonne
