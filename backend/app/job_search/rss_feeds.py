@@ -119,6 +119,7 @@ class RssFeedClient:
                         url=link,
                         source=self._source,
                         ats_type=None,
+                        is_remote=self._remote_only,
                         posted_at=_entry_datetime(entry),
                     )
                 )

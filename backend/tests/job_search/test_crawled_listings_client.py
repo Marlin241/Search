@@ -69,6 +69,7 @@ def test_search_matches_keyword_in_title(db_session):
     results = client.search(SearchCriteria(keywords="développeur"))
     assert {r.url for r in results} == {"https://x/1", "https://x/3"}
     assert all(r.source == "emploi_dakar" for r in results)
+    assert next(r for r in results if r.url == "https://x/1").is_remote is False
 
 
 def test_search_keyword_matching_is_synonym_aware(db_session):
@@ -104,6 +105,7 @@ def test_search_remote_flag_restricts_to_remote_rows(db_session):
     client = CrawledListingClient(session_factory=lambda: db_session)
     results = client.search(SearchCriteria(keywords="développeur", remote=True))
     assert {r.url for r in results} == {"https://x/3"}
+    assert results[0].is_remote is True
 
 
 def test_search_contract_type_filter(db_session):

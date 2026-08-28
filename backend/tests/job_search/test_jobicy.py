@@ -44,6 +44,7 @@ def test_search_returns_keyword_matched_listings():
     listings = client.search(SearchCriteria(keywords="python", remote=True))
     assert [lst.title for lst in listings] == ["Python Developer"]
     assert listings[0].source == "jobicy"
+    assert listings[0].is_remote is True
     assert listings[0].salary == "90000 - 120000 USD"
     assert listings[0].posted_at is not None
     assert "<p>" not in listings[0].snippet

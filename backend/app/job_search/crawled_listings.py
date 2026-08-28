@@ -82,6 +82,7 @@ class CrawledListingClient:
                     ats_type=None,
                     salary=row.salary,
                     posted_at=row.posted_at,
+                    is_remote=row.is_remote,
                 )
             )
             if len(listings) >= _RESULT_LIMIT:

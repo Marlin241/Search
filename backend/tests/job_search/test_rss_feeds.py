@@ -45,6 +45,7 @@ def test_returns_keyword_matched_entries_with_company_split():
     assert listings[0].url == "https://weworkremotely.com/remote-jobs/acme-python"
     assert listings[0].source == "weworkremotely"
     assert listings[0].posted_at is not None
+    assert listings[0].is_remote is True
 
 
 _RSS_HTML_SUMMARY = """<?xml version="1.0" encoding="UTF-8"?>
@@ -110,6 +111,7 @@ def test_non_remote_feed_returns_all_matches_when_no_location_pinned():
     client = RssFeedClient("ngojobs", [FEED_A], remote_only=False)
     listings = client.search(SearchCriteria(keywords="wash"))
     assert len(listings) == 2
+    assert all(lst.is_remote is False for lst in listings)
 
 
 @respx.mock

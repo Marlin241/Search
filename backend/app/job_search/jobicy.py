@@ -74,6 +74,7 @@ class JobicyClient:
                         url=url,
                         source="jobicy",
                         ats_type=None,
+                        is_remote=True,
                         salary=salary,
                         posted_at=parse_iso_datetime(pub),
                     )
