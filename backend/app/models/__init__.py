@@ -3,6 +3,7 @@ from app.models.candidate_profile import CandidateProfile
 from app.models.company_ats_mapping import CompanyAtsMapping
 from app.models.company_research_cache import CompanyResearchCache
 from app.models.compatibility_request_log import CompatibilityRequestLog
+from app.models.crawled_listing import CrawledListing
 from app.models.diagnostic import Diagnostic
 from app.models.interview import Interview
 from app.models.interview_prep_dossier import InterviewPrepDossier
@@ -22,6 +23,7 @@ __all__ = [
     "CompanyAtsMapping",
     "CompanyResearchCache",
     "CompatibilityRequestLog",
+    "CrawledListing",
     "Diagnostic",
     "Interview",
     "InterviewPrepDossier",
