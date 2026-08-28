@@ -290,6 +290,7 @@ export interface JobListing {
   ats_type: string | null;
   salary?: string | null;
   posted_at?: string | null;
+  is_remote: boolean;
   compatibility_score: number;
 }
 

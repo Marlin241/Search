@@ -602,6 +602,9 @@ export default function OffresPage() {
                           </Badge>
                         )}
                         <Badge variant="outline">{sourceLabel(job.source)}</Badge>
+                        {job.is_remote && (
+                          <Badge variant="accent">🌍 Remote</Badge>
+                        )}
                         {job.ats_type && (
                           <Badge variant="accent">ATS : {job.ats_type}</Badge>
                         )}
@@ -683,7 +686,10 @@ export default function OffresPage() {
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Localisation</span>
-                <span className="font-bold text-foreground">{selectedModalJob.location || "Non précisée"}</span>
+                <span className="font-bold text-foreground">
+                  {selectedModalJob.location || "Non précisée"}
+                  {selectedModalJob.is_remote && " · 🌍 Remote"}
+                </span>
               </div>
               <div>
                 <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Source</span>

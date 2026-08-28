@@ -93,6 +93,12 @@ export function sourceLabel(source: string): string {
     la_bonne_alternance: "La Bonne Alternance",
     greenhouse: "Greenhouse",
     lever: "Lever",
+    reliefweb: "ReliefWeb",
+    jobicy: "Jobicy",
+    weworkremotely: "We Work Remotely",
+    ngojobs: "NGO Jobs in Africa",
+    emploi_dakar: "Emploi Dakar",
+    crawled: "Job board local",
   };
   return map[source] ?? source;
 }
