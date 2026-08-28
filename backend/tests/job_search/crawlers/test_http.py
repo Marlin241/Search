@@ -27,6 +27,18 @@ def test_rejects_private_host():
             fetch_text("http://10.0.0.5/x", c)
 
 
+def test_rejects_ipv4_mapped_ipv6_loopback():
+    with httpx.Client() as c, pytest.raises(CrawlFetchError):
+        fetch_text("http://[::ffff:127.0.0.1]/x", c)
+
+
+@respx.mock
+def test_rejects_host_outside_allowed_set():
+    respx.get("https://evil.com/x").mock(return_value=httpx.Response(200, text="hi"))
+    with httpx.Client() as c, pytest.raises(CrawlFetchError):
+        fetch_text("https://evil.com/x", c, allowed_hosts=frozenset({"example.com"}))
+
+
 @respx.mock
 def test_http_error_becomes_crawl_fetch_error():
     respx.get("https://example.com/x").mock(return_value=httpx.Response(503))
