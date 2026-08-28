@@ -22,6 +22,10 @@ class JobListing(BaseModel):
     ats_type: str | None
     salary: str | None = None
     posted_at: datetime | None = None
+    # Set by remote-only source clients; for every other source the
+    # aggregator fills it from app.job_search.remote_signals right after the
+    # merge. Defaults to False so no adapter is forced to pass it.
+    is_remote: bool = False
     # Overwritten by the /job-search/search endpoint before the response is
     # returned (see app.job_search.compatibility.score_listing); defaults to
     # 0 here only so adapters that don't score listings themselves (all of

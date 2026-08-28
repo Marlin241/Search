@@ -43,6 +43,31 @@ def test_search_jobs_merges_results_from_all_sources():
     assert unavailable == []
 
 
+def test_search_jobs_sets_is_remote_from_text_heuristic():
+    remote_listing = _listing(
+        title="Dev", snippet="Poste en télétravail total", url="https://x/r"
+    )
+
+    class C:
+        def search(self, criteria):
+            return [remote_listing]
+
+    listings, _ = search_jobs(SearchCriteria(keywords="dev"), {"c": C()})
+    assert listings[0].is_remote is True
+
+
+def test_search_jobs_remote_filter_keeps_only_is_remote_listings():
+    on_site = _listing(title="Dev", snippet="Présentiel", url="https://x/1")
+    remote = _listing(title="Dev", snippet="Full remote", url="https://x/2")
+
+    class C:
+        def search(self, criteria):
+            return [on_site, remote]
+
+    listings, _ = search_jobs(SearchCriteria(keywords="dev", remote=True), {"c": C()})
+    assert [lst.url for lst in listings] == ["https://x/2"]
+
+
 def test_search_jobs_dedupes_listings_sharing_a_url():
     shared = JobListing(
         title="Dev",

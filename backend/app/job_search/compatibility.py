@@ -51,8 +51,6 @@ _EXPERIENCE_RE = re.compile(
 
 _SALARY_NUMBER_RE = re.compile(r"\d[\d\s .,]*\d|\d")
 
-_REMOTE_INDICATORS = ("remote", "teletravail", "distanciel", "hybride")
-
 _FRESHNESS_FULL_CREDIT_DAYS = 7
 _FRESHNESS_FLOOR_DAYS = 60
 _FRESHNESS_FLOOR_SCORE = 15
@@ -89,15 +87,15 @@ def _score_title(listing: JobListing, profile: CandidateProfile) -> int:
 
 
 def _score_location(listing: JobListing, profile: CandidateProfile) -> int:
-    if not listing.location:
-        return NEUTRAL_LOCATION_SCORE
-
-    haystack = _normalize(f"{listing.location} {listing.snippet}")
-    is_remote_listing = any(indicator in haystack for indicator in _REMOTE_INDICATORS)
+    is_remote_listing = listing.is_remote
     desired_locations = profile.desired_locations or []
 
     if profile.remote_preference and is_remote_listing:
         return 100
+
+    if not listing.location:
+        return NEUTRAL_LOCATION_SCORE
+
     if not desired_locations and not profile.remote_preference:
         # No location constraint entered - nothing to penalize against.
         return 60

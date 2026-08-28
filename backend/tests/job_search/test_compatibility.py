@@ -55,7 +55,11 @@ def test_missing_location_is_neutral_not_zero():
 
 
 def test_remote_preference_matches_remote_listing():
-    listing = _listing(location="Télétravail", snippet="Poste 100% télétravail.")
+    # is_remote is authoritative now (set by the aggregator / remote-only
+    # sources); _score_location no longer re-derives it from the text.
+    listing = _listing(
+        location="Télétravail", snippet="Poste 100% télétravail.", is_remote=True
+    )
     profile = _profile(desired_locations=[], remote_preference=True)
     score = score_breakdown(listing, profile)
     assert score["location"] == 100
