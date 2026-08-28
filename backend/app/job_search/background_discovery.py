@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import httpx
 from sqlalchemy.orm import Session
 
+from app.job_search.aggregator import finalize_and_filter
 from app.job_search.company_cache import save_mapping
 from app.job_search.discovery import detect_company_ats
 from app.job_search.errors import JobSearchSourceError
@@ -91,6 +92,11 @@ def run_discovery(
                 listings = client.search(criteria, [result.slug])
             except JobSearchSourceError:
                 continue
+
+            # Same post-merge treatment the primary sources get in
+            # search_jobs: is_remote finalized, remote / exclude / contract
+            # filters applied.
+            listings = finalize_and_filter(listings, criteria)
 
             if listings:
                 with _lock:

@@ -14,7 +14,7 @@ from app.compatibility.analyzer import (
 from app.compatibility.dependencies import get_compatibility_detail_analyzer
 from app.database import get_db
 from app.job_search import search_cache
-from app.job_search.aggregator import search_jobs
+from app.job_search.aggregator import finalize_and_filter, search_jobs
 from app.job_search.background_discovery import (
     create_pending_search,
     get_discovery_result,
@@ -139,6 +139,14 @@ def search(
                     clients, criteria, mapping.source, mapping.slug
                 )
             )
+
+    # The Greenhouse/Lever discovery path never goes through search_jobs, so
+    # its listings still need is_remote finalized and the remote / exclude /
+    # contract-type filters applied - against the URLs already returned by
+    # the primary sources so a company doesn't appear twice.
+    known_listings = finalize_and_filter(
+        known_listings, criteria, seen_urls={listing.url for listing in listings}
+    )
 
     unknown_companies = unknown_companies[:MAX_COMPANIES_PER_DISCOVERY]
     search_id = create_pending_search(

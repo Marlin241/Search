@@ -88,6 +88,45 @@ def test_run_discovery_saves_confirmed_mapping_and_delivers_listings(db_session)
 
 
 @respx.mock
+def test_run_discovery_applies_the_remote_filter(db_session):
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "title": "Backend Engineer (on-site)",
+                        "location": {"name": "Paris"},
+                        "content": "<p>Présentiel.</p>",
+                        "absolute_url": "https://boards.greenhouse.io/acme/jobs/1",
+                    },
+                    {
+                        "title": "Backend Engineer (remote)",
+                        "location": {"name": "Remote - EMEA"},
+                        "content": "<p>Fully remote.</p>",
+                        "absolute_url": "https://boards.greenhouse.io/acme/jobs/2",
+                    },
+                ]
+            },
+        )
+    )
+
+    search_id = create_pending_search(user_id=1, has_unknown_companies=True)
+    run_discovery(
+        search_id,
+        lambda: db_session,
+        ["Acme"],
+        SearchCriteria(keywords="backend", remote=True),
+        GreenhouseJobBoardClient(),
+        LeverJobBoardClient(),
+    )
+
+    _, new_listings = get_discovery_result(search_id, user_id=1)
+    assert [lst.title for lst in new_listings] == ["Backend Engineer (remote)"]
+    assert new_listings[0].is_remote is True
+
+
+@respx.mock
 def test_run_discovery_does_not_cache_indeterminate_detection(db_session):
     respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
         side_effect=httpx.ConnectError("down")
