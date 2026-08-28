@@ -61,11 +61,23 @@ def search_jobs(
             unavailable_sources.append(source_name)
 
     # `remote` and `exclude_keywords` are applied here, once, on the merged
-    # result set rather than inside each of the four source clients: both
+    # result set rather than inside each of the source clients: both
     # filters are purely textual and source-agnostic, so duplicating them
-    # per client would be four chances to drift out of sync, and none of the
-    # upstream APIs offers an equivalent server-side filter we could push
-    # down anyway.
-    return [
-        listing for listing in listings if _passes_filters(listing, criteria)
-    ], unavailable_sources
+    # per client would be several chances to drift out of sync, and none of
+    # the upstream APIs offers an equivalent server-side filter we could
+    # push down anyway.
+    #
+    # Deduplication by URL is also done here: the remote-oriented sources
+    # (Jobicy, We Work Remotely, RemoteOK) syndicate overlapping listings,
+    # and a job can legitimately appear on more than one board. Iteration
+    # order follows `clients`, so the first source to surface a URL wins -
+    # keeping the historical primary sources ahead of the newer ones.
+    seen_urls: set[str] = set()
+    deduped: list[JobListing] = []
+    for listing in listings:
+        if listing.url in seen_urls:
+            continue
+        seen_urls.add(listing.url)
+        if _passes_filters(listing, criteria):
+            deduped.append(listing)
+    return deduped, unavailable_sources

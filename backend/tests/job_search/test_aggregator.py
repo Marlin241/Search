@@ -23,13 +23,51 @@ class FailingClient:
         raise JobSearchSourceError("boom")
 
 
+class _SingleUrlClient:
+    def __init__(self, url: str):
+        self._url = url
+
+    def search(self, criteria):
+        return [_LISTING.model_copy(update={"url": self._url})]
+
+
 def test_search_jobs_merges_results_from_all_sources():
     listings, unavailable = search_jobs(
         SearchCriteria(keywords="python"),
-        {"source_a": WorkingClient(), "source_b": WorkingClient()},
+        {
+            "source_a": _SingleUrlClient("https://example.com/a"),
+            "source_b": _SingleUrlClient("https://example.com/b"),
+        },
     )
     assert len(listings) == 2
     assert unavailable == []
+
+
+def test_search_jobs_dedupes_listings_sharing_a_url():
+    shared = JobListing(
+        title="Dev",
+        company="Acme",
+        location="Remote",
+        snippet="...",
+        url="https://example.com/same",
+        source="a",
+        ats_type=None,
+    )
+
+    class ClientA:
+        def search(self, criteria):
+            return [shared]
+
+    class ClientB:
+        def search(self, criteria):
+            return [shared.model_copy(update={"source": "b"})]
+
+    listings, _ = search_jobs(
+        SearchCriteria(keywords="dev"),
+        {"a": ClientA(), "b": ClientB()},
+    )
+    assert len(listings) == 1
+    assert listings[0].source == "a"
 
 
 def test_search_jobs_omits_failing_source_without_failing_the_whole_search():
