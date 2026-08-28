@@ -1,15 +1,32 @@
 import calendar
+import re
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import feedparser
 import httpx
+from bs4 import BeautifulSoup
 
 from app.job_search import feed_cache
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
 
 _USER_AGENT = "ATSDiagnosticBot/1.0"
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _html_to_text(value: str) -> str:
+    """RSS <description>/<summary> bodies are HTML fragments (logo <img>
+    tags, <p>/<strong> markup, HTML entities). Render them down to a plain
+    single-line snippet."""
+    text = BeautifulSoup(value or "", "html.parser").get_text(separator=" ")
+    return _WHITESPACE_RE.sub(" ", text).strip()
+
+
+def _strip_accents(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
 
 
 def _entry_datetime(entry: Any) -> datetime | None:
@@ -35,7 +52,10 @@ class RssFeedClient:
     more feed URLs. Feed bodies are cached per-URL (see feed_cache) so
     repeated searches within the TTL don't re-download them. Keyword
     filtering is client-side against the entry title. `remote_only` sources
-    contribute nothing to a location-pinned, non-remote search."""
+    contribute nothing to a location-pinned, non-remote search; non-remote
+    feeds (e.g. NGO Jobs in Africa) keep, on a location-pinned search, only
+    the entries whose text mentions that location - so an Africa-wide feed
+    doesn't leak into a "Paris" search."""
 
     def __init__(
         self,
@@ -61,6 +81,13 @@ class RssFeedClient:
         ):
             return []
 
+        pinned_location = (criteria.location or "").strip()
+        location_needle = (
+            _strip_accents(pinned_location)
+            if pinned_location and not self._remote_only
+            else None
+        )
+
         listings: list[JobListing] = []
         seen_urls: set[str] = set()
         for feed_url in self._feed_urls:
@@ -73,9 +100,16 @@ class RssFeedClient:
                     continue
                 if not keyword_matches_title(criteria.keywords, raw_title):
                     continue
+                summary = _html_to_text(
+                    entry.get("summary", "") or entry.get("description", "")
+                )
+                if (
+                    location_needle is not None
+                    and location_needle not in _strip_accents(f"{raw_title} {summary}")
+                ):
+                    continue
                 seen_urls.add(link)
                 company, title = _split_company_title(raw_title)
-                summary = entry.get("summary", "") or entry.get("description", "")
                 listings.append(
                     JobListing(
                         title=title,

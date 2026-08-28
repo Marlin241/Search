@@ -47,6 +47,26 @@ def test_returns_keyword_matched_entries_with_company_split():
     assert listings[0].posted_at is not None
 
 
+_RSS_HTML_SUMMARY = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <item>
+    <title>Acme: Python Developer</title>
+    <link>https://weworkremotely.com/remote-jobs/acme-py</link>
+    <description>&lt;img src="https://x/logo.gif"&gt;&lt;p&gt;&lt;strong&gt;Headquarters:&lt;/strong&gt; Berlin&lt;/p&gt;&lt;p&gt;Build APIs.&lt;/p&gt;</description>
+    <pubDate>Wed, 20 Aug 2026 10:00:00 +0000</pubDate>
+  </item>
+</channel></rss>
+"""
+
+
+@respx.mock
+def test_html_is_stripped_from_the_summary():
+    respx.get(FEED_A).mock(return_value=httpx.Response(200, text=_RSS_HTML_SUMMARY))
+    client = RssFeedClient("weworkremotely", [FEED_A], remote_only=True)
+    listings = client.search(SearchCriteria(keywords="python", remote=True))
+    assert listings[0].snippet == "Headquarters: Berlin Build APIs."
+
+
 @respx.mock
 def test_remote_only_returns_empty_when_located_and_not_remote():
     route = respx.get(FEED_A).mock(return_value=httpx.Response(200, text=_RSS))
@@ -55,12 +75,41 @@ def test_remote_only_returns_empty_when_located_and_not_remote():
     assert route.call_count == 0
 
 
+_RSS_WITH_LOCATIONS = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <item>
+    <title>WASH Officer</title>
+    <link>https://ngojobsinafrica.com/jobs/wash-dakar</link>
+    <description>Poste basé à Dakar, Sénégal.</description>
+    <pubDate>Wed, 20 Aug 2026 10:00:00 +0000</pubDate>
+  </item>
+  <item>
+    <title>WASH Officer</title>
+    <link>https://ngojobsinafrica.com/jobs/wash-nairobi</link>
+    <description>Based in Nairobi, Kenya.</description>
+    <pubDate>Wed, 20 Aug 2026 10:00:00 +0000</pubDate>
+  </item>
+</channel></rss>
+"""
+
+
 @respx.mock
-def test_non_remote_only_feed_ignores_location_rule():
-    respx.get(FEED_A).mock(return_value=httpx.Response(200, text=_RSS))
+def test_non_remote_feed_keeps_only_entries_mentioning_a_pinned_location():
+    respx.get(FEED_A).mock(return_value=httpx.Response(200, text=_RSS_WITH_LOCATIONS))
     client = RssFeedClient("ngojobs", [FEED_A], remote_only=False)
-    listings = client.search(SearchCriteria(keywords="python", location="Dakar"))
-    assert len(listings) == 1
+    # Accent-insensitive: "Senegal" criterion matches "Sénégal" in the body.
+    listings = client.search(SearchCriteria(keywords="wash", location="Senegal"))
+    assert [lst.url for lst in listings] == [
+        "https://ngojobsinafrica.com/jobs/wash-dakar"
+    ]
+
+
+@respx.mock
+def test_non_remote_feed_returns_all_matches_when_no_location_pinned():
+    respx.get(FEED_A).mock(return_value=httpx.Response(200, text=_RSS_WITH_LOCATIONS))
+    client = RssFeedClient("ngojobs", [FEED_A], remote_only=False)
+    listings = client.search(SearchCriteria(keywords="wash"))
+    assert len(listings) == 2
 
 
 @respx.mock
