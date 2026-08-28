@@ -15,7 +15,11 @@ logger = logging.getLogger(__name__)
 
 SITEMAP_PATH = "/job_listing-sitemap.xml"
 _REMOTE_MARKERS = ("teletravail", "remote", "distanciel")
-_SNIPPET_MAX = 600
+# The app's convention (see the France Travail / Adzuna clients) is that
+# `snippet` carries the full offer description, not a preview - the search
+# modal shows it in full and passes it as `offer_text` for AI generation.
+# The cap is just a guard against a pathologically large page.
+_SNIPPET_MAX = 12_000
 
 # A sitemap <urlset> is flat: one <url> block per entry, each with a <loc>
 # and (usually) a <lastmod>. Extracted with regex rather than an XML parser

@@ -57,15 +57,20 @@ class JobicyClient:
                 if smin and smax:
                     salary = f"{smin} - {smax} {currency}".strip()
                 pub = (job.get("pubDate") or "").replace(" ", "T")
-                snippet = job.get("jobExcerpt") or _strip_html(
-                    job.get("jobDescription", "")
+                # Full description by app convention (see france_travail.py),
+                # falling back to the short excerpt; cap guards against a
+                # pathological payload.
+                snippet = (
+                    _strip_html(job.get("jobDescription", ""))
+                    or job.get("jobExcerpt")
+                    or ""
                 )
                 listings.append(
                     JobListing(
                         title=title,
                         company=job.get("companyName", ""),
                         location=job.get("jobGeo") or "Remote",
-                        snippet=snippet[:500],
+                        snippet=snippet[:12_000],
                         url=url,
                         source="jobicy",
                         ats_type=None,

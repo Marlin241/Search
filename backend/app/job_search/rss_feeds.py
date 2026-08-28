@@ -115,7 +115,7 @@ class RssFeedClient:
                         title=title,
                         company=company,
                         location="Remote" if self._remote_only else None,
-                        snippet=summary[:500],
+                        snippet=summary[:12_000],
                         url=link,
                         source=self._source,
                         ats_type=None,

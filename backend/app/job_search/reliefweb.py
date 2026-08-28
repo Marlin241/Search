@@ -89,7 +89,10 @@ class ReliefWebClient:
                         title=title,
                         company=company,
                         location=location,
-                        snippet=(fields.get("body") or "")[:500],
+                        # `snippet` carries the full description by app
+                        # convention (see france_travail.py); cap only guards
+                        # against a pathological payload.
+                        snippet=(fields.get("body") or "")[:12_000],
                         url=url,
                         source="reliefweb",
                         ats_type=None,
