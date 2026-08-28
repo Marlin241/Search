@@ -41,6 +41,25 @@ def test_detects_table():
     assert result.has_tables is True
 
 
+def test_extracts_text_from_table_only_layout():
+    # Many real-world CV templates (two-column "sidebar" layouts in
+    # particular) put all of their content inside a table instead of body
+    # paragraphs, since Word tables are the common way to lay out columns.
+    # document.paragraphs only sees top-level body paragraphs, so a CV like
+    # this used to extract as empty text and get rejected as "looks like a
+    # scanned image" even though it's fully text-based.
+    document = Document()
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "Jean Dupont\nExpérience professionnelle"
+    table.cell(0, 1).text = "Développeur chez Acme, 2020-2024\nFormation\nMaster informatique"
+
+    result = parse_docx(_save(document))
+
+    assert "Jean Dupont" in result.text
+    assert "Développeur chez Acme" in result.text
+    assert result.detected_sections == {"experience", "education"}
+
+
 def test_detects_image():
     document = Document()
     document.add_paragraph("Expérience professionnelle")
