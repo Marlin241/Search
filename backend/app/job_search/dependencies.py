@@ -37,9 +37,6 @@ def get_job_search_clients() -> dict[str, object]:
         "weworkremotely": RssFeedClient(
             "weworkremotely", settings.weworkremotely_feed_urls, remote_only=True
         ),
-        "remoteok": RssFeedClient(
-            "remoteok", settings.remoteok_feed_urls, remote_only=True
-        ),
         "ngojobs": RssFeedClient(
             "ngojobs", settings.ngojobs_feed_urls, remote_only=False
         ),

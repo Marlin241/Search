@@ -42,7 +42,6 @@ def _clients() -> dict[str, object]:
         "reliefweb": _EmptyClient(),
         "jobicy": _EmptyClient(),
         "weworkremotely": _EmptyClient(),
-        "remoteok": _EmptyClient(),
         "ngojobs": _EmptyClient(),
     }
 

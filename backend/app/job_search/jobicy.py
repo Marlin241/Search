@@ -48,18 +48,24 @@ class JobicyClient:
                     continue
                 if not keyword_matches_title(criteria.keywords, title):
                     continue
+                # Salary fields are documented but absent from live v2
+                # responses; kept so listings pick them up if Jobicy
+                # restores them.
                 salary = None
                 smin, smax = job.get("salaryMin"), job.get("salaryMax")
                 currency = job.get("salaryCurrency") or ""
                 if smin and smax:
                     salary = f"{smin} - {smax} {currency}".strip()
                 pub = (job.get("pubDate") or "").replace(" ", "T")
+                snippet = job.get("jobExcerpt") or _strip_html(
+                    job.get("jobDescription", "")
+                )
                 listings.append(
                     JobListing(
                         title=title,
                         company=job.get("companyName", ""),
                         location=job.get("jobGeo") or "Remote",
-                        snippet=_strip_html(job.get("jobDescription", ""))[:500],
+                        snippet=snippet[:500],
                         url=url,
                         source="jobicy",
                         ats_type=None,

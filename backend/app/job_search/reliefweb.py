@@ -4,7 +4,11 @@ from app.job_search.errors import JobSearchSourceError
 from app.job_search.schemas import JobListing, SearchCriteria
 from app.job_search.timestamps import parse_iso_datetime
 
-_API_URL = "https://api.reliefweb.int/v1/jobs"
+# v2 endpoint: v1 was decommissioned in 2026. v2 additionally enforces an
+# *approved* appname (request one at https://apidoc.reliefweb.int) - until
+# `reliefweb_appname` is set to an approved value the API returns 403 and
+# this source is simply reported unavailable, which the aggregator tolerates.
+_API_URL = "https://api.reliefweb.int/v2/jobs"
 _LIMIT = 20
 _INCLUDE_FIELDS = (
     "title",

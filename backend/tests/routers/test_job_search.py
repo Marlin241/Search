@@ -85,7 +85,6 @@ def _default_clients(overrides: dict[str, object]) -> dict[str, object]:
         "reliefweb": EmptyPrimaryClient(),
         "jobicy": EmptyPrimaryClient(),
         "weworkremotely": EmptyPrimaryClient(),
-        "remoteok": EmptyPrimaryClient(),
         "ngojobs": EmptyPrimaryClient(),
     }
     base.update(overrides)
@@ -242,7 +241,6 @@ def test_search_discovers_unknown_company_and_polling_returns_new_listing(client
         "reliefweb": EmptyPrimaryClient(),
         "jobicy": EmptyPrimaryClient(),
         "weworkremotely": EmptyPrimaryClient(),
-        "remoteok": EmptyPrimaryClient(),
         "ngojobs": EmptyPrimaryClient(),
     }
     token = _register_and_login(client)
@@ -297,7 +295,6 @@ def test_search_with_dakar_location_returns_waves_real_listing_synchronously(cli
         "reliefweb": EmptyPrimaryClient(),
         "jobicy": EmptyPrimaryClient(),
         "weworkremotely": EmptyPrimaryClient(),
-        "remoteok": EmptyPrimaryClient(),
         "ngojobs": EmptyPrimaryClient(),
     }
     token = _register_and_login(client)

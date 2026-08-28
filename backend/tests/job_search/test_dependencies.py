@@ -13,7 +13,6 @@ def test_all_expected_sources_are_registered():
         "reliefweb",
         "jobicy",
         "weworkremotely",
-        "remoteok",
         "ngojobs",
     ):
         assert key in clients, key
