@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     ]
     ngojobs_feed_urls: list[str] = ["https://ngojobsinafrica.com/media-rss/"]
     weworkremotely_feed_urls: list[str] = ["https://weworkremotely.com/remote-jobs.rss"]
+    enabled_crawlers: list[str] = ["emploi_dakar"]
+    crawl_interval_hours: int = 3
+    crawl_max_offers_per_site: int = 80
+    crawl_request_delay_seconds: float = 1.0
+    crawl_deactivate_after: int = 3
+    crawl_suspicious_empty_threshold: int = 5
+    crawler_contact_url: str = ""
     resend_api_key: str = ""
     resend_from_email: str = ""
     backend_base_url: str = "http://localhost:8000"

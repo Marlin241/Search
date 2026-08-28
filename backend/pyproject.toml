@@ -5,6 +5,12 @@ exclude = ["venv", ".pytest_cache"]
 [tool.ruff.lint]
 ignore = ["B008"]
 
+[tool.ruff.lint.per-file-ignores]
+# This codebase deliberately stores and compares naive UTC datetimes
+# (see app/utils/time.py) - flake8-datetimezone rules fight that in tests
+# that build fixed timestamps for ordering assertions.
+"tests/**" = ["DTZ001"]
+
 [tool.mypy]
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
