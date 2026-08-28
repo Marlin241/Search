@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app import database
 from app.job_search.errors import JobSearchSourceError
+from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
 from app.models.crawled_listing import CrawledListing
 
@@ -24,17 +25,18 @@ class CrawledListingClient:
     aggregator merges and scores its results with no special-casing.
 
     The exact filters (is_active, contract_type, remote) run in SQL; the
-    text filters (keywords, location) run in Python so they can be
-    accent-insensitive without a Postgres `unaccent` extension the SQLite
-    test DB lacks. The candidate set is bounded by the number of active
-    crawled rows (a few thousand at most), so the in-memory pass is cheap.
+    text filters (keywords, location) run in Python. Keywords are matched
+    against the offer title with the same accent-insensitive, synonym-aware
+    helper the other title-matching sources use (so "développeur" also
+    finds "Developer"); location matching is accent-insensitive. The
+    candidate set is bounded by the number of active crawled rows (a few
+    thousand at most), so the in-memory pass is cheap.
     """
 
     def __init__(self, session_factory: Callable[[], Session] | None = None):
         self._session_factory = session_factory or database.SessionLocal
 
     def search(self, criteria: SearchCriteria) -> list[JobListing]:
-        words = [w for w in _strip_accents(criteria.keywords).split() if w]
         pinned_location = (criteria.location or "").strip()
         location_needle = _strip_accents(pinned_location) if pinned_location else None
 
@@ -63,8 +65,7 @@ class CrawledListingClient:
 
         listings: list[JobListing] = []
         for row in rows:
-            haystack = _strip_accents(f"{row.title} {row.snippet}")
-            if not all(word in haystack for word in words):
+            if not keyword_matches_title(criteria.keywords, row.title):
                 continue
             if location_needle is not None and location_needle not in _strip_accents(
                 row.location or ""

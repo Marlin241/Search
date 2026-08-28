@@ -63,12 +63,33 @@ def _seed(db_session):
     db_session.commit()
 
 
-def test_search_matches_keyword_in_title_or_snippet(db_session):
+def test_search_matches_keyword_in_title(db_session):
     _seed(db_session)
     client = CrawledListingClient(session_factory=lambda: db_session)
     results = client.search(SearchCriteria(keywords="développeur"))
     assert {r.url for r in results} == {"https://x/1", "https://x/3"}
     assert all(r.source == "emploi_dakar" for r in results)
+
+
+def test_search_keyword_matching_is_synonym_aware(db_session):
+    db_session.add(
+        CrawledListing(
+            url="https://x/dev",
+            source="emploi_dakar",
+            title="Business Developer",
+            snippet="Prospection B2B",
+            location="Dakar",
+            is_remote=False,
+            first_seen_at=datetime(2026, 8, 5),
+            last_seen_at=datetime(2026, 8, 5),
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    client = CrawledListingClient(session_factory=lambda: db_session)
+    # "développeur" -> English synonym "developer" matches "Business Developer"
+    results = client.search(SearchCriteria(keywords="développeur"))
+    assert "https://x/dev" in {r.url for r in results}
 
 
 def test_search_filters_by_location_accent_insensitive(db_session):
