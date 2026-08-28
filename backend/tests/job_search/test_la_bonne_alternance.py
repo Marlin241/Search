@@ -3,8 +3,8 @@ import pytest
 import respx
 
 from app.job_search.errors import JobSearchSourceError
+from app.job_search.french_geo import COMMUNES_URL
 from app.job_search.la_bonne_alternance import (
-    COMMUNES_URL,
     SEARCH_URL,
     LaBonneAlternanceClient,
 )
@@ -101,16 +101,20 @@ def test_search_treats_france_as_nationwide():
 
 
 @respx.mock
-def test_search_drops_location_filter_when_city_not_found():
+def test_search_returns_nothing_for_a_non_french_location():
+    # La Bonne Alternance is France-only; a real place elsewhere (the geocoder
+    # responds but knows no such commune) must yield no results rather than
+    # every nationwide French apprenticeship.
     respx.get(COMMUNES_URL).mock(return_value=httpx.Response(200, json=[]))
     search_route = respx.get(SEARCH_URL).mock(
         return_value=httpx.Response(200, json={"jobs": []})
     )
 
     client = LaBonneAlternanceClient(api_key="key123")
-    client.search(SearchCriteria(keywords="alternance", location="Dakar"))
+    results = client.search(SearchCriteria(keywords="alternance", location="Dakar"))
 
-    assert "latitude" not in search_route.calls[0].request.url.params
+    assert results == []
+    assert not search_route.calls
 
 
 @respx.mock

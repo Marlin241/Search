@@ -4,11 +4,11 @@ import respx
 
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.france_travail import (
-    COMMUNES_URL,
     SEARCH_URL,
     TOKEN_URL,
     FranceTravailClient,
 )
+from app.job_search.french_geo import COMMUNES_URL
 from app.job_search.schemas import SearchCriteria
 
 
@@ -197,7 +197,10 @@ def test_search_accepts_insee_code_directly():
 
 
 @respx.mock
-def test_search_drops_location_filter_when_city_not_found():
+def test_search_returns_nothing_for_a_non_french_location():
+    # France Travail is France-only; when the geocoder responds but knows no
+    # such commune (a place outside France, or a typo), return no results
+    # rather than every nationwide French offer.
     respx.post(TOKEN_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "tok123"})
     )
@@ -207,9 +210,12 @@ def test_search_drops_location_filter_when_city_not_found():
     )
 
     client = FranceTravailClient(client_id="id", client_secret="secret")
-    client.search(SearchCriteria(keywords="python", location="Villequinexistepas"))
+    results = client.search(
+        SearchCriteria(keywords="python", location="Villequinexistepas")
+    )
 
-    assert "commune" not in search_route.calls[0].request.url.params
+    assert results == []
+    assert not search_route.calls
 
 
 @respx.mock

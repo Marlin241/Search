@@ -3,15 +3,19 @@ import re
 import httpx
 
 from app.job_search.errors import JobSearchSourceError
+from app.job_search.french_geo import (
+    NATIONWIDE_LOCATIONS,
+    GeoLookupUnavailable,
+    NotAFrenchPlace,
+    lookup_commune,
+)
 from app.job_search.schemas import JobListing, SearchCriteria
 from app.job_search.timestamps import parse_iso_datetime
 
 TOKEN_URL = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=/partenaire"
 SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search"
-COMMUNES_URL = "https://geo.api.gouv.fr/communes"
 
 _INSEE_CODE_RE = re.compile(r"^\d{5}$")
-_NATIONWIDE_LOCATIONS = {"france"}
 
 # France Travail's typeContrat referential only recognizes these codes; a
 # value it doesn't recognize (e.g. "alternance", "stage") makes the whole
@@ -62,34 +66,25 @@ class FranceTravailClient:
 
     def _resolve_commune_code(self, location: str) -> str | None:
         # The France Travail API only accepts INSEE commune codes, not free-text
-        # place names, so a plain city name typed by the user has to be geocoded
-        # first. If no commune can be resolved (unrecognized name, "France" for a
-        # nationwide search, or the geocoding service being unreachable), the
-        # location filter is simply dropped rather than failing the whole search.
+        # place names. Returns None for a nationwide search ("France"/empty) or
+        # when the geocoder is unreachable (fail open). Raises NotAFrenchPlace
+        # when the geocoder responds but knows no such commune - the caller
+        # turns that into an empty result set, since France Travail is
+        # France-only and a real place elsewhere (e.g. "Dakar") should yield
+        # nothing here rather than every nationwide French offer.
         location = location.strip()
-        if not location or location.casefold() in _NATIONWIDE_LOCATIONS:
+        if not location or location.casefold() in NATIONWIDE_LOCATIONS:
             return None
         if _INSEE_CODE_RE.match(location):
             return location
 
         try:
-            response = self._http.get(
-                COMMUNES_URL,
-                params={
-                    "nom": location,
-                    "fields": "code",
-                    "boost": "population",
-                    "limit": 1,
-                },
-            )
-            response.raise_for_status()
-            results = response.json()
-        except (httpx.HTTPError, ValueError):
+            commune = lookup_commune(location, self._http, fields="code")
+        except GeoLookupUnavailable:
             return None
-
-        if not isinstance(results, list) or not results:
-            return None
-        return results[0].get("code")
+        if commune is None:
+            raise NotAFrenchPlace(location)
+        return commune.get("code")
 
     def search(self, criteria: SearchCriteria) -> list[JobListing]:
         # No token caching in this version: search is on-demand and
@@ -99,7 +94,10 @@ class FranceTravailClient:
 
         params: dict[str, str] = {"motsCles": criteria.keywords}
         if criteria.location:
-            commune_code = self._resolve_commune_code(criteria.location)
+            try:
+                commune_code = self._resolve_commune_code(criteria.location)
+            except NotAFrenchPlace:
+                return []
             if commune_code:
                 params["commune"] = commune_code
         if criteria.contract_type:

@@ -1,14 +1,18 @@
 import httpx
 
 from app.job_search.errors import JobSearchSourceError
+from app.job_search.french_geo import (
+    NATIONWIDE_LOCATIONS,
+    GeoLookupUnavailable,
+    NotAFrenchPlace,
+    lookup_commune,
+)
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
 
 SEARCH_URL = "https://api.apprentissage.beta.gouv.fr/api/job/v1/search"
-COMMUNES_URL = "https://geo.api.gouv.fr/communes"
 
 _DEFAULT_RADIUS_KM = 30
-_NATIONWIDE_LOCATIONS = {"france"}
 
 
 class LaBonneAlternanceClient:
@@ -24,28 +28,22 @@ class LaBonneAlternanceClient:
         self._http = http_client or httpx.Client(timeout=10.0)
 
     def _resolve_coordinates(self, location: str) -> tuple[float, float] | None:
+        # Returns None for a nationwide search or an unreachable geocoder
+        # (fail open); raises NotAFrenchPlace when the geocoder knows no such
+        # commune, so search() can return nothing rather than nationwide
+        # French apprenticeships for, say, a Dakar search.
         location = location.strip()
-        if not location or location.casefold() in _NATIONWIDE_LOCATIONS:
+        if not location or location.casefold() in NATIONWIDE_LOCATIONS:
             return None
 
         try:
-            response = self._http.get(
-                COMMUNES_URL,
-                params={
-                    "nom": location,
-                    "fields": "centre",
-                    "boost": "population",
-                    "limit": 1,
-                },
-            )
-            response.raise_for_status()
-            results = response.json()
-        except (httpx.HTTPError, ValueError):
+            commune = lookup_commune(location, self._http, fields="centre")
+        except GeoLookupUnavailable:
             return None
+        if commune is None:
+            raise NotAFrenchPlace(location)
 
-        if not isinstance(results, list) or not results:
-            return None
-        coordinates = (results[0].get("centre") or {}).get("coordinates")
+        coordinates = (commune.get("centre") or {}).get("coordinates")
         if not isinstance(coordinates, list) or len(coordinates) != 2:
             return None
         longitude, latitude = coordinates
@@ -54,7 +52,10 @@ class LaBonneAlternanceClient:
     def search(self, criteria: SearchCriteria) -> list[JobListing]:
         params: dict[str, str | float | int] = {}
         if criteria.location:
-            coordinates = self._resolve_coordinates(criteria.location)
+            try:
+                coordinates = self._resolve_coordinates(criteria.location)
+            except NotAFrenchPlace:
+                return []
             if coordinates:
                 longitude, latitude = coordinates
                 params["longitude"] = longitude
