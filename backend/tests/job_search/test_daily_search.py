@@ -43,6 +43,7 @@ def _clients() -> dict[str, object]:
         "jobicy": _EmptyClient(),
         "weworkremotely": _EmptyClient(),
         "ngojobs": _EmptyClient(),
+        "crawled": _EmptyClient(),
     }
 
 

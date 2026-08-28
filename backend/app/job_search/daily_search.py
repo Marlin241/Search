@@ -89,6 +89,7 @@ def _process_saved_search(
         "jobicy": cast(SearchClient, clients["jobicy"]),
         "weworkremotely": cast(SearchClient, clients["weworkremotely"]),
         "ngojobs": cast(SearchClient, clients["ngojobs"]),
+        "crawled": cast(SearchClient, clients["crawled"]),
     }
     listings, _unavailable_sources = search_jobs(criteria, primary_clients)
 

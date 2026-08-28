@@ -10,6 +10,7 @@ from app import (
 )
 from app.applications.reminders import run_application_reminders
 from app.config import get_settings
+from app.job_search.crawl_runner import run_crawl
 from app.job_search.daily_search import run_daily_search
 from app.routers import (
     applications,
@@ -63,6 +64,14 @@ async def lifespan(app: FastAPI):
         trigger="cron",
         minute=0,
         id="application_reminders",
+    )
+    scheduler.add_job(
+        # Same lookup-at-call-time convention as the jobs above so the test
+        # suite's monkeypatch of database.SessionLocal takes effect.
+        lambda: run_crawl(database.SessionLocal),
+        trigger="interval",
+        hours=settings.crawl_interval_hours,
+        id="crawl",
     )
     scheduler.start()
     try:

@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from app.config import get_settings
 from app.job_search.adzuna import AdzunaClient
+from app.job_search.crawled_listings import CrawledListingClient
 from app.job_search.france_travail import FranceTravailClient
 from app.job_search.greenhouse import GreenhouseJobBoardClient
 from app.job_search.jobicy import JobicyClient
@@ -40,4 +41,5 @@ def get_job_search_clients() -> dict[str, object]:
         "ngojobs": RssFeedClient(
             "ngojobs", settings.ngojobs_feed_urls, remote_only=False
         ),
+        "crawled": CrawledListingClient(),
     }
