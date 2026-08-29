@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     backend_base_url: str = "http://localhost:8000"
     frontend_base_url: str = "http://localhost:3000"
     environment: str = "development"
+    password_reset_token_ttl_minutes: int = 60
 
 
 @lru_cache

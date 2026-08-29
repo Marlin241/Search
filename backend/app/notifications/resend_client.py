@@ -44,6 +44,17 @@ def _send_email(to_email: str, subject: str, html_body: str) -> None:
         )
 
 
+def send_password_reset_email(to_email: str, reset_url: str) -> None:
+    safe = _safe_href(reset_url)
+    html_body = (
+        "<p>Tu as demandé à réinitialiser ton mot de passe.</p>"
+        f'<p><a href="{safe}">Choisir un nouveau mot de passe</a></p>'
+        "<p>Ce lien expire dans 1 heure. Si tu n'es pas à l'origine de "
+        "cette demande, ignore cet email.</p>"
+    )
+    _send_email(to_email, "Réinitialisation de ton mot de passe", html_body)
+
+
 def _render_job_listings_html(listings: list[JobListing], unsubscribe_url: str) -> str:
     # Every field interpolated here (title/company/location, all from
     # external job-search APIs we don't control) is HTML-escaped - without

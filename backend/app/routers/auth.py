@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -6,16 +6,25 @@ from app.auth.consent import CURRENT_TERMS_VERSION
 from app.auth.dependencies import get_current_user
 from app.auth.http import client_ip
 from app.auth.invites import InviteCodeError, redeem_invite_code
+from app.auth.password_reset import consume_reset_token, create_reset_token
 from app.auth.security import create_access_token, hash_password, verify_password
+from app.config import get_settings
 from app.database import get_db
 from app.models.user import User
+from app.notifications.resend_client import EmailSendError, send_password_reset_email
 from app.rate_limit.auth_throttle import (
     AuthThrottleExceeded,
     check_auth_throttle,
     clear_auth_attempts,
     record_auth_attempt,
 )
-from app.schemas.auth import Token, UserCreate, UserOut
+from app.schemas.auth import (
+    ForgotPasswordIn,
+    ResetPasswordIn,
+    Token,
+    UserCreate,
+    UserOut,
+)
 from app.utils.time import utcnow
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -92,6 +101,42 @@ def login(
     clear_auth_attempts(db, action="login", identifier=identifier)
     token = create_access_token(subject=user.email)
     return Token(access_token=token)
+
+
+@router.post("/forgot-password", status_code=status.HTTP_204_NO_CONTENT)
+def forgot_password(
+    payload: ForgotPasswordIn, request: Request, db: Session = Depends(get_db)
+) -> Response:
+    identifier = f"{payload.email.lower()}|{client_ip(request)}"
+    try:
+        check_auth_throttle(db, action="forgot_password", identifier=identifier)
+    except AuthThrottleExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+    record_auth_attempt(db, action="forgot_password", identifier=identifier)
+
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user is not None:
+        token = create_reset_token(db, user)
+        url = f"{get_settings().frontend_base_url}/reset-password?token={token}"
+        try:
+            send_password_reset_email(user.email, url)
+        except EmailSendError:
+            # Never surface a send failure to the caller (no enumeration, no
+            # blocking). The incident is logged / captured (GlitchTip, Beta 5).
+            pass
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+def reset_password(payload: ResetPasswordIn, db: Session = Depends(get_db)) -> Response:
+    if not consume_reset_token(db, payload.token, payload.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Lien invalide ou expiré.",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me", response_model=UserOut)
