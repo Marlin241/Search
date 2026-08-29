@@ -50,17 +50,22 @@
 
 **Files:**
 - Modify: `backend/app/main.py:106-108`
-- Test: `backend/tests/test_health.py` (créer)
+- Modify: `backend/tests/test_health.py` (le fichier existe déjà — `test_health_returns_ok` y assère `response.json() == {"status": "ok"}` à l'exact, ce que ce changement casse : le remplacer)
 
 **Interfaces:**
-- Consumes: `app.database.get_db` (session SQLAlchemy, déjà injectée ailleurs).
+- Consumes: `app.database.SessionLocal` (déjà utilisé par `main.py`).
 - Produces: `GET /health` → `200 {"status": "ok", "db": "ok", "version": "<str>"}` quand la DB répond ; `503 {"status": "degraded", "db": "error", "version": "<str>"}` quand `SELECT 1` lève.
 
-- [ ] **Step 1 : Écrire les tests qui échouent**
+- [ ] **Step 1 : Réécrire `backend/tests/test_health.py`**
 
-`backend/tests/test_health.py` :
+Remplacer tout le corps du fichier (garder les 2 lignes `os.environ.setdefault` du haut) par :
 
 ```python
+import os
+
+os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -142,6 +147,10 @@ Expected: ruff OK, suite complète verte.
 git add backend/app/main.py backend/tests/test_health.py
 git commit -m "feat(health): /health probes the database and returns 503 when it is down"
 ```
+
+> Note : `test_end_to_end.py` peut aussi toucher `/health` — si `pytest -q` à
+> l'étape 5 signale un autre test qui assère l'ancien corps exact, l'aligner
+> sur `body["status"] == "ok"` (sous-ensemble, pas égalité stricte).
 
 ---
 
