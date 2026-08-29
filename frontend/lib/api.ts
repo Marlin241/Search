@@ -100,11 +100,34 @@ async function request<T>(
 
 export async function register(
   email: string,
-  password: string
+  password: string,
+  inviteCode: string
 ): Promise<User> {
   return request<User>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      invite_code: inviteCode,
+      accept_terms: true,
+    }),
+  });
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  await request<void>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  token: string,
+  password: string
+): Promise<void> {
+  await request<void>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
   });
 }
 

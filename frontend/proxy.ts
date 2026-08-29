@@ -10,7 +10,7 @@ const PROTECTED_PREFIXES = [
   "/profil",
   "/onboarding",
 ];
-const AUTH_PATHS = ["/login"];
+const AUTH_PATHS = ["/login", "/mot-de-passe-oublie", "/reset-password"];
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
@@ -52,5 +52,7 @@ export const config = {
     "/profil/:path*",
     "/onboarding/:path*",
     "/login",
+    "/mot-de-passe-oublie",
+    "/reset-password",
   ],
 };

@@ -17,6 +17,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,13 +41,25 @@ export default function LoginPage() {
       return;
     }
 
+    if (!isLogin && !inviteCode.trim()) {
+      setError("Un code d'invitation est requis pour créer un compte.");
+      return;
+    }
+
+    if (!isLogin && !acceptTerms) {
+      setError(
+        "Vous devez accepter les conditions d'utilisation et la politique de confidentialité."
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
       if (isLogin) {
         await login(email, password);
         router.push("/dashboard");
       } else {
-        await register(email, password);
+        await register(email, password, inviteCode.trim());
         router.push("/onboarding");
       }
     } catch (err: any) {
@@ -192,15 +206,65 @@ export default function LoginPage() {
               required
             />
 
+            {isLogin && (
+              <div className="text-right -mt-2">
+                <a
+                  href="/mot-de-passe-oublie"
+                  className="text-xs font-medium text-primary-600 hover:underline"
+                >
+                  Mot de passe oublié ?
+                </a>
+              </div>
+            )}
+
             {!isLogin && (
-              <Input
-                label="Confirmer le mot de passe"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-              />
+              <>
+                <Input
+                  label="Confirmer le mot de passe"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+
+                <Input
+                  label="Code d'invitation"
+                  type="text"
+                  placeholder="Ton code d'accès à la beta"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  required
+                />
+
+                <label className="flex items-start gap-2.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 shrink-0"
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                  />
+                  <span>
+                    J&apos;accepte les{" "}
+                    <a
+                      href="/conditions"
+                      target="_blank"
+                      className="text-primary-600 hover:underline"
+                    >
+                      conditions d&apos;utilisation
+                    </a>{" "}
+                    et la{" "}
+                    <a
+                      href="/confidentialite"
+                      target="_blank"
+                      className="text-primary-600 hover:underline"
+                    >
+                      politique de confidentialité
+                    </a>
+                    .
+                  </span>
+                </label>
+              </>
             )}
 
             <Button

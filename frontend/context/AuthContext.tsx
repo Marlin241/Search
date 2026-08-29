@@ -17,27 +17,33 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    inviteCode: string
+  ) => Promise<void>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
 const TOKEN_KEY = "search_app_token";
-/* Non-httpOnly cookie mirror of the token, so middleware.ts can do a cheap
- * server-side "is anyone logged in" check before the page ever renders
- * (fixes v2's client-only guard, which always flashed a spinner). The
- * backend still only trusts the Bearer header, never this cookie — actual
- * validation happens client-side via fetchMe, same as before. */
-const TOKEN_COOKIE = "search_app_token";
-const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24; // 24h, matches backend JWT default expiry
 
-function setTokenCookie(token: string) {
-  document.cookie = `${TOKEN_COOKIE}=${token}; path=/; max-age=${COOKIE_MAX_AGE_SECONDS}; samesite=lax`;
+/* HttpOnly cookie mirror of the token, set server-side by the /api/session
+ * route handler, so proxy.ts can do a cheap server-side "is anyone logged
+ * in" check before the page ever renders. The backend still only trusts the
+ * Bearer header (from localStorage), never this cookie — actual validation
+ * happens client-side via fetchMe, same as before. */
+async function setTokenCookie(token: string) {
+  await fetch("/api/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
 }
 
-function clearTokenCookie() {
-  document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0; samesite=lax`;
+async function clearTokenCookie() {
+  await fetch("/api/session", { method: "DELETE" });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -47,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
-    clearTokenCookie();
+    void clearTokenCookie();
     setToken(null);
     setUser(null);
   }, []);
@@ -67,13 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setToken(stored);
-    setTokenCookie(stored);
+    void setTokenCookie(stored);
     api
       .fetchMe(stored)
       .then(setUser)
       .catch(() => {
         localStorage.removeItem(TOKEN_KEY);
-        clearTokenCookie();
+        void clearTokenCookie();
         setToken(null);
       })
       .finally(() => setIsLoading(false));
@@ -82,16 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginFn = useCallback(async (email: string, password: string) => {
     const { access_token } = await api.login(email, password);
     localStorage.setItem(TOKEN_KEY, access_token);
-    setTokenCookie(access_token);
+    await setTokenCookie(access_token);
     setToken(access_token);
     const me = await api.fetchMe(access_token);
     setUser(me);
   }, []);
 
-  const registerFn = useCallback(async (email: string, password: string) => {
-    await api.register(email, password);
-    await loginFn(email, password);
-  }, [loginFn]);
+  const registerFn = useCallback(
+    async (email: string, password: string, inviteCode: string) => {
+      await api.register(email, password, inviteCode);
+      await loginFn(email, password);
+    },
+    [loginFn]
+  );
 
   const value = useMemo(
     () => ({ user, token, isLoading, login: loginFn, register: registerFn, logout }),
