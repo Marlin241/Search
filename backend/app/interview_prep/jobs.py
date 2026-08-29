@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 from app.generation_jobs import state
 from app.interview_prep.analyzer import InterviewPrepAnalyzer, InterviewPrepError
 from app.job_search.discovery import normalize_company_name
+from app.llm.usage import capture_usage, collected
 from app.models.candidate_profile import CandidateProfile
 from app.models.company_research_cache import CompanyResearchCache
 from app.models.diagnostic import Diagnostic
 from app.models.interview_prep_dossier import InterviewPrepDossier
 from app.models.interview_prep_request_log import InterviewPrepRequestLog
+from app.models.llm_call_log import LlmCallLog
 from app.models.saved_job import SavedJob
 from app.utils.time import utcnow
 
@@ -60,6 +62,8 @@ def run_interview_prep_job(
     db_session_factory: Callable[[], Session],
 ) -> None:
     db = db_session_factory()
+    usage_ctx = capture_usage()
+    usage_ctx.__enter__()
     try:
         state.advance(job_id, 1, "Analyse du profil et de l'offre")
         saved_job = (
@@ -148,6 +152,16 @@ def run_interview_prep_job(
         # Only counted against the user's hourly quota on genuine success -
         # a failed generation above returns before this point.
         db.add(InterviewPrepRequestLog(user_id=user_id))
+        _model, _itok, _otok = collected()
+        db.add(
+            LlmCallLog(
+                user_id=user_id,
+                feature="interview_prep",
+                model=_model,
+                input_tokens=_itok,
+                output_tokens=_otok,
+            )
+        )
         db.commit()
         db.refresh(dossier)
 
@@ -171,4 +185,5 @@ def run_interview_prep_job(
         logger.exception("Interview prep job %s failed unexpectedly", job_id)
         state.fail(job_id, str(exc))
     finally:
+        usage_ctx.__exit__(None, None, None)
         db.close()

@@ -8,9 +8,11 @@ from sqlalchemy.orm import Session
 from app.aggregator.aggregator import build_diagnostic_report
 from app.cv_parser.models import CVParseResult
 from app.generation_jobs import state
+from app.llm.usage import capture_usage, collected
 from app.llm_analyzer.analyzer import SemanticAnalyzer
 from app.models.candidate_profile import CandidateProfile
 from app.models.diagnostic import Diagnostic
+from app.models.llm_call_log import LlmCallLog
 from app.models.personalization_request_log import PersonalizationRequestLog
 from app.models.personalized_document import PersonalizedDocument
 from app.personalization.analyzer import (
@@ -76,6 +78,10 @@ def run_cv_generation_job(
     db_session_factory: Callable[[], Session],
 ) -> None:
     db = db_session_factory()
+    # Capture token usage of every Anthropic call this job makes, so the
+    # single llm_call_log row written on success carries the summed totals.
+    usage_ctx = capture_usage()
+    usage_ctx.__enter__()
     try:
         state.advance(job_id, 1, "Analyse du CV")
         diagnostic = (
@@ -176,6 +182,16 @@ def run_cv_generation_job(
         # a failed generation above returns before this point and consumes
         # no PersonalizationRequestLog row.
         db.add(PersonalizationRequestLog(user_id=user_id))
+        _model, _itok, _otok = collected()
+        db.add(
+            LlmCallLog(
+                user_id=user_id,
+                feature="cv",
+                model=_model,
+                input_tokens=_itok,
+                output_tokens=_otok,
+            )
+        )
         db.commit()
         db.refresh(document)
 
@@ -200,6 +216,7 @@ def run_cv_generation_job(
         logger.exception("CV generation job %s failed unexpectedly", job_id)
         state.fail(job_id, str(exc))
     finally:
+        usage_ctx.__exit__(None, None, None)
         db.close()
 
 
@@ -213,6 +230,8 @@ def run_letter_generation_job(
     db_session_factory: Callable[[], Session],
 ) -> None:
     db = db_session_factory()
+    usage_ctx = capture_usage()
+    usage_ctx.__enter__()
     try:
         state.advance(job_id, 1, "Analyse de l'offre")
         diagnostic = (
@@ -268,6 +287,16 @@ def run_letter_generation_job(
         document.needs_review = False
 
         db.add(PersonalizationRequestLog(user_id=user_id))
+        _model, _itok, _otok = collected()
+        db.add(
+            LlmCallLog(
+                user_id=user_id,
+                feature="lettre",
+                model=_model,
+                input_tokens=_itok,
+                output_tokens=_otok,
+            )
+        )
         db.commit()
         db.refresh(document)
 
@@ -284,4 +313,5 @@ def run_letter_generation_job(
         logger.exception("Letter generation job %s failed unexpectedly", job_id)
         state.fail(job_id, str(exc))
     finally:
+        usage_ctx.__exit__(None, None, None)
         db.close()

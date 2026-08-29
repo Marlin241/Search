@@ -8,6 +8,7 @@ from app.generation_jobs import state as generation_jobs_state
 from app.interview_prep.analyzer import InterviewPrepAnalyzer
 from app.interview_prep.dependencies import get_interview_prep_analyzer
 from app.interview_prep.jobs import run_interview_prep_job
+from app.llm.dependencies import require_llm_enabled
 from app.models.diagnostic import Diagnostic
 from app.models.interview_prep_dossier import InterviewPrepDossier
 from app.models.saved_job import SavedJob
@@ -17,6 +18,7 @@ from app.rate_limit.limiter import (
     check_interview_prep_rate_limit,
     lock_user_for_rate_limit,
 )
+from app.rate_limit.llm_quota import QuotaExceeded, enforce_monthly_quota
 from app.schemas.generation_job import GenerationJobStarted
 from app.schemas.interview_prep import InterviewPrepDossierOut, InterviewPrepRequestIn
 
@@ -49,6 +51,7 @@ def start_interview_prep(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     analyzer: InterviewPrepAnalyzer = Depends(get_interview_prep_analyzer),
+    _llm: None = Depends(require_llm_enabled),
 ) -> GenerationJobStarted:
     saved_job = _get_owned_saved_job(db, saved_job_id, current_user.id)
 
@@ -74,6 +77,13 @@ def start_interview_prep(
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+
+    try:
+        enforce_monthly_quota(db, current_user, "interview_prep")
+    except QuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=exc.as_dict()
         ) from exc
     db.commit()
 

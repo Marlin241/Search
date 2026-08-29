@@ -424,10 +424,18 @@ def test_generate_cv_job_ends_in_error_status_on_llm_failure(client):
 
 
 def test_personalization_rate_limit_returns_429(client):
+    from app.models.user import User
+
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     diagnostic_id = _create_diagnostic(client, headers)
     _override_personalization_deps()
+    # Exercise the HOURLY limit; raise the monthly cv/lettre quota out of
+    # the way (Beta 3: monthly cv quota 5 < hourly 10).
+    client.db_session.query(User).update(
+        {"quota_overrides": {"cv": 9999, "lettre": 9999}}
+    )
+    client.db_session.commit()
 
     for _ in range(MAX_PERSONALIZATIONS_PER_HOUR):
         response = client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)

@@ -214,9 +214,15 @@ def test_get_interview_prep_404s_before_generation_and_for_other_users(client):
 
 
 def test_interview_prep_rate_limit_returns_429_after_cap(client):
+    from app.models.user import User
+
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     saved_id = _create_saved_job_with_diagnostic(client, headers)
+    # Exercise the HOURLY limit; raise the monthly quota out of the way
+    # (Beta 3: monthly interview_prep quota 3 < hourly 5).
+    client.db_session.query(User).update({"quota_overrides": {"interview_prep": 9999}})
+    client.db_session.commit()
 
     app.dependency_overrides[get_interview_prep_analyzer] = lambda: (
         FakeInterviewPrepAnalyzer()
