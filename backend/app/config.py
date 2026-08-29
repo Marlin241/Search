@@ -50,6 +50,25 @@ class Settings(BaseSettings):
     environment: str = "development"
     password_reset_token_ttl_minutes: int = 60
 
+    llm_features_enabled: bool = True
+    llm_monthly_quota_diagnostic: int = 7
+    llm_monthly_quota_cv: int = 5
+    llm_monthly_quota_lettre: int = 5
+    llm_monthly_quota_compatibility: int = 13
+    llm_monthly_quota_interview_prep: int = 3
+    llm_monthly_quota_ats_prefill: int = 10
+
+    @property
+    def llm_monthly_quotas(self) -> dict[str, int]:
+        return {
+            "diagnostic": self.llm_monthly_quota_diagnostic,
+            "cv": self.llm_monthly_quota_cv,
+            "lettre": self.llm_monthly_quota_lettre,
+            "compatibility": self.llm_monthly_quota_compatibility,
+            "interview_prep": self.llm_monthly_quota_interview_prep,
+            "ats_prefill": self.llm_monthly_quota_ats_prefill,
+        }
+
 
 @lru_cache
 def get_settings() -> Settings:
