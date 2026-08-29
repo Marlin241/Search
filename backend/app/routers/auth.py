@@ -18,10 +18,12 @@ from app.rate_limit.auth_throttle import (
     clear_auth_attempts,
     record_auth_attempt,
 )
+from app.rate_limit.llm_quota import usage_summary
 from app.schemas.auth import (
     ForgotPasswordIn,
     ResetPasswordIn,
     Token,
+    UsageItemOut,
     UserCreate,
     UserOut,
 )
@@ -142,3 +144,11 @@ def reset_password(payload: ResetPasswordIn, db: Session = Depends(get_db)) -> R
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)) -> User:
     return current_user
+
+
+@router.get("/me/usage", response_model=list[UsageItemOut])
+def me_usage(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    return usage_summary(db, current_user)

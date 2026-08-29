@@ -27,6 +27,14 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class UsageItemOut(BaseModel):
+    feature: str
+    label: str
+    used: int
+    limit: int
+    reset_date: str
+
+
 class ForgotPasswordIn(BaseModel):
     email: EmailStr
 

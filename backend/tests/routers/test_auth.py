@@ -145,6 +145,25 @@ def test_code_cannot_be_reused(client, invite_code):
     assert _register(client, invite_code, email="b@e.com").status_code == 400
 
 
+def test_me_usage_lists_all_features(client, invite_code):
+    _register(client, invite_code)
+    token = client.post(
+        "/auth/login", data={"username": "jane@example.com", "password": "s3cret!1"}
+    ).json()["access_token"]
+    resp = client.get("/auth/me/usage", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    features = {item["feature"] for item in resp.json()}
+    assert features == {
+        "diagnostic",
+        "cv",
+        "lettre",
+        "compatibility",
+        "interview_prep",
+        "ats_prefill",
+    }
+    assert all(item["used"] == 0 for item in resp.json())
+
+
 def test_login_blocks_after_8_failures(client, invite_code):
     _register(client, invite_code, email="j@e.com")
     for _ in range(8):
