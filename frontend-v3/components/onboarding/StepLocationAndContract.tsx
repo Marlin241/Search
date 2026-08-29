@@ -3,6 +3,7 @@
 import { TagInput } from "./TagInput";
 import { SalarySlider } from "./SalarySlider";
 import { cn } from "@/lib/utils";
+import { useCityList } from "@/lib/useCityList";
 
 const CONTRACT_TYPES = [
   { value: "CDI", label: "CDI" },
@@ -35,6 +36,8 @@ export function StepLocationAndContract({
   salaryMax,
   onSalaryChange,
 }: StepLocationAndContractProps) {
+  const cities = useCityList();
+
   const toggleContractType = (value: string) => {
     if (contractTypes.includes(value)) {
       onContractTypesChange(contractTypes.filter((c) => c !== value));
@@ -59,7 +62,8 @@ export function StepLocationAndContract({
         label="Localisation"
         values={desiredLocations}
         onChange={onDesiredLocationsChange}
-        placeholder="ex : Paris, Lyon..."
+        placeholder="ex : Dakar, Abidjan, Paris..."
+        suggestions={cities}
         hint="Ajoute autant de villes que tu veux."
       />
 

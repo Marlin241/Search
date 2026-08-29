@@ -29,6 +29,7 @@ import {
 } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { LocationAutocomplete } from "@/components/common/LocationAutocomplete";
 import { Select } from "@/components/ui/Select";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -423,13 +424,7 @@ export default function OffresPage() {
                 required
                 icon={<Search className="w-4 h-4" />}
               />
-              <Input
-                label="Localisation"
-                placeholder="ex: Paris, Lyon, Remote..."
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                icon={<MapPin className="w-4 h-4" />}
-              />
+              <LocationAutocomplete value={location} onChange={setLocation} />
               <Select
                 label="Type de contrat"
                 options={CONTRACT_OPTIONS}
@@ -831,11 +826,10 @@ export default function OffresPage() {
             onChange={(e) => setAlertKeywords(e.target.value)}
             required
           />
-          <Input
-            label="Localisation"
-            placeholder="ex: Paris, Remote"
+          <LocationAutocomplete
             value={alertLocation}
-            onChange={(e) => setAlertLocation(e.target.value)}
+            onChange={setAlertLocation}
+            id="alert-location-autocomplete"
           />
 
           <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
