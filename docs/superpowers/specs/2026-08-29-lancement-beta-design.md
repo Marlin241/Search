@@ -219,8 +219,7 @@ rclone copy db-$(date +%F).sql.gz.age remote:yokkute-beta-backups/
 
 - Chiffrement **`age`** (clé publique sur le serveur, clé privée gardée hors
   serveur par l'utilisateur).
-- **Stockage externe** : bucket Cloudflare R2 **ou** Backblaze B2 (à
-  trancher — voir Décisions ouvertes), via `rclone`.
+- **Stockage externe** : bucket **Cloudflare R2**, via `rclone` (config S3).
 - Rétention : 14 quotidiennes + 8 hebdomadaires, prune dans le script.
 
 ### 2.2 MinIO
@@ -400,16 +399,18 @@ if used >= limit: raise QuotaExceeded(feature, reset_date=<1er du mois prochain>
 
 | Clé | Défaut beta | Fonctionnalité |
 |---|---|---|
-| `LLM_MONTHLY_QUOTA_DIAGNOSTIC` | `20` | diagnostic ATS |
-| `LLM_MONTHLY_QUOTA_CV` | `15` | génération de CV |
-| `LLM_MONTHLY_QUOTA_LETTRE` | `15` | lettre de motivation |
-| `LLM_MONTHLY_QUOTA_COMPATIBILITY` | `40` | détail de compatibilité par offre |
-| `LLM_MONTHLY_QUOTA_INTERVIEW_PREP` | `10` | dossier de prépa entretien |
-| `LLM_MONTHLY_QUOTA_ATS_PREFILL` | `30` | préremplissage de formulaire ATS |
+| `LLM_MONTHLY_QUOTA_DIAGNOSTIC` | `7` | diagnostic ATS |
+| `LLM_MONTHLY_QUOTA_CV` | `5` | génération de CV |
+| `LLM_MONTHLY_QUOTA_LETTRE` | `5` | lettre de motivation |
+| `LLM_MONTHLY_QUOTA_COMPATIBILITY` | `13` | détail de compatibilité par offre |
+| `LLM_MONTHLY_QUOTA_INTERVIEW_PREP` | `3` | dossier de prépa entretien |
+| `LLM_MONTHLY_QUOTA_ATS_PREFILL` | `10` | préremplissage de formulaire ATS |
 | `LLM_FEATURES_ENABLED` | `true` | interrupteur global |
 
-Chargées dans un dict `settings.llm_monthly_quotas`. (Valeurs à ajuster
-après le premier dogfooding.)
+Chargées dans un dict `settings.llm_monthly_quotas`. Valeurs délibérément
+basses pour le beta (choix utilisateur : ~1/3 d'une première proposition
+jugée trop généreuse) — à réévaluer après le premier dogfooding et selon les
+réactions des testeurs face aux limites.
 
 ### 4.5 Interrupteur global
 
@@ -462,18 +463,16 @@ itération, seulement le comptage.
 - `traces_sample_rate` bas (0.0–0.1).
 
 > **Note RAM.** GlitchTip + son Postgres + Redis ajoutent ~700 Mo–1 Go au
-> pied de l'app (backend + Postgres + MinIO). Sur un VPS 4 Go c'est jouable
-> mais serré avec les crawlers et les générations Sonnet. **Recommandation :
-> VPS 8 Go**, ou faire tourner `docker-compose.monitoring.yml` uniquement
-> pendant les fenêtres d'observation. Sentry « complet » auto-hébergé
-> (~10 conteneurs, 8+ Go pour lui seul) est écarté.
+> pied de l'app (backend + Postgres + MinIO). **Décision : VPS 8 Go pour la
+> durée du beta**, monitoring lancé en permanence. Sentry « complet »
+> auto-hébergé (~10 conteneurs, 8+ Go pour lui seul) est écarté.
 
 ### 5.2 Disponibilité — Uptime Kuma
 
 - Service `uptime-kuma` (conteneur unique, volume `kuma_data`) dans
   `docker-compose.monitoring.yml`.
-- Exposé via un 3ᵉ `server` block nginx `status.beta.yokkutelabs.com`
-  (protégé par `auth_basic`) ou seulement via tunnel SSH.
+- **Accessible par tunnel SSH uniquement** (`ssh -L 3001:127.0.0.1:3001 …`) —
+  aucun `server` block nginx, aucune surface publique supplémentaire.
 - Monitors : `https://api.beta.yokkutelabs.com/health` (5 min),
   `https://beta.yokkutelabs.com` (5 min), certificat TLS (expiration).
   Notifications → email (Resend SMTP) ou Telegram.
@@ -801,9 +800,9 @@ unitaire, navigateur réel + Postgres/Docker pour les flux à risque.
    `DELETE /auth/me` + audit/ajout des cascades + purge MinIO + bouton
    frontend ; `GET /auth/me/export` + bouton. Tests unitaires.
 5. **Observabilité** : `docker-compose.monitoring.yml` (GlitchTip + deps,
-   Uptime Kuma) ; `sentry-sdk` backend + `@sentry/nextjs` frontend +
-   scrubbing PII ; `server` block nginx `status.` ; section runbook
-   monitoring.
+   Uptime Kuma, ports en `127.0.0.1` — accès tunnel SSH) ; `sentry-sdk`
+   backend + `@sentry/nextjs` frontend + scrubbing PII ; section runbook
+   monitoring (dont la commande de tunnel).
 6. **Dashboard admin** : `is_admin` + migration + `get_current_admin` ;
    `app/routers/admin.py` (overview / users / quota / feedback / invites /
    toggle) ; segment frontend `/admin`. `is_admin` dans `UserOut`. Tests
@@ -849,16 +848,14 @@ unitaire, navigateur réel + Postgres/Docker pour les flux à risque.
   échelle ; un déploiement auto ajoute de la surface pour zéro gain sur 10
   testeurs.
 
-## Décisions ouvertes (à trancher avant / pendant la phase 1)
+## Décisions tranchées (2026-08-29)
 
-1. **Stockage des sauvegardes** : Cloudflare R2 ou Backblaze B2 ? (R2 :
-   pas de frais d'egress, API S3 ; B2 : moins cher au repos.) Recommandation :
-   R2.
-2. **RAM du VPS** : rester en 4 Go (monitoring lancé seulement en fenêtre
-   d'observation) ou passer à 8 Go (monitoring permanent) ? Recommandation :
-   8 Go pour la durée du beta.
-3. **`status.beta.yokkutelabs.com`** exposé (avec `auth_basic`) ou Uptime
-   Kuma accessible par tunnel SSH uniquement ? Recommandation : tunnel SSH
-   pendant le beta.
-4. **Valeurs de quotas** (§4.4) : à confirmer après le premier dogfooding de
-   l'utilisateur — les défauts proposés sont un point de départ.
+1. **Stockage des sauvegardes** : **Cloudflare R2** (pas de frais d'egress,
+   API S3). L'utilisateur fournira endpoint + clé + secret d'un bucket R2.
+2. **RAM du VPS** : **8 Go** pour la durée du beta (monitoring permanent,
+   alertes actives 24/7). Redimensionnement à la baisse possible après.
+3. **Uptime Kuma** : **accès par tunnel SSH uniquement** pendant le beta,
+   pas de `server` block nginx `status.` — pas de surface publique
+   supplémentaire. Les alertes importantes partent par email/Telegram.
+4. **Valeurs de quotas** (§4.4) : fixées basses (voir table), à réévaluer
+   après le dogfooding.
