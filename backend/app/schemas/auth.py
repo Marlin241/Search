@@ -1,9 +1,18 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=72)
+    invite_code: str = Field(min_length=1)
+    accept_terms: bool
+
+    @field_validator("accept_terms")
+    @classmethod
+    def _must_accept(cls, v: bool) -> bool:
+        if v is not True:
+            raise ValueError("Vous devez accepter les conditions.")
+        return v
 
 
 class UserOut(BaseModel):

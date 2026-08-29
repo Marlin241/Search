@@ -64,5 +64,8 @@ def client(db_session, monkeypatch):
         database, "SessionLocal", sessionmaker(bind=db_session.get_bind())
     )
     with TestClient(app) as test_client:
+        # Stash the test DB session so tests/_helpers.register_and_login can
+        # seed an invite code on the same engine the app request will read.
+        test_client.db_session = db_session
         yield test_client
     app.dependency_overrides.clear()

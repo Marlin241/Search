@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     resend_from_email: str = ""
     backend_base_url: str = "http://localhost:8000"
     frontend_base_url: str = "http://localhost:3000"
+    environment: str = "development"
 
 
 @lru_cache

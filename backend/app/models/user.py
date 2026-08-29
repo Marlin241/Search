@@ -21,6 +21,10 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
+    consent_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+    consent_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     diagnostics: Mapped[list["Diagnostic"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
