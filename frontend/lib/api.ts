@@ -1,203 +1,610 @@
-import type { CandidateProfile, CandidateProfileInput, DiagnosticReport, PersonalizedDocument, User, SearchCriteria, JobSearchResult, JobSearchDiscoveryResult, Application, ApplicationCreateInput, FormField, PrefilledForm, SavedSearch, SavedSearchInput } from "./types";
+import {
+  ApiError,
+  type ApplicationCreateIn,
+  type ApplicationOut,
+  type CandidateProfileIn,
+  type CandidateProfileOut,
+  type CompatibilityDetailOut,
+  type ConfirmApplicationIn,
+  type CvGenerationResult,
+  type CvStyleOptions,
+  type CvTemplate,
+  type DiagnosticReport,
+  type ExtractedPhotoOut,
+  type FunnelStage,
+  type GenerationJobOut,
+  type GenerationJobStarted,
+  type InterviewCalendarEntryOut,
+  type InterviewIn,
+  type InterviewOut,
+  type InterviewPrepDossierOut,
+  type InterviewPrepRequestIn,
+  type JobListing,
+  type JobSearchDiscoveryResponse,
+  type JobSearchResponse,
+  type KanbanBoardOut,
+  type LetterTone,
+  type OnboardingProfileIn,
+  type PrefilledFormOut,
+  type RewrittenCv,
+  type SavedJobIn,
+  type SavedJobOut,
+  type SavedSearchIn,
+  type SavedSearchOut,
+  type SearchCriteria,
+  type Token,
+  type User,
+} from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
-export class ApiError extends Error {
-  status: number;
+/* ─── Global 401 handling ───
+ * api.ts is plain fetch code with no access to React context, so the
+ * AuthProvider registers a callback here on mount. Any request that comes
+ * back 401 (expired/invalid token) triggers a forced logout + redirect,
+ * instead of leaving pages silently broken with a stale token. */
+type UnauthorizedHandler = () => void;
+let onUnauthorized: UnauthorizedHandler | null = null;
 
-  constructor(status: number, detail: string) {
-    super(detail);
-    this.status = status;
-  }
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  onUnauthorized = handler;
 }
 
-async function parseErrorDetail(response: Response): Promise<string> {
-  try {
-    const body = await response.json();
-    if (typeof body.detail === "string") return body.detail;
-  } catch {
-    // response body wasn't JSON — fall through to the generic message
-  }
-  return "Une erreur est survenue.";
+function handleResponseError(status: number, detail: string): never {
+  if (status === 401) onUnauthorized?.();
+  throw new ApiError(status, detail);
 }
 
-async function request<T>(path: string, init: RequestInit, token?: string | null): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+/* ─── Helpers ─── */
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  } catch {
-    throw new ApiError(0, "Impossible de contacter le serveur.");
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  token?: string | null
+): Promise<T> {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (
+    !(options.body instanceof FormData) &&
+    !headers["Content-Type"]
+  ) {
+    headers["Content-Type"] = "application/json";
   }
 
-  if (!response.ok) {
-    throw new ApiError(response.status, await parseErrorDetail(response));
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? detail;
+    } catch {
+      /* ignore parse error */
+    }
+    handleResponseError(res.status, detail);
   }
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+
+  if (res.status === 204) return undefined as T;
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) return res.json();
+  return res as unknown as T;
 }
 
-export function register(email: string, password: string): Promise<User> {
+/* ─── Auth ─── */
+
+export async function register(
+  email: string,
+  password: string
+): Promise<User> {
   return request<User>("/auth/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
 }
 
-export function login(email: string, password: string): Promise<{ access_token: string; token_type: string }> {
+export async function login(
+  email: string,
+  password: string
+): Promise<Token> {
   const form = new URLSearchParams();
-  form.set("username", email);
-  form.set("password", password);
-  return request("/auth/login", {
+  form.append("username", email);
+  form.append("password", password);
+  return request<Token>("/auth/login", {
     method: "POST",
+    body: form,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
   });
 }
 
-export function fetchMe(token: string): Promise<User> {
-  return request<User>("/auth/me", { method: "GET" }, token);
+export async function fetchMe(token: string): Promise<User> {
+  return request<User>("/auth/me", {}, token);
 }
 
-export function createDiagnostic(
+/* ─── Candidate Profile ─── */
+
+export async function getCandidateProfile(
+  token: string
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>("/profile", {}, token);
+}
+
+export async function updateCandidateProfile(
   token: string,
-  cvFile: File,
-  offer: { text?: string; url?: string }
+  data: CandidateProfileIn
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>(
+    "/profile",
+    { method: "PUT", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function uploadReferenceCv(
+  token: string,
+  file: File
+): Promise<CandidateProfileOut> {
+  const form = new FormData();
+  form.append("cv_file", file);
+  return request<CandidateProfileOut>(
+    "/profile/cv",
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function deleteProfile(token: string): Promise<void> {
+  return request<void>("/profile", { method: "DELETE" }, token);
+}
+
+export async function submitOnboarding(
+  token: string,
+  data: OnboardingProfileIn
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>(
+    "/profile/onboarding",
+    { method: "PUT", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function extractCvPhotos(
+  token: string,
+  file: File
+): Promise<ExtractedPhotoOut[]> {
+  const form = new FormData();
+  form.append("cv_file", file);
+  return request<ExtractedPhotoOut[]>(
+    "/profile/cv/extract-photos",
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function uploadManualPhoto(
+  token: string,
+  file: File
+): Promise<ExtractedPhotoOut> {
+  const form = new FormData();
+  form.append("photo_file", file);
+  return request<ExtractedPhotoOut>(
+    "/profile/photo/upload",
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function setProfilePhoto(
+  token: string,
+  photoKey: string | null
+): Promise<CandidateProfileOut> {
+  return request<CandidateProfileOut>(
+    "/profile/photo",
+    { method: "PUT", body: JSON.stringify({ photo_key: photoKey }) },
+    token
+  );
+}
+
+export async function getProfilePhoto(
+  token: string,
+  previewUrlOrSuffix: string
+): Promise<Blob> {
+  // Photos are served behind auth (GET /profile/photo/{suffix} requires a
+  // Bearer token), so they can't be a plain <img src="..."> - fetch as an
+  // authenticated blob and let the caller turn it into an object URL, same
+  // pattern as downloadCv/downloadLetter.
+  const suffix = previewUrlOrSuffix.startsWith("/profile/photo/")
+    ? previewUrlOrSuffix.slice("/profile/photo/".length)
+    : previewUrlOrSuffix;
+  return requestBlob(`/profile/photo/${suffix}`, token);
+}
+
+/* ─── Diagnostics ─── */
+
+export async function createDiagnostic(
+  token: string,
+  cvFile: File | null,
+  offerText?: string | null,
+  offerUrl?: string | null,
+  savedJobId?: number | null
 ): Promise<DiagnosticReport> {
-  const formData = new FormData();
-  formData.append("cv_file", cvFile);
-  if (offer.text) formData.append("offer_text", offer.text);
-  if (offer.url) formData.append("offer_url", offer.url);
-  return request<DiagnosticReport>("/diagnostics", { method: "POST", body: formData }, token);
+  const form = new FormData();
+  // Omitting cv_file entirely (rather than appending null/undefined) tells
+  // the backend to fall back to the candidate's stored reference CV.
+  if (cvFile) form.append("cv_file", cvFile);
+  if (offerText) form.append("offer_text", offerText);
+  if (offerUrl) form.append("offer_url", offerUrl);
+  if (savedJobId != null) form.append("saved_job_id", String(savedJobId));
+  return request<DiagnosticReport>(
+    "/diagnostics",
+    { method: "POST", body: form },
+    token
+  );
 }
 
-export function listDiagnostics(token: string): Promise<DiagnosticReport[]> {
-  return request<DiagnosticReport[]>("/diagnostics", { method: "GET" }, token);
+export async function listDiagnostics(
+  token: string
+): Promise<DiagnosticReport[]> {
+  return request<DiagnosticReport[]>("/diagnostics", {}, token);
 }
 
-export function deleteAllDiagnostics(token: string): Promise<void> {
-  return request<void>("/diagnostics", { method: "DELETE" }, token);
+export async function deleteAllDiagnostics(
+  token: string
+): Promise<void> {
+  return request<void>(
+    "/diagnostics",
+    { method: "DELETE" },
+    token
+  );
 }
 
-async function requestBlob(path: string, token: string): Promise<Blob> {
-  const headers = new Headers();
-  headers.set("Authorization", `Bearer ${token}`);
+/* ─── Personalization ─── */
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, { headers });
-  } catch {
-    throw new ApiError(0, "Impossible de contacter le serveur.");
+export async function generateCv(
+  token: string,
+  diagnosticId: number,
+  template: CvTemplate = "classic",
+  targetLanguage: string = "fr"
+): Promise<GenerationJobStarted> {
+  const form = new FormData();
+  form.append("template", template);
+  form.append("target_language", targetLanguage);
+  return request<GenerationJobStarted>(
+    `/diagnostics/${diagnosticId}/cv`,
+    { method: "POST", body: form },
+    token
+  );
+}
+
+export async function getGenerationJob<TResult = CvGenerationResult>(
+  token: string,
+  jobId: string
+): Promise<GenerationJobOut<TResult>> {
+  return request<GenerationJobOut<TResult>>(`/generation-jobs/${jobId}`, {}, token);
+}
+
+export async function renderCvPreview(
+  token: string,
+  savedJobId: number,
+  payload: { content: RewrittenCv; template: CvTemplate; style: CvStyleOptions }
+): Promise<Blob> {
+  const res = await fetch(
+    `${API_BASE}/saved-jobs/${savedJobId}/cv/render-preview`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    let detail = `Erreur ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? detail;
+    } catch {
+      /* ignore parse error */
+    }
+    handleResponseError(res.status, detail);
   }
-  if (!response.ok) {
-    throw new ApiError(response.status, await parseErrorDetail(response));
+  return res.blob();
+}
+
+export async function generateLetter(
+  token: string,
+  diagnosticId: number,
+  tone: LetterTone = "sobre"
+): Promise<GenerationJobStarted> {
+  const form = new FormData();
+  form.append("tone", tone);
+  return request<GenerationJobStarted>(
+    `/diagnostics/${diagnosticId}/lettre`,
+    { method: "POST", body: form },
+    token
+  );
+}
+
+async function requestBlob(
+  path: string,
+  token?: string | null
+): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    headers,
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur ${res.status}`;
+    try {
+      const body = await res.json();
+      detail = body.detail ?? detail;
+    } catch {
+      /* ignore parse error */
+    }
+    handleResponseError(res.status, detail);
   }
-  return response.blob();
+
+  return res.blob();
 }
 
-export function generateCv(token: string, diagnosticId: number): Promise<PersonalizedDocument> {
-  return request<PersonalizedDocument>(`/diagnostics/${diagnosticId}/cv`, { method: "POST" }, token);
-}
-
-export function generateLetter(token: string, diagnosticId: number): Promise<PersonalizedDocument> {
-  return request<PersonalizedDocument>(`/diagnostics/${diagnosticId}/lettre`, { method: "POST" }, token);
-}
-
-export function downloadCv(token: string, diagnosticId: number): Promise<Blob> {
+export async function downloadCv(
+  token: string,
+  diagnosticId: number
+): Promise<Blob> {
   return requestBlob(`/diagnostics/${diagnosticId}/cv`, token);
 }
 
-export function downloadLetter(token: string, diagnosticId: number): Promise<Blob> {
+export async function downloadLetter(
+  token: string,
+  diagnosticId: number
+): Promise<Blob> {
   return requestBlob(`/diagnostics/${diagnosticId}/lettre`, token);
 }
 
-export function getCandidateProfile(token: string): Promise<CandidateProfile> {
-  return request<CandidateProfile>("/profile", { method: "GET" }, token);
-}
+/* ─── Job Search ─── */
 
-export function updateCandidateProfile(token: string, payload: CandidateProfileInput): Promise<CandidateProfile> {
-  return request<CandidateProfile>(
-    "/profile",
-    { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
-    token
-  );
-}
-
-export function uploadReferenceCv(token: string, file: File): Promise<CandidateProfile> {
-  const formData = new FormData();
-  formData.append("cv_file", file);
-  return request<CandidateProfile>("/profile/cv", { method: "POST", body: formData }, token);
-}
-
-export function searchJobs(token: string, criteria: SearchCriteria): Promise<JobSearchResult> {
-  return request<JobSearchResult>(
+export async function searchJobs(
+  token: string,
+  criteria: SearchCriteria
+): Promise<JobSearchResponse> {
+  return request<JobSearchResponse>(
     "/job-search/search",
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(criteria) },
+    { method: "POST", body: JSON.stringify(criteria) },
     token
   );
 }
 
-export function fetchJobSearchDiscovery(token: string, searchId: string): Promise<JobSearchDiscoveryResult> {
-  return request<JobSearchDiscoveryResult>(`/job-search/search/${searchId}/discovery`, { method: "GET" }, token);
+export async function fetchJobSearchDiscovery(
+  token: string,
+  searchId: string
+): Promise<JobSearchDiscoveryResponse> {
+  return request<JobSearchDiscoveryResponse>(
+    `/job-search/search/${searchId}/discovery`,
+    {},
+    token
+  );
 }
 
-export async function getSavedSearch(token: string): Promise<SavedSearch | null> {
-  try {
-    return await request<SavedSearch>("/job-search/saved-search", { method: "GET" }, token);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
-    throw error;
-  }
+export async function getCompatibilityDetail(
+  token: string,
+  listing: JobListing
+): Promise<CompatibilityDetailOut> {
+  return request<CompatibilityDetailOut>(
+    "/job-search/compatibility-detail",
+    { method: "POST", body: JSON.stringify({ listing }) },
+    token
+  );
 }
 
-export function saveSavedSearch(token: string, payload: SavedSearchInput): Promise<SavedSearch> {
-  return request<SavedSearch>(
+export async function getSavedSearch(
+  token: string
+): Promise<SavedSearchOut> {
+  return request<SavedSearchOut>(
     "/job-search/saved-search",
-    { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+    {},
     token
   );
 }
 
-export function createApplication(token: string, payload: ApplicationCreateInput): Promise<Application> {
-  return request<Application>(
+export async function saveSavedSearch(
+  token: string,
+  data: SavedSearchIn
+): Promise<SavedSearchOut> {
+  return request<SavedSearchOut>(
+    "/job-search/saved-search",
+    { method: "PUT", body: JSON.stringify(data) },
+    token
+  );
+}
+
+/* ─── Saved Jobs (workspace) ─── */
+
+export async function openSavedJob(
+  token: string,
+  data: SavedJobIn
+): Promise<SavedJobOut> {
+  return request<SavedJobOut>(
+    "/saved-jobs",
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function listSavedJobs(token: string): Promise<SavedJobOut[]> {
+  return request<SavedJobOut[]>("/saved-jobs", {}, token);
+}
+
+export async function getSavedJob(
+  token: string,
+  id: number
+): Promise<SavedJobOut> {
+  return request<SavedJobOut>(`/saved-jobs/${id}`, {}, token);
+}
+
+/* ─── Interview Prep ─── */
+
+export async function startInterviewPrep(
+  token: string,
+  savedJobId: number,
+  payload: InterviewPrepRequestIn
+): Promise<GenerationJobStarted> {
+  return request<GenerationJobStarted>(
+    `/saved-jobs/${savedJobId}/interview-prep`,
+    { method: "POST", body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export async function getInterviewPrep(
+  token: string,
+  savedJobId: number
+): Promise<InterviewPrepDossierOut> {
+  return request<InterviewPrepDossierOut>(
+    `/saved-jobs/${savedJobId}/interview-prep`,
+    {},
+    token
+  );
+}
+
+/* ─── Applications ─── */
+
+export async function createApplication(
+  token: string,
+  data: ApplicationCreateIn
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
     "/applications",
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+    { method: "POST", body: JSON.stringify(data) },
     token
   );
 }
 
-export function listApplications(token: string): Promise<Application[]> {
-  return request<Application[]>("/applications", { method: "GET" }, token);
+export async function listApplications(
+  token: string
+): Promise<ApplicationOut[]> {
+  return request<ApplicationOut[]>("/applications", {}, token);
 }
 
-export function getApplication(token: string, id: number): Promise<Application> {
-  return request<Application>(`/applications/${id}`, { method: "GET" }, token);
+export async function getApplication(
+  token: string,
+  id: number
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(`/applications/${id}`, {}, token);
 }
 
-export function getPrefilledForm(token: string, applicationId: number): Promise<PrefilledForm> {
-  return request<PrefilledForm>(`/applications/${applicationId}/prefilled-form`, { method: "GET" }, token);
+export async function getPrefilledForm(
+  token: string,
+  id: number
+): Promise<PrefilledFormOut> {
+  return request<PrefilledFormOut>(
+    `/applications/${id}/prefilled-form`,
+    {},
+    token
+  );
 }
 
-export function confirmApplication(
+export async function confirmApplication(
+  token: string,
+  id: number,
+  data: ConfirmApplicationIn
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
+    `/applications/${id}/confirm`,
+    { method: "POST", body: JSON.stringify(data) },
+    token
+  );
+}
+
+export async function markApplicationSentManually(
+  token: string,
+  id: number
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
+    `/applications/${id}/mark-sent`,
+    { method: "POST" },
+    token
+  );
+}
+
+export async function updateFunnelStage(
   token: string,
   applicationId: number,
-  fields?: FormField[],
-  overrideNeedsReview?: boolean
-): Promise<Application> {
-  return request<Application>(
-    `/applications/${applicationId}/confirm`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: fields ?? null, override_needs_review: overrideNeedsReview ?? false }),
-    },
+  funnelStage: FunnelStage
+): Promise<ApplicationOut> {
+  return request<ApplicationOut>(
+    `/applications/${applicationId}/funnel-stage`,
+    { method: "PATCH", body: JSON.stringify({ funnel_stage: funnelStage }) },
     token
   );
 }
 
-export function markApplicationSentManually(token: string, applicationId: number): Promise<Application> {
-  return request<Application>(`/applications/${applicationId}/mark-sent`, { method: "POST" }, token);
+/* ─── Dashboard: Kanban + calendar ─── */
+
+export async function getDashboardKanban(token: string): Promise<KanbanBoardOut> {
+  return request<KanbanBoardOut>("/dashboard/kanban", {}, token);
+}
+
+export async function getDashboardCalendar(
+  token: string,
+  month: string
+): Promise<InterviewCalendarEntryOut[]> {
+  return request<InterviewCalendarEntryOut[]>(
+    `/dashboard/calendar?month=${encodeURIComponent(month)}`,
+    {},
+    token
+  );
+}
+
+/* ─── Interviews ─── */
+
+export async function createInterview(
+  token: string,
+  applicationId: number,
+  payload: InterviewIn
+): Promise<InterviewOut> {
+  return request<InterviewOut>(
+    `/applications/${applicationId}/interviews`,
+    { method: "POST", body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export async function listInterviews(
+  token: string,
+  applicationId: number
+): Promise<InterviewOut[]> {
+  return request<InterviewOut[]>(
+    `/applications/${applicationId}/interviews`,
+    {},
+    token
+  );
+}
+
+export async function updateInterview(
+  token: string,
+  interviewId: number,
+  payload: Partial<InterviewIn>
+): Promise<InterviewOut> {
+  return request<InterviewOut>(
+    `/interviews/${interviewId}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+    token
+  );
+}
+
+export async function deleteInterview(
+  token: string,
+  interviewId: number
+): Promise<void> {
+  return request<void>(`/interviews/${interviewId}`, { method: "DELETE" }, token);
 }

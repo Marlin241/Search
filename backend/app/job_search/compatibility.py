@@ -34,7 +34,7 @@ NEUTRAL_FRESHNESS_SCORE = 50
 # which would visually read as "bad match" for offers nobody has judged.
 NO_PROFILE_SCORE = 50
 
-# Mirrors frontend-v3/components/onboarding/StepJobTitles.tsx::SENIORITY_LEVELS.
+# Mirrors frontend/components/onboarding/StepJobTitles.tsx::SENIORITY_LEVELS.
 # Upper bound for "senior" is a practical cap, not a real ceiling.
 _SENIORITY_YEAR_RANGES: dict[str, tuple[float, float]] = {
     "junior": (0, 1),

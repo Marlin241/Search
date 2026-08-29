@@ -1,37 +1,70 @@
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+"use client";
+
+import React from "react";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
-export type ButtonSize = "sm" | "md";
-
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "outline";
+  size?: "sm" | "md" | "lg";
   isLoading?: boolean;
+  icon?: React.ReactNode;
+  fullWidth?: boolean;
 }
 
-const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-accent-strong text-ink-on-accent hover:-translate-y-0.5",
-  secondary: "bg-surface-2 text-ink hover:bg-surface",
-  danger: "bg-attention text-ink-on-accent hover:-translate-y-0.5",
-};
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  (
+    {
+      className,
+      variant = "primary",
+      size = "md",
+      isLoading = false,
+      icon,
+      fullWidth = false,
+      disabled,
+      children,
+      ...props
+    },
+    ref
+  ) => {
+    const baseStyles =
+      "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]";
 
-const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "px-4 py-2 text-xs",
-  md: "px-5 py-3 text-sm",
-};
+    const variants = {
+      primary:
+        "bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-soft hover:shadow-lift hover:brightness-105",
+      secondary:
+        "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/60 shadow-soft",
+      ghost:
+        "text-foreground hover:bg-muted hover:text-foreground",
+      danger:
+        "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-soft",
+      outline:
+        "border border-border bg-transparent text-foreground hover:bg-muted",
+    };
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "primary", size = "md", isLoading = false, disabled, className = "", children, type, ...props }, ref) => {
+    const sizes = {
+      sm: "h-8 px-3 text-xs gap-1.5",
+      md: "h-10 px-4 py-2 text-sm gap-2",
+      lg: "h-12 px-6 text-base gap-2.5",
+    };
+
     return (
       <button
         ref={ref}
-        type={type ?? "button"}
+        className={cn(
+          baseStyles,
+          variants[variant],
+          sizes[size],
+          fullWidth ? "w-full" : "",
+          className
+        )}
         disabled={disabled || isLoading}
-        className={`inline-flex items-center justify-center gap-2 rounded-full font-bold transition-transform duration-150 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
         {...props}
       >
-        {isLoading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+        {!isLoading && icon && <span className="shrink-0">{icon}</span>}
         {children}
       </button>
     );
