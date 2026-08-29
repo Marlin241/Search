@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app import (
     database,
@@ -10,6 +12,7 @@ from app import (
 )
 from app.applications.reminders import run_application_reminders
 from app.config import get_settings
+from app.database import get_db
 from app.job_search.crawl_runner import run_crawl
 from app.job_search.daily_search import run_daily_search
 from app.routers import (
@@ -103,6 +106,18 @@ app.include_router(interviews.router)
 app.include_router(dashboard.router)
 
 
+APP_VERSION = "beta"
+
+
+def _probe_db(db: Session) -> None:
+    db.execute(text("SELECT 1"))
+
+
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(response: Response, db: Session = Depends(get_db)) -> dict[str, str | None]:
+    try:
+        _probe_db(db)
+        return {"status": "ok", "db": "ok", "version": APP_VERSION}
+    except Exception:  # noqa: BLE001 - a health probe must never propagate
+        response.status_code = 503
+        return {"status": "degraded", "db": "error", "version": APP_VERSION}
