@@ -11,6 +11,7 @@ from app.models.interview_prep_dossier import InterviewPrepDossier
 from app.models.interview_prep_request_log import InterviewPrepRequestLog
 from app.models.invite_code import InviteCode
 from app.models.job_search_request_log import JobSearchRequestLog
+from app.models.llm_call_log import LlmCallLog
 from app.models.notified_listing import NotifiedListing
 from app.models.password_reset_token import PasswordResetToken
 from app.models.personalization_request_log import PersonalizationRequestLog
@@ -34,6 +35,7 @@ __all__ = [
     "InterviewPrepRequestLog",
     "InviteCode",
     "JobSearchRequestLog",
+    "LlmCallLog",
     "NotifiedListing",
     "PasswordResetToken",
     "PersonalizationRequestLog",

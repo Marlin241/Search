@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import JSON, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -25,6 +25,7 @@ class User(Base):
         DateTime, nullable=True
     )
     consent_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    quota_overrides: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     diagnostics: Mapped[list["Diagnostic"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
