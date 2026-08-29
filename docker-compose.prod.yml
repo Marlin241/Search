@@ -91,4 +91,5 @@ volumes:
 
 networks:
   search_internal:
+    name: search_internal
     driver: bridge
