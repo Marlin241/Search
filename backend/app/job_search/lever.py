@@ -3,6 +3,7 @@ import httpx
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.text_utils import html_to_text
 from app.job_search.timestamps import parse_epoch_millis
 
 
@@ -38,7 +39,10 @@ class LeverJobBoardClient:
                             title=title,
                             company=company_slug,
                             location=categories.get("location"),
-                            snippet=posting.get("descriptionPlain") or "",
+                            snippet=(
+                                posting.get("descriptionPlain")
+                                or html_to_text(posting.get("description"))
+                            ),
                             url=posting.get("hostedUrl", ""),
                             source="lever",
                             ats_type="lever",

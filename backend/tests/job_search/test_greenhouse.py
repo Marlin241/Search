@@ -38,6 +38,38 @@ def test_search_returns_normalized_listings_for_given_companies():
     assert listings[0].title == "Développeur Python"
     assert listings[0].ats_type == "greenhouse"
     assert "développeur Python" in listings[0].snippet
+
+
+@respx.mock
+def test_snippet_is_plain_text_when_content_is_entity_encoded():
+    # The real Greenhouse API returns `content` as HTML-entity-encoded text
+    # ("&lt;p&gt;...") - it must be unescaped before the tags are stripped,
+    # or the snippet ends up showing "<p>...</p>" literally.
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    {
+                        "title": "Python Engineer",
+                        "location": {"name": "Remote"},
+                        "content": (
+                            "&lt;div class=&quot;body&quot;&gt;&lt;p&gt;We build "
+                            "things with Python&lt;/p&gt;&lt;/div&gt;"
+                        ),
+                        "absolute_url": "https://boards.greenhouse.io/acme/jobs/9",
+                    }
+                ]
+            },
+        )
+    )
+
+    client = GreenhouseJobBoardClient()
+    listings = client.search(SearchCriteria(keywords="python"), ["acme"])
+
+    assert listings[0].snippet == "We build things with Python"
+    assert "<" not in listings[0].snippet
+    assert "&lt;" not in listings[0].snippet
     assert "<b>" not in listings[0].snippet
 
 

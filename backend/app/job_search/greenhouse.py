@@ -1,14 +1,10 @@
 import httpx
-from bs4 import BeautifulSoup
 
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.text_utils import html_to_text
 from app.job_search.timestamps import parse_iso_datetime
-
-
-def _strip_html(html: str) -> str:
-    return BeautifulSoup(html, "html.parser").get_text(separator=" ", strip=True)
 
 
 class GreenhouseJobBoardClient:
@@ -42,7 +38,7 @@ class GreenhouseJobBoardClient:
                             title=title,
                             company=company_slug,
                             location=(job.get("location") or {}).get("name"),
-                            snippet=_strip_html(job.get("content", "")),
+                            snippet=html_to_text(job.get("content")),
                             url=job.get("absolute_url", ""),
                             source="greenhouse",
                             ats_type="greenhouse",

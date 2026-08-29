@@ -1,19 +1,13 @@
-import re
-
 import httpx
 
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.text_utils import html_to_text
 from app.job_search.timestamps import parse_iso_datetime
 
 _API_URL = "https://jobicy.com/api/v2/remote-jobs"
 _COUNT = 50
-_TAG_RE = re.compile(r"<[^>]+>")
-
-
-def _strip_html(value: str) -> str:
-    return _TAG_RE.sub("", value or "").strip()
 
 
 class JobicyClient:
@@ -61,7 +55,7 @@ class JobicyClient:
                 # falling back to the short excerpt; cap guards against a
                 # pathological payload.
                 snippet = (
-                    _strip_html(job.get("jobDescription", ""))
+                    html_to_text(job.get("jobDescription", ""))
                     or job.get("jobExcerpt")
                     or ""
                 )

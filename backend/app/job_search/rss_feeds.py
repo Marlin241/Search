@@ -1,27 +1,17 @@
 import calendar
-import re
 import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import feedparser
 import httpx
-from bs4 import BeautifulSoup
 
 from app.job_search import feed_cache
 from app.job_search.keyword_matching import keyword_matches_title
 from app.job_search.schemas import JobListing, SearchCriteria
+from app.job_search.text_utils import html_to_text
 
 _USER_AGENT = "ATSDiagnosticBot/1.0"
-_WHITESPACE_RE = re.compile(r"\s+")
-
-
-def _html_to_text(value: str) -> str:
-    """RSS <description>/<summary> bodies are HTML fragments (logo <img>
-    tags, <p>/<strong> markup, HTML entities). Render them down to a plain
-    single-line snippet."""
-    text = BeautifulSoup(value or "", "html.parser").get_text(separator=" ")
-    return _WHITESPACE_RE.sub(" ", text).strip()
 
 
 def _strip_accents(value: str) -> str:
@@ -100,7 +90,7 @@ class RssFeedClient:
                     continue
                 if not keyword_matches_title(criteria.keywords, raw_title):
                     continue
-                summary = _html_to_text(
+                summary = html_to_text(
                     entry.get("summary", "") or entry.get("description", "")
                 )
                 if (
