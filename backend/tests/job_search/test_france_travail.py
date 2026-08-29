@@ -149,7 +149,7 @@ def test_search_resolves_city_name_to_commune_code():
         return_value=httpx.Response(200, json={"access_token": "tok123"})
     )
     geocode_route = respx.get(COMMUNES_URL).mock(
-        return_value=httpx.Response(200, json=[{"code": "75056"}])
+        return_value=httpx.Response(200, json=[{"code": "75056", "nom": "Paris"}])
     )
     search_route = respx.get(SEARCH_URL).mock(
         return_value=httpx.Response(200, json={"resultats": []})

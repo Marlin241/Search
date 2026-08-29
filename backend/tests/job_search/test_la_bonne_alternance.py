@@ -72,7 +72,7 @@ def test_search_filters_out_jobs_not_matching_keyword():
 def test_search_resolves_city_name_to_coordinates():
     geocode_route = respx.get(COMMUNES_URL).mock(
         return_value=httpx.Response(
-            200, json=[{"centre": {"coordinates": [2.3522, 48.8566]}}]
+            200, json=[{"nom": "Paris", "centre": {"coordinates": [2.3522, 48.8566]}}]
         )
     )
     search_route = respx.get(SEARCH_URL).mock(
