@@ -14,6 +14,7 @@ frontend/tsconfig.tsbuildinfo
 /node_modules/
 
 # deployment secrets & local artifacts (see docs/RUNBOOK.md)
+/.env
 deploy/backup/rclone.conf
 deploy/backup/backup.env
 deploy/monitoring/monitoring.env
