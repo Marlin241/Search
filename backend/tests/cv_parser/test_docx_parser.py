@@ -51,7 +51,9 @@ def test_extracts_text_from_table_only_layout():
     document = Document()
     table = document.add_table(rows=1, cols=2)
     table.cell(0, 0).text = "Jean Dupont\nExpérience professionnelle"
-    table.cell(0, 1).text = "Développeur chez Acme, 2020-2024\nFormation\nMaster informatique"
+    table.cell(
+        0, 1
+    ).text = "Développeur chez Acme, 2020-2024\nFormation\nMaster informatique"
 
     result = parse_docx(_save(document))
 

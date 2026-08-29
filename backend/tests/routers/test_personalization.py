@@ -341,8 +341,8 @@ def test_generate_lettre_job_ends_in_error_status_on_llm_failure(client):
     headers = {"Authorization": f"Bearer {token}"}
     diagnostic_id = _create_diagnostic(client, headers)
     _override_personalization_deps()
-    app.dependency_overrides[get_cover_letter_generator] = (
-        lambda: FailingCoverLetterGenerator()
+    app.dependency_overrides[get_cover_letter_generator] = lambda: (
+        FailingCoverLetterGenerator()
     )
 
     job = _generate_lettre_and_wait(client, headers, diagnostic_id)

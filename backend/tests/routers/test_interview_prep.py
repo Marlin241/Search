@@ -22,7 +22,9 @@ class FakeInterviewPrepAnalyzer:
 
     def research_company(self, company_name, job_title):
         self.research_calls += 1
-        return "Synthèse fictive.", [{"title": "Article", "url": "https://example.com/a"}]
+        return "Synthèse fictive.", [
+            {"title": "Article", "url": "https://example.com/a"}
+        ]
 
     def draft_dossier(
         self,
@@ -37,7 +39,9 @@ class FakeInterviewPrepAnalyzer:
         if self.fail_draft:
             raise InterviewPrepError("boom")
         confidence = (
-            "verified_web_search" if company_research else "general_knowledge_unverified"
+            "verified_web_search"
+            if company_research
+            else "general_knowledge_unverified"
         )
         return InterviewPrepDossierContent(
             narrative_angle="Un profil polyvalent.",
@@ -81,7 +85,9 @@ def _create_saved_job_with_diagnostic(client, headers) -> int:
 
     class FakeSemanticAnalyzer:
         def analyze(self, cv_text: str, offer_text: str) -> SemanticReport:
-            return SemanticReport(score=60, missing_keywords=["Docker"], recommendations=["Add Docker"])
+            return SemanticReport(
+                score=60, missing_keywords=["Docker"], recommendations=["Add Docker"]
+            )
 
     document = Document()
     document.add_paragraph("Expérience professionnelle")
@@ -104,7 +110,10 @@ def _create_saved_job_with_diagnostic(client, headers) -> int:
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         },
-        data={"offer_text": "We need a Python developer.", "saved_job_id": str(saved_id)},
+        data={
+            "offer_text": "We need a Python developer.",
+            "saved_job_id": str(saved_id),
+        },
     )
     app.dependency_overrides.pop(get_semantic_analyzer, None)
     return saved_id
@@ -175,7 +184,9 @@ def test_interview_prep_with_web_search_caches_company_research(client, db_sessi
     assert db_session.query(CompanyResearchCache).count() == 1
 
     # Regenerating for the same (cached) company must not re-trigger research.
-    _start_and_wait(client, headers, saved_id, persona="coach direct", use_web_search=True)
+    _start_and_wait(
+        client, headers, saved_id, persona="coach direct", use_web_search=True
+    )
     assert fake.research_calls == 1
 
     app.dependency_overrides.pop(get_interview_prep_analyzer, None)
@@ -193,7 +204,9 @@ def test_get_interview_prep_404s_before_generation_and_for_other_users(client):
 
     fake = FakeInterviewPrepAnalyzer()
     app.dependency_overrides[get_interview_prep_analyzer] = lambda: fake
-    _start_and_wait(client, headers_a, saved_id, persona="coach direct", use_web_search=False)
+    _start_and_wait(
+        client, headers_a, saved_id, persona="coach direct", use_web_search=False
+    )
     app.dependency_overrides.pop(get_interview_prep_analyzer, None)
 
     other_user = client.get(f"/saved-jobs/{saved_id}/interview-prep", headers=headers_b)
@@ -205,8 +218,8 @@ def test_interview_prep_rate_limit_returns_429_after_cap(client):
     headers = {"Authorization": f"Bearer {token}"}
     saved_id = _create_saved_job_with_diagnostic(client, headers)
 
-    app.dependency_overrides[get_interview_prep_analyzer] = (
-        lambda: FakeInterviewPrepAnalyzer()
+    app.dependency_overrides[get_interview_prep_analyzer] = lambda: (
+        FakeInterviewPrepAnalyzer()
     )
     for _ in range(MAX_INTERVIEW_PREP_PER_HOUR):
         response = client.post(
@@ -226,13 +239,15 @@ def test_interview_prep_rate_limit_returns_429_after_cap(client):
     app.dependency_overrides.pop(get_interview_prep_analyzer, None)
 
 
-def test_interview_prep_job_ends_in_error_and_does_not_consume_quota(client, db_session):
+def test_interview_prep_job_ends_in_error_and_does_not_consume_quota(
+    client, db_session
+):
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     saved_id = _create_saved_job_with_diagnostic(client, headers)
 
-    app.dependency_overrides[get_interview_prep_analyzer] = (
-        lambda: FakeInterviewPrepAnalyzer(fail_draft=True)
+    app.dependency_overrides[get_interview_prep_analyzer] = lambda: (
+        FakeInterviewPrepAnalyzer(fail_draft=True)
     )
     job = _start_and_wait(
         client, headers, saved_id, persona="coach direct", use_web_search=False
