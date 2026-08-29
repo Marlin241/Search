@@ -55,7 +55,9 @@ def test_login_wrong_password_returns_401(client, invite_code):
 
 
 def test_register_password_under_min_length_returns_422(client, invite_code):
-    response = _register(client, invite_code, email="short@example.com", password="sh0rt!")
+    response = _register(
+        client, invite_code, email="short@example.com", password="sh0rt!"
+    )
     assert response.status_code == 422
 
 
