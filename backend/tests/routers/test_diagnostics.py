@@ -220,9 +220,15 @@ def test_create_diagnostic_oversized_offer_text_returns_422(client):
 
 
 def test_rate_limit_returns_429(client):
+    from app.models.user import User
+
     app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
+    # This test exercises the HOURLY limit; raise the monthly quota so it
+    # isn't the thing that trips first (Beta 3: monthly quota 7 < hourly 10).
+    client.db_session.query(User).update({"quota_overrides": {"diagnostic": 9999}})
+    client.db_session.commit()
 
     for _ in range(MAX_DIAGNOSTICS_PER_HOUR):
         response = client.post(

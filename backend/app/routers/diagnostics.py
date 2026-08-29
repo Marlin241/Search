@@ -8,11 +8,14 @@ from app.auth.dependencies import get_current_user
 from app.cv_parser.models import CVParseResult
 from app.cv_parser.parser import MAX_CV_SIZE_BYTES, CVParsingError, parse_cv
 from app.database import get_db
+from app.llm.dependencies import require_llm_enabled
+from app.llm.usage import capture_usage, collected
 from app.llm_analyzer.analyzer import LLMAnalysisError, SemanticAnalyzer
 from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.models.application import Application
 from app.models.candidate_profile import CandidateProfile
 from app.models.diagnostic import Diagnostic
+from app.models.llm_call_log import LlmCallLog
 from app.models.personalized_document import PersonalizedDocument
 from app.models.saved_job import SavedJob
 from app.models.user import User
@@ -22,6 +25,7 @@ from app.rate_limit.limiter import (
     check_rate_limit,
     lock_user_for_rate_limit,
 )
+from app.rate_limit.llm_quota import QuotaExceeded, enforce_monthly_quota
 from app.rules_engine.rules import evaluate_structure
 from app.schemas.diagnostic import DiagnosticReport
 from app.storage.client import ObjectStorage, ObjectStorageError
@@ -41,6 +45,7 @@ def create_diagnostic(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     analyzer: SemanticAnalyzer = Depends(get_semantic_analyzer),
+    _llm: None = Depends(require_llm_enabled),
 ) -> DiagnosticReport:
     # Lock the user's row for the duration of this request BEFORE checking
     # the rate limit. This serializes diagnostic creation per-user: a second
@@ -56,6 +61,13 @@ def create_diagnostic(
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+
+    try:
+        enforce_monthly_quota(db, current_user, "diagnostic")
+    except QuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=exc.as_dict()
         ) from exc
 
     if cv_file is not None:
@@ -111,7 +123,8 @@ def create_diagnostic(
     structural = evaluate_structure(parsed_cv)
 
     try:
-        semantic = analyzer.analyze(parsed_cv.text, offer)
+        with capture_usage():
+            semantic = analyzer.analyze(parsed_cv.text, offer)
     except LLMAnalysisError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
@@ -144,6 +157,18 @@ def create_diagnostic(
         recommendations=report.recommendations,
     )
     db.add(diagnostic)
+    # One llm_call_log row per diagnostic; persisted by the commit below (no
+    # separate commit for sync endpoints - see plan Beta 3 self-review).
+    model, itok, otok = collected()
+    db.add(
+        LlmCallLog(
+            user_id=current_user.id,
+            feature="diagnostic",
+            model=model,
+            input_tokens=itok,
+            output_tokens=otok,
+        )
+    )
     db.commit()
     db.refresh(diagnostic)
 

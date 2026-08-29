@@ -17,6 +17,8 @@ from app.ats_adapters.errors import ATSAdapterError
 from app.ats_adapters.registry import get_ats_adapter
 from app.auth.dependencies import get_current_user
 from app.database import get_db
+from app.llm.dependencies import require_llm_enabled
+from app.llm.usage import capture_usage, collected
 from app.llm_analyzer.analyzer import SemanticAnalyzer
 from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.models.application import (
@@ -28,6 +30,7 @@ from app.models.application import (
     Application,
 )
 from app.models.candidate_profile import CandidateProfile
+from app.models.llm_call_log import LlmCallLog
 from app.models.personalized_document import PersonalizedDocument
 from app.models.prefilled_form_request_log import PrefilledFormRequestLog
 from app.models.user import User
@@ -37,6 +40,7 @@ from app.rate_limit.limiter import (
     check_rate_limit,
     lock_user_for_rate_limit,
 )
+from app.rate_limit.llm_quota import QuotaExceeded, enforce_monthly_quota
 from app.schemas.application import (
     ApplicationCreateIn,
     ApplicationOut,
@@ -186,6 +190,7 @@ def get_prefilled_form(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     custom_field_answerer=Depends(get_custom_field_answerer),
+    _llm: None = Depends(require_llm_enabled),
 ) -> PrefilledFormOut:
     # Same lock-then-check ordering as every other rate-limited endpoint
     # (see app/rate_limit/limiter.py): the lock serializes concurrent
@@ -199,6 +204,13 @@ def get_prefilled_form(
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+
+    try:
+        enforce_monthly_quota(db, current_user, "ats_prefill")
+    except QuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=exc.as_dict()
         ) from exc
 
     application = get_owned_application(db, application_id, current_user.id)
@@ -238,9 +250,10 @@ def get_prefilled_form(
     diagnostic = application.diagnostic
     custom_fields = [f for f in form.fields if f.is_custom]
     try:
-        answers = custom_field_answerer.answer(
-            custom_fields, diagnostic.cv_text, diagnostic.offer_text
-        )
+        with capture_usage():
+            answers = custom_field_answerer.answer(
+                custom_fields, diagnostic.cv_text, diagnostic.offer_text
+            )
     except CustomFieldAnsweringError:
         # Non-fatal: the preview is still returned, with custom fields left
         # blank for the user to fill in manually during review.
@@ -256,6 +269,16 @@ def get_prefilled_form(
     # the LLM - doesn't consume a slot of the user's hourly quota. Same
     # convention as the personalization endpoints.
     db.add(PrefilledFormRequestLog(user_id=current_user.id))
+    model, itok, otok = collected()
+    db.add(
+        LlmCallLog(
+            user_id=current_user.id,
+            feature="ats_prefill",
+            model=model,
+            input_tokens=itok,
+            output_tokens=otok,
+        )
+    )
     db.commit()
 
     return PrefilledFormOut(fields=filled_fields)
