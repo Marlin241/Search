@@ -1,4 +1,5 @@
 from app.models.application import Application
+from app.models.auth_attempt import AuthAttempt
 from app.models.candidate_profile import CandidateProfile
 from app.models.company_ats_mapping import CompanyAtsMapping
 from app.models.company_research_cache import CompanyResearchCache
@@ -20,6 +21,7 @@ from app.models.user import User
 
 __all__ = [
     "Application",
+    "AuthAttempt",
     "CandidateProfile",
     "CompanyAtsMapping",
     "CompanyResearchCache",
