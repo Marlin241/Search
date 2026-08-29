@@ -12,3 +12,11 @@ frontend/.env.local
 frontend/next-env.d.ts
 frontend/tsconfig.tsbuildinfo
 /node_modules/
+
+# deployment secrets & local artifacts (see docs/RUNBOOK.md)
+deploy/backup/rclone.conf
+deploy/backup/backup.env
+deploy/monitoring/monitoring.env
+*.age
+*.key
+/backups/
