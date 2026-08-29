@@ -8,6 +8,7 @@ from app.models.diagnostic import Diagnostic
 from app.models.interview import Interview
 from app.models.interview_prep_dossier import InterviewPrepDossier
 from app.models.interview_prep_request_log import InterviewPrepRequestLog
+from app.models.invite_code import InviteCode
 from app.models.job_search_request_log import JobSearchRequestLog
 from app.models.notified_listing import NotifiedListing
 from app.models.personalization_request_log import PersonalizationRequestLog
@@ -28,6 +29,7 @@ __all__ = [
     "Interview",
     "InterviewPrepDossier",
     "InterviewPrepRequestLog",
+    "InviteCode",
     "JobSearchRequestLog",
     "NotifiedListing",
     "PersonalizationRequestLog",
