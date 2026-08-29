@@ -11,3 +11,4 @@ frontend/.next/
 frontend/.env.local
 frontend/next-env.d.ts
 frontend/tsconfig.tsbuildinfo
+/node_modules/
