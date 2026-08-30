@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, AlertCircle, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { LegalFooter } from "@/components/common/LegalFooter";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -278,6 +279,8 @@ export default function LoginPage() {
               {isLogin ? "Se connecter" : "Créer mon compte"}
             </Button>
           </form>
+
+          <LegalFooter />
         </div>
       </div>
     </div>
