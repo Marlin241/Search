@@ -100,3 +100,20 @@ jamais supprimer ni renommer de colonne (ajouts nullable uniquement).
   `docker compose -f docker-compose.prod.yml exec db psql -U postgres -d ats_diagnostic -c "\l+"`.
 - Dernière sauvegarde présente sur R2 :
   `rclone --config deploy/backup/rclone.conf lsl r2:<bucket>/db/ | tail`.
+
+## 7. RGPD / données
+
+- **Suppression de compte** : self-service (profil > Zone de danger). Purge
+  en base (toutes les tables liées) + objets MinIO `users/<id>/`. Les codes
+  d'invitation consommés sont déliés (conservés, marqués utilisés).
+- **Demande manuelle par email** :
+  `docker compose -f docker-compose.prod.yml exec backend python -c "from app.database import SessionLocal; from app.models.user import User; from app.auth.account_deletion import delete_account; from app.storage.dependencies import get_object_storage; db=SessionLocal(); u=db.query(User).filter_by(email='X@Y').one(); delete_account(db, u, get_object_storage())"`
+- **Export** : self-service (profil > Zone de danger > Exporter mes données),
+  ou `GET /auth/me/export` avec le token de l'utilisateur.
+- **Purge d'inactivité (6 mois)** : manuelle pendant la beta —
+  `SELECT email FROM users WHERE id NOT IN (SELECT DISTINCT user_id FROM llm_call_logs) AND created_at < now() - interval '6 months';`
+  puis `delete_account` pour chacun.
+- **Pages légales** : `/conditions`, `/confidentialite`. Version en vigueur :
+  `CURRENT_TERMS_VERSION` (`backend/app/auth/consent.py`). Les mentions
+  `[À CONFIRMER : …]` (forme juridique, pays de l'hébergeur, email) doivent
+  être renseignées avant l'ouverture du beta.
