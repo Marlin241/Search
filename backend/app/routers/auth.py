@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.auth.account_deletion import delete_account
+from app.auth.account_export import build_account_export
 from app.auth.consent import CURRENT_TERMS_VERSION
 from app.auth.dependencies import get_current_user
 from app.auth.http import client_ip
@@ -19,6 +22,7 @@ from app.rate_limit.auth_throttle import (
     record_auth_attempt,
 )
 from app.rate_limit.llm_quota import usage_summary
+from app.schemas.account import AccountDeleteIn
 from app.schemas.auth import (
     ForgotPasswordIn,
     ResetPasswordIn,
@@ -27,6 +31,8 @@ from app.schemas.auth import (
     UserCreate,
     UserOut,
 )
+from app.storage.client import ObjectStorage
+from app.storage.dependencies import get_object_storage
 from app.utils.time import utcnow
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -152,3 +158,29 @@ def me_usage(
     db: Session = Depends(get_db),
 ) -> list[dict]:
     return usage_summary(db, current_user)
+
+
+@router.get("/me/export")
+def export_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    return JSONResponse(
+        content=build_account_export(db, current_user),
+        headers={"Content-Disposition": 'attachment; filename="mes-donnees.json"'},
+    )
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    payload: AccountDeleteIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    storage: ObjectStorage = Depends(get_object_storage),
+) -> Response:
+    if not verify_password(payload.password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Mot de passe incorrect."
+        )
+    delete_account(db, current_user, storage)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
