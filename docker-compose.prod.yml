@@ -77,6 +77,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: https://api.beta.yokkutelabs.com
+        NEXT_PUBLIC_GLITCHTIP_DSN: ${NEXT_PUBLIC_GLITCHTIP_DSN:-}
     depends_on:
       - backend
     ports:
