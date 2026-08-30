@@ -105,6 +105,10 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email ou mot de passe incorrect.",
         )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Ce compte est désactivé."
+        )
 
     clear_auth_attempts(db, action="login", identifier=identifier)
     token = create_access_token(subject=user.email)
