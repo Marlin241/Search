@@ -31,6 +31,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { StepJobTitles } from "@/components/onboarding/StepJobTitles";
 import { StepLocationAndContract } from "@/components/onboarding/StepLocationAndContract";
 import { UsageGauges } from "@/components/account/UsageGauges";
+import { DangerZone } from "@/components/account/DangerZone";
 import {
   cn,
   formatDate,
@@ -478,6 +479,13 @@ export default function ProfilPage() {
       <Card>
         <CardContent className="p-6">
           <UsageGauges />
+        </CardContent>
+      </Card>
+
+      {/* Account-level export + deletion (RGPD) */}
+      <Card>
+        <CardContent className="p-6">
+          <DangerZone />
         </CardContent>
       </Card>
 

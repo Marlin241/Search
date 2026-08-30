@@ -161,6 +161,21 @@ export async function getUsage(token: string): Promise<UsageItem[]> {
   return request<UsageItem[]>("/auth/me/usage", {}, token);
 }
 
+export async function exportAccount(token: string): Promise<Blob> {
+  return requestBlob("/auth/me/export", token);
+}
+
+export async function deleteAccount(
+  token: string,
+  password: string
+): Promise<void> {
+  await request<void>(
+    "/auth/me",
+    { method: "DELETE", body: JSON.stringify({ password }) },
+    token
+  );
+}
+
 export async function fetchMe(token: string): Promise<User> {
   return request<User>("/auth/me", {}, token);
 }
