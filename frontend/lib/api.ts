@@ -1,5 +1,6 @@
 import {
   ApiError,
+  type AdminAccessRequest,
   type AdminFeedback,
   type AdminInvite,
   type AdminOverview,
@@ -681,6 +682,15 @@ export async function sendFeedback(
   );
 }
 
+/* ─── Demande d'accès (public, sans token) ─── */
+
+export async function requestAccess(email: string, note: string): Promise<void> {
+  await request<void>("/access-requests", {
+    method: "POST",
+    body: JSON.stringify({ email, note, company: "" }),
+  });
+}
+
 /* ─── Admin ─── */
 
 export const admin = {
@@ -749,4 +759,21 @@ export const admin = {
 
   markFeedbackHandled: (token: string, id: number): Promise<void> =>
     request<void>(`/admin/feedback/${id}/handled`, { method: "POST" }, token),
+
+  getAccessRequests: (
+    token: string,
+    pendingOnly = false
+  ): Promise<AdminAccessRequest[]> =>
+    request<AdminAccessRequest[]>(
+      `/admin/access-requests${pendingOnly ? "?pending=true" : ""}`,
+      {},
+      token
+    ),
+
+  markAccessRequestHandled: (token: string, id: number): Promise<void> =>
+    request<void>(
+      `/admin/access-requests/${id}/handled`,
+      { method: "POST" },
+      token
+    ),
 };

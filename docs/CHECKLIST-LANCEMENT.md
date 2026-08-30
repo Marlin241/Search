@@ -4,6 +4,12 @@
 dont **au moins un passage complet depuis un téléphone**. Le beta ne s'ouvre
 pas tant que tout n'est pas coché.
 
+## Landing publique
+- [ ] `/` en anonyme affiche la landing (présentation produit), **pas** le formulaire de login — sur desktop **et** téléphone ; aucun scroll horizontal.
+- [ ] `/` en tant qu'utilisateur connecté redirige vers `/dashboard` (sans flash de la landing).
+- [ ] Formulaire « Demander un accès » → message de remerciement ; la demande apparaît dans `/admin ▸ Demandes d'accès` ; email de notif reçu sur `ADMIN_NOTIFY_EMAIL`.
+- [ ] Liens du footer (Conditions, Confidentialité, Contact, Yokkute Labs) fonctionnels.
+
 ## Infra & accès
 - [ ] `beta.` et `api.beta.` résolvent ; TLS valide (cadenas) sur les deux.
 - [ ] `curl https://api.beta.yokkutelabs.com/health` → `{"status":"ok","db":"ok",...}`.

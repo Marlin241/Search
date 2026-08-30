@@ -3,7 +3,7 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Providers } from "@/app/providers";
-import { PRODUCT_NAME, TAGLINE } from "@/lib/brand";
+import { PRODUCT_NAME, TAGLINE, SITE_URL } from "@/lib/brand";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -18,6 +18,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: `${PRODUCT_NAME} — recherche d'emploi assistée par IA`,
   description: TAGLINE,
 };

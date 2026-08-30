@@ -1,21 +1,37 @@
-"use client";
+import type { Metadata } from "next";
+import { PRODUCT_NAME, TAGLINE } from "@/lib/brand";
+import { MarketingHeader } from "@/components/marketing/MarketingHeader";
+import { Hero } from "@/components/marketing/Hero";
+import { ProblemSection } from "@/components/marketing/ProblemSection";
+import { FeatureGrid } from "@/components/marketing/FeatureGrid";
+import { HowItWorks } from "@/components/marketing/HowItWorks";
+import { AccessSection } from "@/components/marketing/AccessSection";
+import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+export const metadata: Metadata = {
+  title: `${PRODUCT_NAME} — recherche d'emploi assistée par IA`,
+  description: TAGLINE,
+  robots: { index: false, follow: false },
+  openGraph: {
+    title: `${PRODUCT_NAME} — recherche d'emploi assistée par IA`,
+    description: TAGLINE,
+    type: "website",
+    locale: "fr_FR",
+  },
+};
 
-export default function RootPage() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isLoading) return;
-    router.replace(user ? "/dashboard" : "/login");
-  }, [user, isLoading, router]);
-
+export default function LandingPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    <div className="min-h-screen bg-background">
+      <MarketingHeader />
+      <main>
+        <Hero />
+        <ProblemSection />
+        <FeatureGrid />
+        <HowItWorks />
+        <AccessSection />
+      </main>
+      <MarketingFooter />
     </div>
   );
 }

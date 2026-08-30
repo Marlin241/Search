@@ -516,3 +516,11 @@ export interface AdminFeedback {
   created_at: string;
   handled_at: string | null;
 }
+
+export interface AdminAccessRequest {
+  id: number;
+  email: string;
+  note: string;
+  created_at: string;
+  handled_at: string | null;
+}

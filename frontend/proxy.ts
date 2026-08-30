@@ -31,6 +31,11 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasToken = Boolean(request.cookies.get(TOKEN_COOKIE)?.value);
 
+  // Visiteur déjà connecté qui arrive sur la vitrine → direct dans l'app.
+  if (pathname === "/" && hasToken) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   if (isProtectedPath(pathname) && !hasToken) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
@@ -46,6 +51,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/dashboard/:path*",
     "/offres/:path*",
     "/candidatures/:path*",

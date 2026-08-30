@@ -1,19 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { LayoutGrid, Users, Ticket, MessageSquare } from "lucide-react";
+import { LayoutGrid, Users, Ticket, MessageSquare, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OverviewTab } from "@/components/admin/OverviewTab";
 import { UsersTab } from "@/components/admin/UsersTab";
 import { InvitesTab } from "@/components/admin/InvitesTab";
+import { AccessRequestsTab } from "@/components/admin/AccessRequestsTab";
 import { FeedbackTab } from "@/components/admin/FeedbackTab";
 
-type Tab = "overview" | "users" | "invites" | "feedback";
+type Tab = "overview" | "users" | "invites" | "access" | "feedback";
 
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "overview", label: "Vue d'ensemble", icon: LayoutGrid },
   { id: "users", label: "Utilisateurs", icon: Users },
   { id: "invites", label: "Invitations", icon: Ticket },
+  { id: "access", label: "Demandes d'accès", icon: Inbox },
   { id: "feedback", label: "Feedback", icon: MessageSquare },
 ];
 
@@ -51,6 +53,7 @@ export default function AdminPage() {
       {tab === "overview" && <OverviewTab />}
       {tab === "users" && <UsersTab />}
       {tab === "invites" && <InvitesTab />}
+      {tab === "access" && <AccessRequestsTab />}
       {tab === "feedback" && <FeedbackTab />}
     </div>
   );

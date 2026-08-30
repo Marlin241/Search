@@ -117,6 +117,12 @@ jamais supprimer ni renommer de colonne (ajouts nullable uniquement).
   `CURRENT_TERMS_VERSION` (`backend/app/auth/consent.py`). Les mentions
   `[À CONFIRMER : …]` (forme juridique, pays de l'hébergeur, email) doivent
   être renseignées avant l'ouverture du beta.
+- **Demandes d'accès (table `access_requests`)** : déposées depuis la landing
+  publique, non rattachées à un compte. Purge des demandes non converties
+  (> 90 j) :
+  `docker exec search-db-1 psql -U postgres -d ats_diagnostic -c "DELETE FROM access_requests WHERE handled_at IS NULL AND created_at < now() - interval '90 days';"`
+  Sur demande d'effacement d'une personne qui avait demandé un accès :
+  `docker exec search-db-1 psql -U postgres -d ats_diagnostic -c "DELETE FROM access_requests WHERE email = 'la-personne@example.com';"`
 
 ## 8. Observabilité
 
