@@ -1,3 +1,5 @@
+import { CONTACT_EMAIL } from "@/lib/brand";
+
 export function LegalFooter() {
   return (
     <footer className="mt-8 text-center text-xs text-muted-foreground space-x-3">
@@ -10,7 +12,7 @@ export function LegalFooter() {
       </a>
       <span>·</span>
       <a
-        href="mailto:contact@yokkutelabs.com"
+        href={`mailto:${CONTACT_EMAIL}`}
         className="hover:underline"
       >
         Contact

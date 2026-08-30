@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn, getInitials } from "@/lib/utils";
+import { Logo } from "@/components/common/Logo";
 import { ADMIN_NAV_ITEM, NAV_ITEMS, isNavItemActive } from "@/lib/navConfig";
 
 export function Sidebar() {
@@ -15,18 +16,8 @@ export function Sidebar() {
     <aside className="hidden lg:flex h-full w-64 flex-col justify-between overflow-y-auto border-r border-border/80 bg-card/60 px-4 py-6 backdrop-blur-xl shrink-0">
       <div className="space-y-6">
         {/* Brand */}
-        <Link href="/dashboard" className="flex items-center gap-2.5 px-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-accent text-white shadow-soft">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <span className="font-display text-xl font-bold tracking-tight text-foreground">
-              Search
-            </span>
-            <span className="ml-1.5 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-              v3
-            </span>
-          </div>
+        <Link href="/dashboard" className="flex px-3">
+          <Logo />
         </Link>
 
         {/* Nav Links */}

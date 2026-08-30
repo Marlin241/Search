@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { LegalFooter } from "@/components/common/LegalFooter";
 import { useAuth } from "@/context/AuthContext";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
@@ -85,7 +86,7 @@ export default function LoginPage() {
             <div className="p-2 bg-white/15 rounded-xl backdrop-blur-md">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-display font-bold tracking-tight">Search</span>
+            <span className="text-2xl font-display font-bold tracking-tight">{PRODUCT_NAME}</span>
           </div>
 
           <motion.div
