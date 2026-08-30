@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_admin
 from app.database import get_db
 from app.llm.switch import llm_features_enabled, set_llm_features_enabled
+from app.models.access_request import AccessRequest
 from app.models.feedback import Feedback
 from app.models.invite_code import InviteCode
 from app.models.llm_call_log import LlmCallLog
 from app.models.user import User
 from app.rate_limit.llm_quota import FEATURES, usage_summary
+from app.schemas.access_request import AdminAccessRequestOut
 from app.schemas.admin import (
     ActivePatchIn,
     AdminFeedbackOut,
@@ -230,4 +232,41 @@ def mark_feedback_handled(feedback_id: int, db: Session = Depends(get_db)) -> Re
         )
     fb.handled_at = utcnow()
     db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/access-requests", response_model=list[AdminAccessRequestOut])
+def list_access_requests(
+    pending: bool = False, db: Session = Depends(get_db)
+) -> list[AdminAccessRequestOut]:
+    stmt = select(AccessRequest).order_by(AccessRequest.created_at.desc())
+    if pending:
+        stmt = stmt.where(AccessRequest.handled_at.is_(None))
+    return [
+        AdminAccessRequestOut(
+            id=r.id,
+            email=r.email,
+            note=r.note,
+            created_at=_iso(r.created_at) or "",
+            handled_at=_iso(r.handled_at),
+        )
+        for r in db.scalars(stmt)
+    ]
+
+
+@router.post(
+    "/access-requests/{request_id}/handled",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def mark_access_request_handled(
+    request_id: int, db: Session = Depends(get_db)
+) -> Response:
+    row = db.get(AccessRequest, request_id)
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable."
+        )
+    if row.handled_at is None:
+        row.handled_at = utcnow()
+        db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

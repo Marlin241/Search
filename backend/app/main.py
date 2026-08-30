@@ -18,6 +18,7 @@ from app.job_search.crawl_runner import run_crawl
 from app.job_search.daily_search import run_daily_search
 from app.observability import init_sentry
 from app.routers import (
+    access_requests,
     admin,
     applications,
     auth,
@@ -113,6 +114,7 @@ app.include_router(interview_prep.router)
 app.include_router(interviews.router)
 app.include_router(dashboard.router)
 app.include_router(feedback.router)
+app.include_router(access_requests.router)
 
 register_exception_handlers(app)
 

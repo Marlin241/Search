@@ -59,6 +59,21 @@ def send_feedback_notification(
     _send_email(admin_email, "Nouveau retour beta", body)
 
 
+def send_access_request_notification(
+    admin_email: str, from_email: str, note: str
+) -> None:
+    """Notify the admin of a new beta access request from the landing page.
+    No-op when no admin email is configured."""
+    if not admin_email:
+        return
+    body = (
+        f"<p><strong>Email :</strong> {html.escape(from_email)}</p>"
+        f"<p><strong>Message :</strong></p>"
+        f"<p>{html.escape(note) or '<em>(vide)</em>'}</p>"
+    )
+    _send_email(admin_email, "Nouvelle demande d'accès à la beta", body)
+
+
 def send_password_reset_email(to_email: str, reset_url: str) -> None:
     safe = _safe_href(reset_url)
     html_body = (

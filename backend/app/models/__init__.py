@@ -1,3 +1,4 @@
+from app.models.access_request import AccessRequest
 from app.models.app_setting import AppSetting
 from app.models.application import Application
 from app.models.auth_attempt import AuthAttempt
@@ -24,6 +25,7 @@ from app.models.saved_search import SavedSearch
 from app.models.user import User
 
 __all__ = [
+    "AccessRequest",
     "AppSetting",
     "Application",
     "AuthAttempt",

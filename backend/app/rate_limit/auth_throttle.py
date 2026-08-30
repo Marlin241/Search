@@ -10,6 +10,7 @@ _LIMITS: dict[str, tuple[int, timedelta]] = {
     "login": (8, timedelta(minutes=15)),
     "register": (5, timedelta(minutes=60)),
     "forgot_password": (5, timedelta(minutes=60)),
+    "access_request": (5, timedelta(minutes=60)),
 }
 
 
