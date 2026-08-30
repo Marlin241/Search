@@ -152,3 +152,20 @@ puis http://localhost:3001 (GlitchTip) et http://localhost:3002 (Uptime Kuma).
 ### Logs applicatifs
 `docker compose -f docker-compose.prod.yml logs -f <service>`.
 Rotation `json-file` (max-size 10m, max-file 3) déjà dans le compose.
+
+## 9. Admin
+
+- **Se donner les droits admin** (une fois) :
+  `docker compose -f docker-compose.prod.yml exec db psql -U postgres -d ats_diagnostic -c "UPDATE users SET is_admin = true WHERE email = 'guyroland879@gmail.com';"`
+- **Dashboard** : https://beta.yokkutelabs.com/admin (visible seulement pour un
+  compte `is_admin` ; un compte normal est redirigé vers `/dashboard` et ne voit
+  pas l'entrée de nav « Admin »).
+- **Codes d'invitation** : onglet Invitations (ou CLI
+  `docker compose -f docker-compose.prod.yml exec backend python -m scripts.invites generate --count 15 --note "vague 1"`).
+- **Interrupteur LLM** : onglet Vue d'ensemble (ou CLI
+  `docker compose -f docker-compose.prod.yml exec backend python -m scripts.llm_switch off`).
+- **Ajuster le quota d'un testeur** : onglet Utilisateurs > clic sur la ligne >
+  override par fonctionnalité (champ vide = quota par défaut).
+- **Désactiver un compte** : onglet Utilisateurs > Désactiver (le compte ne peut
+  plus se connecter ; données conservées). Impossible sur son propre compte.
+- **Feedback in-app** : onglet Feedback (« Marquer traité » grise la ligne).
