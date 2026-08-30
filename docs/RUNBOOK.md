@@ -117,3 +117,38 @@ jamais supprimer ni renommer de colonne (ajouts nullable uniquement).
   `CURRENT_TERMS_VERSION` (`backend/app/auth/consent.py`). Les mentions
   `[À CONFIRMER : …]` (forme juridique, pays de l'hébergeur, email) doivent
   être renseignées avant l'ouverture du beta.
+
+## 8. Observabilité
+
+### Démarrage
+`cp deploy/monitoring/monitoring.env.example deploy/monitoring/monitoring.env`
+(renseigner `GT_PG_PASSWORD`, `GT_SECRET_KEY`), puis :
+`docker compose -f docker-compose.monitoring.yml --env-file deploy/monitoring/monitoring.env up -d`
+Arrêt (libère ~1 Go RAM) : même commande + `down` (jamais `-v`).
+
+### Accès (tunnel SSH — rien de public)
+Depuis le poste local :
+`ssh -L 3001:127.0.0.1:3001 -L 3002:127.0.0.1:3002 <user>@<vps>`
+puis http://localhost:3001 (GlitchTip) et http://localhost:3002 (Uptime Kuma).
+
+### GlitchTip — mise en route (une fois)
+1. Créer le compte admin à la 1ʳᵉ visite ; créer une organisation.
+2. Projet « backend » (plateforme Python) → copier le DSN →
+   `backend/.env` `GLITCHTIP_DSN=` + `ENVIRONMENT=production` →
+   `deploy/deploy.sh`.
+3. Projet « frontend » (plateforme JavaScript) → DSN → `/opt/search/.env`
+   `NEXT_PUBLIC_GLITCHTIP_DSN=` → redeploy (rebuild frontend).
+4. Rétention des events : 30 j (Settings du projet).
+5. Alertes : Settings > Alerts → email sur « nouveau problème »
+   (SMTP via `GT_EMAIL_URL`).
+
+### Uptime Kuma — sondes à créer
+- `API health` : HTTP(s) `https://api.beta.yokkutelabs.com/health`, 300 s,
+  mot-clé attendu `"status":"ok"`.
+- `Frontend` : HTTP(s) `https://beta.yokkutelabs.com`, 300 s.
+- Sur le moniteur API : activer « Certificate Expiry » (alerte à 14 j).
+- Notification : email (SMTP Resend) ou Telegram.
+
+### Logs applicatifs
+`docker compose -f docker-compose.prod.yml logs -f <service>`.
+Rotation `json-file` (max-size 10m, max-file 3) déjà dans le compose.
