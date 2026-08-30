@@ -8,6 +8,7 @@ from app.models.auth_attempt import AuthAttempt
 from app.models.candidate_profile import CandidateProfile
 from app.models.compatibility_request_log import CompatibilityRequestLog
 from app.models.diagnostic import Diagnostic
+from app.models.feedback import Feedback
 from app.models.interview import Interview
 from app.models.interview_prep_dossier import InterviewPrepDossier
 from app.models.interview_prep_request_log import InterviewPrepRequestLog
@@ -76,6 +77,8 @@ def delete_account(db: Session, user: User, storage: ObjectStorage) -> None:
         .where(InviteCode.used_by_user_id == uid)
         .values(used_by_user_id=None)
     )
+    # Keep the feedback, drop the identity.
+    db.execute(update(Feedback).where(Feedback.user_id == uid).values(user_id=None))
     db.execute(delete(AuthAttempt).where(AuthAttempt.identifier.like(f"{email}|%")))
 
     try:

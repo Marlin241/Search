@@ -3,6 +3,7 @@ from app.models.application import Application
 from app.models.candidate_profile import CandidateProfile
 from app.models.compatibility_request_log import CompatibilityRequestLog
 from app.models.diagnostic import Diagnostic
+from app.models.feedback import Feedback
 from app.models.interview import Interview
 from app.models.interview_prep_dossier import InterviewPrepDossier
 from app.models.invite_code import InviteCode
@@ -81,6 +82,7 @@ def _seed_full_user(db) -> User:
             CompatibilityRequestLog(user_id=u.id),
             LlmCallLog(user_id=u.id, feature="cv"),
             InviteCode(code="c1", used_by_user_id=u.id),
+            Feedback(user_id=u.id, page="/offres", message="super"),
         ]
     )
     db.commit()
@@ -110,6 +112,8 @@ def test_delete_account_removes_everything(db_session):
         assert db_session.query(model).count() == 0, model
     code = db_session.query(InviteCode).one()
     assert code.used_by_user_id is None  # unlinked, not deleted
+    fb = db_session.query(Feedback).one()
+    assert fb.user_id is None and fb.message == "super"  # anonymised, kept
     assert storage.deleted_prefixes == [f"users/{uid}/"]
 
 
