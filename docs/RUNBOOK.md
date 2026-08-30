@@ -169,3 +169,15 @@ Rotation `json-file` (max-size 10m, max-file 3) déjà dans le compose.
 - **Désactiver un compte** : onglet Utilisateurs > Désactiver (le compte ne peut
   plus se connecter ; données conservées). Impossible sur son propre compte.
 - **Feedback in-app** : onglet Feedback (« Marquer traité » grise la ligne).
+
+## 10. Amorçage avant l'arrivée des testeurs
+
+1. Lancer un crawl manuel :
+   `docker compose -f docker-compose.prod.yml exec backend python -c "from app.database import SessionLocal; from app.job_search.crawl_runner import run_crawl; run_crawl(SessionLocal)"`
+2. Vérifier :
+   `docker compose -f docker-compose.prod.yml exec db psql -U postgres -d ats_diagnostic -c "SELECT source, count(*) FROM crawled_listing WHERE is_active GROUP BY source;"`
+   → Emploi Dakar présent.
+3. Vérifier que `ENABLED_CRAWLERS` (env) inclut `emploi_dakar` et que
+   `RELIEFWEB_APPNAME` est renseigné.
+4. Depuis le navigateur, recherche « comptable » + « Dakar » → offres locales
+   visibles et scorées.
