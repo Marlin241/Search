@@ -12,7 +12,7 @@ export function Sidebar() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="hidden lg:flex h-screen w-64 flex-col justify-between border-r border-border/80 bg-card/60 px-4 py-6 backdrop-blur-xl shrink-0">
+    <aside className="hidden lg:flex h-full w-64 flex-col justify-between overflow-y-auto border-r border-border/80 bg-card/60 px-4 py-6 backdrop-blur-xl shrink-0">
       <div className="space-y-6">
         {/* Brand */}
         <Link href="/dashboard" className="flex items-center gap-2.5 px-3">

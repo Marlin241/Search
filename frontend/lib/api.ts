@@ -667,6 +667,20 @@ export async function deleteInterview(
   return request<void>(`/interviews/${interviewId}`, { method: "DELETE" }, token);
 }
 
+/* ─── Feedback ─── */
+
+export async function sendFeedback(
+  token: string,
+  page: string,
+  message: string
+): Promise<void> {
+  await request<void>(
+    "/feedback",
+    { method: "POST", body: JSON.stringify({ page, message }) },
+    token
+  );
+}
+
 /* ─── Admin ─── */
 
 export const admin = {
