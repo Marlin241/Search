@@ -456,10 +456,20 @@ export interface ConfirmApplicationIn {
 export class ApiError extends Error {
   status: number;
   detail: string;
+  code?: string;
 
-  constructor(status: number, detail: string) {
+  constructor(status: number, detail: string, code?: string) {
     super(detail);
     this.status = status;
     this.detail = detail;
+    this.code = code;
   }
+}
+
+export interface UsageItem {
+  feature: string;
+  label: string;
+  used: number;
+  limit: number;
+  reset_date: string;
 }

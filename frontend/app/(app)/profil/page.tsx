@@ -30,6 +30,7 @@ import { Select } from "@/components/ui/Select";
 import { Dialog } from "@/components/ui/Dialog";
 import { StepJobTitles } from "@/components/onboarding/StepJobTitles";
 import { StepLocationAndContract } from "@/components/onboarding/StepLocationAndContract";
+import { UsageGauges } from "@/components/account/UsageGauges";
 import {
   cn,
   formatDate,
@@ -470,6 +471,13 @@ export default function ProfilPage() {
               Enregistrer mes préférences
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Monthly LLM usage (beta) */}
+      <Card>
+        <CardContent className="p-6">
+          <UsageGauges />
         </CardContent>
       </Card>
 

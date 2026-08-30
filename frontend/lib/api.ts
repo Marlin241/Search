@@ -33,6 +33,7 @@ import {
   type SavedSearchOut,
   type SearchCriteria,
   type Token,
+  type UsageItem,
   type User,
 } from "./types";
 
@@ -50,9 +51,13 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   onUnauthorized = handler;
 }
 
-function handleResponseError(status: number, detail: string): never {
+function handleResponseError(
+  status: number,
+  detail: string,
+  code?: string
+): never {
   if (status === 401) onUnauthorized?.();
-  throw new ApiError(status, detail);
+  throw new ApiError(status, detail, code);
 }
 
 /* ─── Helpers ─── */
@@ -80,13 +85,20 @@ async function request<T>(
 
   if (!res.ok) {
     let detail = `Erreur ${res.status}`;
+    let code: string | undefined;
     try {
       const body = await res.json();
-      detail = body.detail ?? detail;
+      if (body && typeof body.detail === "object" && body.detail !== null) {
+        // Structured errors, e.g. { code: "quota_exceeded", message, ... }
+        detail = body.detail.message ?? detail;
+        code = body.detail.code;
+      } else {
+        detail = body.detail ?? detail;
+      }
     } catch {
       /* ignore parse error */
     }
-    handleResponseError(res.status, detail);
+    handleResponseError(res.status, detail, code);
   }
 
   if (res.status === 204) return undefined as T;
@@ -143,6 +155,10 @@ export async function login(
     body: form,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
+}
+
+export async function getUsage(token: string): Promise<UsageItem[]> {
+  return request<UsageItem[]>("/auth/me/usage", {}, token);
 }
 
 export async function fetchMe(token: string): Promise<User> {
