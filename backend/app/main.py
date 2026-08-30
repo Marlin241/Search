@@ -23,6 +23,7 @@ from app.routers import (
     candidate_profile,
     dashboard,
     diagnostics,
+    feedback,
     generation_jobs,
     interview_prep,
     interviews,
@@ -110,6 +111,7 @@ app.include_router(generation_jobs.router)
 app.include_router(interview_prep.router)
 app.include_router(interviews.router)
 app.include_router(dashboard.router)
+app.include_router(feedback.router)
 
 
 APP_VERSION = "beta"

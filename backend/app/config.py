@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     password_reset_token_ttl_minutes: int = 60
     glitchtip_dsn: str = ""
+    admin_notify_email: str = ""
 
     llm_features_enabled: bool = True
     llm_monthly_quota_diagnostic: int = 7

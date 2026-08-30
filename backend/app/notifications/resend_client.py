@@ -44,6 +44,21 @@ def _send_email(to_email: str, subject: str, html_body: str) -> None:
         )
 
 
+def send_feedback_notification(
+    admin_email: str, from_user: str, page: str, message: str
+) -> None:
+    """Notify the admin of a new in-app feedback. No-op when no admin email
+    is configured (dev / not yet set up)."""
+    if not admin_email:
+        return
+    body = (
+        f"<p><strong>De :</strong> {html.escape(from_user)}</p>"
+        f"<p><strong>Page :</strong> {html.escape(page)}</p>"
+        f"<p>{html.escape(message)}</p>"
+    )
+    _send_email(admin_email, "Nouveau retour beta", body)
+
+
 def send_password_reset_email(to_email: str, reset_url: str) -> None:
     safe = _safe_href(reset_url)
     html_body = (
