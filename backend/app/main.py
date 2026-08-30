@@ -13,6 +13,7 @@ from app import (
 from app.applications.reminders import run_application_reminders
 from app.config import get_settings
 from app.database import get_db
+from app.errors import register_exception_handlers
 from app.job_search.crawl_runner import run_crawl
 from app.job_search.daily_search import run_daily_search
 from app.observability import init_sentry
@@ -112,6 +113,8 @@ app.include_router(interview_prep.router)
 app.include_router(interviews.router)
 app.include_router(dashboard.router)
 app.include_router(feedback.router)
+
+register_exception_handlers(app)
 
 
 APP_VERSION = "beta"
