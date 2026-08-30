@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { cn, getInitials } from "@/lib/utils";
-import { NAV_ITEMS, isNavItemActive } from "@/lib/navConfig";
+import { ADMIN_NAV_ITEM, NAV_ITEMS, isNavItemActive } from "@/lib/navConfig";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -31,7 +31,7 @@ export function Sidebar() {
 
         {/* Nav Links */}
         <nav className="space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {(user?.is_admin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS).map((item) => {
             const isActive = isNavItemActive(pathname, item.href);
             const Icon = item.icon;
 

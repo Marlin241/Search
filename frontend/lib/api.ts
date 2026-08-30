@@ -1,5 +1,9 @@
 import {
   ApiError,
+  type AdminFeedback,
+  type AdminInvite,
+  type AdminOverview,
+  type AdminUser,
   type ApplicationCreateIn,
   type ApplicationOut,
   type CandidateProfileIn,
@@ -662,3 +666,73 @@ export async function deleteInterview(
 ): Promise<void> {
   return request<void>(`/interviews/${interviewId}`, { method: "DELETE" }, token);
 }
+
+/* ─── Admin ─── */
+
+export const admin = {
+  getOverview: (token: string): Promise<AdminOverview> =>
+    request<AdminOverview>("/admin/overview", {}, token),
+
+  getUsers: (token: string): Promise<AdminUser[]> =>
+    request<AdminUser[]>("/admin/users", {}, token),
+
+  getUser: (token: string, id: number): Promise<AdminUser> =>
+    request<AdminUser>(`/admin/users/${id}`, {}, token),
+
+  patchUserQuota: (
+    token: string,
+    id: number,
+    feature: string,
+    limit: number | null
+  ): Promise<AdminUser> =>
+    request<AdminUser>(
+      `/admin/users/${id}/quota`,
+      { method: "PATCH", body: JSON.stringify({ feature, limit }) },
+      token
+    ),
+
+  patchUserActive: (
+    token: string,
+    id: number,
+    active: boolean
+  ): Promise<AdminUser> =>
+    request<AdminUser>(
+      `/admin/users/${id}/active`,
+      { method: "PATCH", body: JSON.stringify({ active }) },
+      token
+    ),
+
+  getInvites: (token: string): Promise<AdminInvite[]> =>
+    request<AdminInvite[]>("/admin/invites", {}, token),
+
+  createInvites: (
+    token: string,
+    count: number,
+    note: string | null
+  ): Promise<{ codes: string[] }> =>
+    request<{ codes: string[] }>(
+      "/admin/invites",
+      { method: "POST", body: JSON.stringify({ count, note }) },
+      token
+    ),
+
+  revokeInvite: (token: string, code: string): Promise<void> =>
+    request<void>(
+      `/admin/invites/${encodeURIComponent(code)}`,
+      { method: "DELETE" },
+      token
+    ),
+
+  toggleLlm: (token: string, enabled: boolean): Promise<{ enabled: boolean }> =>
+    request<{ enabled: boolean }>(
+      "/admin/llm-toggle",
+      { method: "POST", body: JSON.stringify({ enabled }) },
+      token
+    ),
+
+  getFeedback: (token: string): Promise<AdminFeedback[]> =>
+    request<AdminFeedback[]>("/admin/feedback", {}, token),
+
+  markFeedbackHandled: (token: string, id: number): Promise<void> =>
+    request<void>(`/admin/feedback/${id}/handled`, { method: "POST" }, token),
+};

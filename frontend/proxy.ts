@@ -9,6 +9,7 @@ const PROTECTED_PREFIXES = [
   "/diagnostic",
   "/profil",
   "/onboarding",
+  "/admin",
 ];
 const AUTH_PATHS = ["/login", "/mot-de-passe-oublie", "/reset-password"];
 
@@ -51,6 +52,7 @@ export const config = {
     "/diagnostic/:path*",
     "/profil/:path*",
     "/onboarding/:path*",
+    "/admin/:path*",
     "/login",
     "/mot-de-passe-oublie",
     "/reset-password",
