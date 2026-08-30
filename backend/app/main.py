@@ -17,6 +17,7 @@ from app.job_search.crawl_runner import run_crawl
 from app.job_search.daily_search import run_daily_search
 from app.observability import init_sentry
 from app.routers import (
+    admin,
     applications,
     auth,
     candidate_profile,
@@ -98,6 +99,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(applications.router)
 app.include_router(diagnostics.router)
 app.include_router(personalization.router)
