@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.job_search.crawl_runner import run_crawl
 from app.job_search.daily_search import run_daily_search
+from app.observability import init_sentry
 from app.routers import (
     applications,
     auth,
@@ -30,6 +31,9 @@ from app.routers import (
 )
 
 settings = get_settings()
+
+# No-op unless GLITCHTIP_DSN is set (so tests / dev are unaffected).
+init_sentry()
 
 
 @asynccontextmanager
