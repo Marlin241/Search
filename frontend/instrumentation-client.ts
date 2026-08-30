@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "@/lib/observability";
 
 const dsn = process.env.NEXT_PUBLIC_GLITCHTIP_DSN;
 
@@ -9,11 +10,23 @@ if (dsn) {
       environment: process.env.NODE_ENV,
       tracesSampleRate: 0,
       sendDefaultPii: false,
+      maxBreadcrumbs: 20,
+      beforeSend: scrubSentryEvent,
       beforeBreadcrumb(crumb) {
-        // Don't record request/response bodies in fetch/xhr breadcrumbs.
+        // Never keep request/response bodies from fetch/xhr breadcrumbs, and
+        // redact the reset-password token if it appears in a breadcrumb URL.
         if (crumb.category === "fetch" || crumb.category === "xhr") {
           const data = crumb.data as Record<string, unknown> | undefined;
-          if (data) delete data["request_body"];
+          if (data) {
+            delete data["request_body"];
+            delete data["response_body"];
+            if (typeof data["url"] === "string") {
+              data["url"] = (data["url"] as string).replace(
+                /token=[^&\s]+/gi,
+                "token=[redacted]"
+              );
+            }
+          }
         }
         return crumb;
       },
