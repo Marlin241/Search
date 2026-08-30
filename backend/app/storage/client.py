@@ -39,3 +39,26 @@ class ObjectStorage:
             raise ObjectStorageError(
                 f"Échec de la suppression de l'objet '{key}'."
             ) from exc
+
+    def delete_prefix(self, prefix: str) -> int:
+        """Delete every object whose key starts with `prefix`. Returns the
+        number deleted. Used to purge a user's objects on account deletion."""
+        deleted = 0
+        token: str | None = None
+        try:
+            while True:
+                kwargs: dict = {"Bucket": self._bucket, "Prefix": prefix}
+                if token is not None:
+                    kwargs["ContinuationToken"] = token
+                page = self._client.list_objects_v2(**kwargs)
+                for obj in page.get("Contents", []):
+                    self._client.delete_object(Bucket=self._bucket, Key=obj["Key"])
+                    deleted += 1
+                if not page.get("IsTruncated"):
+                    break
+                token = page.get("NextContinuationToken")
+        except (BotoCoreError, ClientError) as exc:
+            raise ObjectStorageError(
+                f"Échec de la suppression du préfixe '{prefix}'."
+            ) from exc
+        return deleted
