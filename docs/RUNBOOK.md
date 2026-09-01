@@ -155,8 +155,15 @@ Rotation `json-file` (max-size 10m, max-file 3) déjà dans le compose.
 
 ## 9. Admin
 
-- **Se donner les droits admin** (une fois) :
-  `docker compose -f docker-compose.prod.yml exec db psql -U postgres -d ats_diagnostic -c "UPDATE users SET is_admin = true WHERE email = 'guyroland879@gmail.com';"`
+- **Se donner les droits admin** : mettre son email dans `ADMIN_EMAILS`
+  (`backend/.env`, séparés par des virgules), puis
+  `docker compose -f docker-compose.prod.yml exec backend python -m scripts.seed_admin`
+  (demande un mot de passe, crée le compte déjà admin ; ré-exécutable). Ensuite
+  connexion normale sur `/login`. Les comptes listés dans `ADMIN_EMAILS`
+  s'inscrivent sans code d'invitation et sont promus au démarrage.
+  - **Promotion seule** : retirer un email d'`ADMIN_EMAILS` ne retire **pas**
+    `is_admin`. Pour révoquer :
+    `docker compose -f docker-compose.prod.yml exec db psql -U postgres -d ats_diagnostic -c "UPDATE users SET is_admin = false WHERE email = '...';"`
 - **Dashboard** : https://beta.yokkutelabs.com/admin (visible seulement pour un
   compte `is_admin` ; un compte normal est redirigé vers `/dashboard` et ne voit
   pas l'entrée de nav « Admin »).

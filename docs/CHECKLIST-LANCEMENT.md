@@ -35,6 +35,7 @@ pas tant que tout n'est pas coché.
 - [ ] Uptime Kuma : `API health`, `Frontend`, `TLS` → tous verts ; une notification test reçue.
 
 ## Admin
+- [ ] `ADMIN_EMAILS` renseigné dans `backend/.env` ; `python -m scripts.seed_admin` → compte créé, connexion email + mot de passe OK.
 - [ ] `/admin` accessible au compte admin ; `403` / redirection pour un compte normal ; pas d'entrée de nav « Admin » pour un non-admin.
 - [ ] Générer 5 codes, en révoquer 1.
 - [ ] Ajuster un quota d'un testeur → visible dans `/admin/users/{id}`.

@@ -50,17 +50,27 @@ def register(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
         ) from exc
 
+    # An email listed in ADMIN_EMAILS registers WITHOUT an invite code (and is
+    # promoted to admin) - otherwise the very first admin could never get in,
+    # since invite codes are minted by an admin. Trade-off: for these specific,
+    # secret addresses the invite-code gate that normally masks "email already
+    # registered" is lifted. Acceptable for a 1-2 entry list; `invite_code` is
+    # still a required non-empty field at the schema level, its value ignored.
+    is_bootstrap_admin = payload.email.lower() in get_settings().admin_email_set
+
     # Validate the invite code BEFORE probing whether the email exists, so a
     # caller without a valid unused code can never distinguish "email taken"
     # (409) from "bad code" (400) - closing the user-enumeration channel for
     # everyone except a holder of a valid single-use code (who would burn it).
-    try:
-        code_row = redeem_invite_code(db, payload.invite_code)
-    except InviteCodeError as exc:
-        record_auth_attempt(db, action="register", identifier=ip)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+    code_row = None
+    if not is_bootstrap_admin:
+        try:
+            code_row = redeem_invite_code(db, payload.invite_code)
+        except InviteCodeError as exc:
+            record_auth_attempt(db, action="register", identifier=ip)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
 
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing is not None:
@@ -74,11 +84,13 @@ def register(
         hashed_password=hash_password(payload.password),
         consent_accepted_at=utcnow(),
         consent_version=CURRENT_TERMS_VERSION,
+        is_admin=is_bootstrap_admin,
     )
     db.add(user)
     db.flush()
-    code_row.used_by_user_id = user.id
-    code_row.used_at = utcnow()
+    if code_row is not None:
+        code_row.used_by_user_id = user.id
+        code_row.used_at = utcnow()
     db.commit()
     db.refresh(user)
     return user

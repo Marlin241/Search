@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -49,6 +50,18 @@ async def lifespan(app: FastAPI):
     # tests can monkeypatch `app.database.engine` to an isolated in-memory
     # database before the lifespan runs.
     database.Base.metadata.create_all(bind=database.engine)
+
+    # Promote any account whose email is listed in ADMIN_EMAILS. Guarded so a
+    # bootstrap hiccup never blocks startup. get_settings() is re-read (not the
+    # module-level `settings`) so the test suite's env overrides take effect.
+    if get_settings().admin_email_set:
+        from app.auth.admin_bootstrap import promote_configured_admins
+
+        try:
+            with database.SessionLocal() as bootstrap_db:
+                promote_configured_admins(bootstrap_db, get_settings().admin_email_set)
+        except Exception:  # pragma: no cover - defensive
+            logging.getLogger(__name__).exception("admin bootstrap failed")
 
     # A fresh BackgroundScheduler is created on every lifespan entry
     # (rather than a module-level singleton) because APScheduler schedulers
