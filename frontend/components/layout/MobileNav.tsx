@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, isNavItemActive } from "@/lib/navConfig";
+import { useAuth } from "@/context/AuthContext";
+import { ADMIN_NAV_ITEM, NAV_ITEMS, isNavItemActive } from "@/lib/navConfig";
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const items = user?.is_admin ? [...NAV_ITEMS, ADMIN_NAV_ITEM] : NAV_ITEMS;
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border/80 bg-card/90 px-2 backdrop-blur-xl">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const isActive = isNavItemActive(pathname, item.href);
         const Icon = item.icon;
 

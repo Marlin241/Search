@@ -19,9 +19,9 @@ from app.rate_limit.limiter import (
 
 
 def _register_and_login(client, email: str = "jane@example.com") -> str:
-    client.post("/auth/register", json={"email": email, "password": "s3cret!1"})
-    login = client.post("/auth/login", data={"username": email, "password": "s3cret!1"})
-    return login.json()["access_token"]
+    from tests._helpers import register_and_login
+
+    return register_and_login(client, email)
 
 
 class FakeWorkingClient:
@@ -558,9 +558,17 @@ def test_compatibility_detail_rate_limited_after_max_per_hour(client):
     app.dependency_overrides[get_compatibility_detail_analyzer] = lambda: (
         FakeCompatibilityDetailAnalyzer()
     )
+    from app.models.user import User
+
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
     _onboard_with_cv(client, headers)
+    # Exercise the HOURLY limit; raise the monthly quota out of the way
+    # (Beta 3: monthly compatibility quota 13 < hourly 30).
+    client.db_session.query(User).update(
+        {"quota_overrides": {"compatibility": 99999}}
+    )
+    client.db_session.commit()
 
     for _ in range(MAX_COMPATIBILITY_DETAILS_PER_HOUR):
         response = client.post(

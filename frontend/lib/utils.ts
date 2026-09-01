@@ -1,9 +1,22 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { ApiError } from "./types";
 
 /** Merge Tailwind classes safely (deduplication + conditional) */
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * True when an error is a beta capacity limit (monthly quota reached, or
+ * LLM features globally paused) rather than a real failure - the UI shows
+ * these as a neutral notice, not a red error.
+ */
+export function isQuotaOrPauseError(err: unknown): err is ApiError {
+  return (
+    err instanceof ApiError &&
+    (err.code === "quota_exceeded" || err.code === "llm_paused")
+  );
 }
 
 /**

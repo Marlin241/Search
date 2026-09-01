@@ -48,10 +48,19 @@ def test_cors_allows_configured_origin(client):
 
 
 def test_full_flow_register_login_diagnose_list_delete(client):
+    from scripts.invites import generate_codes
+
     app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
 
+    (code,) = generate_codes(client.db_session, count=1, note="e2e")
     register = client.post(
-        "/auth/register", json={"email": "flow@example.com", "password": "s3cret!1"}
+        "/auth/register",
+        json={
+            "email": "flow@example.com",
+            "password": "s3cret!1",
+            "invite_code": code,
+            "accept_terms": True,
+        },
     )
     assert register.status_code == 201
 

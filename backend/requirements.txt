@@ -20,3 +20,4 @@ apscheduler
 boto3
 fpdf2
 tzdata
+sentry-sdk[fastapi]

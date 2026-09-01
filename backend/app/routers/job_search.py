@@ -39,9 +39,12 @@ from app.job_search.unsubscribe import (
     InvalidUnsubscribeTokenError,
     verify_unsubscribe_token,
 )
+from app.llm.dependencies import require_llm_enabled
+from app.llm.usage import capture_usage, collected
 from app.models.candidate_profile import CandidateProfile
 from app.models.compatibility_request_log import CompatibilityRequestLog
 from app.models.job_search_request_log import JobSearchRequestLog
+from app.models.llm_call_log import LlmCallLog
 from app.models.saved_search import SavedSearch
 from app.models.user import User
 from app.rate_limit.limiter import (
@@ -50,6 +53,7 @@ from app.rate_limit.limiter import (
     check_job_search_rate_limit,
     lock_user_for_rate_limit,
 )
+from app.rate_limit.llm_quota import QuotaExceeded, enforce_monthly_quota
 from app.schemas.compatibility import (
     CompatibilityDetailIn,
     CompatibilityDetailOut,
@@ -193,6 +197,7 @@ def get_compatibility_detail(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     analyzer: CompatibilityDetailAnalyzer = Depends(get_compatibility_detail_analyzer),
+    _llm: None = Depends(require_llm_enabled),
 ) -> CompatibilityDetailOut:
     lock_user_for_rate_limit(db, current_user.id)
     try:
@@ -200,6 +205,13 @@ def get_compatibility_detail(
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+
+    try:
+        enforce_monthly_quota(db, current_user, "compatibility")
+    except QuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=exc.as_dict()
         ) from exc
 
     profile = (
@@ -219,13 +231,24 @@ def get_compatibility_detail(
     )
 
     try:
-        detail = analyzer.analyze(profile.cv_text, offer_text, breakdown)
+        with capture_usage():
+            detail = analyzer.analyze(profile.cv_text, offer_text, breakdown)
     except CompatibilityAnalysisError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
 
     db.add(CompatibilityRequestLog(user_id=current_user.id))
+    model, itok, otok = collected()
+    db.add(
+        LlmCallLog(
+            user_id=current_user.id,
+            feature="compatibility",
+            model=model,
+            input_tokens=itok,
+            output_tokens=otok,
+        )
+    )
     db.commit()
 
     return CompatibilityDetailOut(

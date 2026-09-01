@@ -1,8 +1,7 @@
 from functools import lru_cache
 
-import anthropic
-
 from app.config import get_settings
+from app.llm.client import build_anthropic_client
 from app.llm_analyzer.analyzer import SemanticAnalyzer
 
 
@@ -16,7 +15,7 @@ def get_semantic_analyzer() -> SemanticAnalyzer:
     # (and a DB connection) for a very long time under a hung API response.
     # max_retries=0 avoids double-retrying on top of SemanticAnalyzer's own
     # 2-attempt retry loop.
-    client = anthropic.Anthropic(
+    client = build_anthropic_client(
         api_key=settings.anthropic_api_key,
         timeout=30.0,
         max_retries=0,

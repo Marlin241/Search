@@ -15,6 +15,7 @@ from app import database
 from app.auth.dependencies import get_current_user
 from app.database import get_db
 from app.generation_jobs import state as generation_jobs_state
+from app.llm.dependencies import require_llm_enabled
 from app.llm_analyzer.analyzer import SemanticAnalyzer
 from app.llm_analyzer.dependencies import get_semantic_analyzer
 from app.models.diagnostic import Diagnostic
@@ -28,6 +29,7 @@ from app.rate_limit.limiter import (
     check_personalization_rate_limit,
     lock_user_for_rate_limit,
 )
+from app.rate_limit.llm_quota import QuotaExceeded, enforce_monthly_quota
 from app.schemas.generation_job import GenerationJobStarted
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
@@ -78,6 +80,7 @@ def generate_cv(
     rewriter: CvRewriter = Depends(get_cv_rewriter),
     analyzer: SemanticAnalyzer = Depends(get_semantic_analyzer),
     storage: ObjectStorage = Depends(get_object_storage),
+    _llm: None = Depends(require_llm_enabled),
 ) -> GenerationJobStarted:
     # Same lock-then-check pattern as diagnostics.create_diagnostic (see
     # app/rate_limit/limiter.py): take the row lock BEFORE checking the
@@ -95,6 +98,13 @@ def generate_cv(
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+
+    try:
+        enforce_monthly_quota(db, current_user, "cv")
+    except QuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=exc.as_dict()
         ) from exc
 
     diagnostic = _get_owned_diagnostic(db, diagnostic_id, current_user.id)
@@ -145,6 +155,7 @@ def generate_lettre(
     current_user: User = Depends(get_current_user),
     generator: CoverLetterGenerator = Depends(get_cover_letter_generator),
     storage: ObjectStorage = Depends(get_object_storage),
+    _llm: None = Depends(require_llm_enabled),
 ) -> GenerationJobStarted:
     # Same lock-then-check-then-commit-before-background-task pattern as
     # generate_cv above (see the comment there for why the commit before
@@ -156,6 +167,13 @@ def generate_lettre(
     except RateLimitExceeded as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)
+        ) from exc
+
+    try:
+        enforce_monthly_quota(db, current_user, "lettre")
+    except QuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=exc.as_dict()
         ) from exc
 
     diagnostic = _get_owned_diagnostic(db, diagnostic_id, current_user.id)

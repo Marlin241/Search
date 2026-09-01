@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -143,6 +144,8 @@ export default function OffresPage() {
   const [excludeKeywords, setExcludeKeywords] = useState("");
 
   const [listings, setListings] = useState<JobListing[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [unavailableSources, setUnavailableSources] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchId, setSearchId] = useState<string | null>(null);
   const [discoveryPending, setDiscoveryPending] = useState(false);
@@ -257,6 +260,8 @@ export default function OffresPage() {
     try {
       const res = await searchJobs(token, criteria);
       setListings(res.listings || []);
+      setHasSearched(true);
+      setUnavailableSources(res.unavailable_sources || []);
       setSearchId(res.search_id);
       setDiscoveryPending(res.discovery_pending);
       writeSearchCache(user.id, {
@@ -270,6 +275,11 @@ export default function OffresPage() {
       });
     } catch (err) {
       console.error("Job search error:", err);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "La recherche a échoué. Réessaie dans un instant."
+      );
     } finally {
       setIsSearching(false);
     }
@@ -296,6 +306,7 @@ export default function OffresPage() {
       setRemote(cached.remote);
       setExcludeKeywords(cached.excludeKeywords);
       setListings(cached.listings);
+      setHasSearched(true);
       setCacheInfo({ savedAt: cached.savedAt });
       return;
     }
@@ -491,6 +502,15 @@ export default function OffresPage() {
         </div>
       )}
 
+      {unavailableSources.length > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-xs text-foreground">
+          Certaines sources n'ont pas répondu cette fois (
+          {unavailableSources.map((s) => sourceLabel(s)).join(", ")}). Les
+          résultats peuvent être incomplets — relance la recherche dans un
+          moment.
+        </div>
+      )}
+
       {/* Results Section */}
       <div className="space-y-4">
         {listings.length > 0 && (
@@ -655,8 +675,16 @@ export default function OffresPage() {
             <div className="col-span-full">
               <EmptyState
                 icon={Search}
-                title="Prêt à lancer votre recherche ?"
-                description="Indiquez vos mots-clés et votre ville ci-dessus pour afficher les meilleures offres disponibles."
+                title={
+                  hasSearched
+                    ? "Aucune offre pour cette recherche"
+                    : "Prêt à lancer votre recherche ?"
+                }
+                description={
+                  hasSearched
+                    ? "Essaie d'élargir la zone, de retirer un filtre ou de changer de mots-clés."
+                    : "Indiquez vos mots-clés et votre ville ci-dessus pour afficher les meilleures offres disponibles."
+                }
               />
             </div>
           )}

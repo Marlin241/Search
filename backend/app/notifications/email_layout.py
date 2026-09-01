@@ -1,0 +1,120 @@
+"""Gabarit HTML de marque partagé par les emails transactionnels.
+
+Contraintes email : styles inline uniquement, layout en tables, pas de
+flex/grid, largeur ~600px, les polices web ne chargent pas (fallback
+système). Le nom produit reste "Search" (provisoire, cf. lib/brand.ts)."""
+
+import html
+from urllib.parse import urlsplit
+
+_ALLOWED_URL_SCHEMES = {"http", "https"}
+
+
+def safe_href(url: str) -> str:
+    """N'autorise que les URL http(s) — neutralise `javascript:` et autres
+    schémas exécutables qu'une source amont compromise pourrait glisser.
+    L'échappement HTML seul n'y suffit pas (le schéma ne contient aucun
+    caractère spécial HTML)."""
+    if urlsplit(url).scheme not in _ALLOWED_URL_SCHEMES:
+        return "#"
+    return html.escape(url)
+
+
+BRAND_NAME = "Search"
+PARENT_NAME = "Yokkute Labs"
+PARENT_URL = "https://yokkutelabs.com"
+
+_PRIMARY = "#4f46e5"  # indigo — cohérent avec le design system du produit
+_INK = "#1e1b2e"
+_MUTED = "#6b7280"
+_BG = "#f4f4f7"
+_CARD = "#ffffff"
+_BORDER = "#e6e6ef"
+_FONT = (
+    "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,"
+    "'Apple Color Emoji','Segoe UI Emoji',sans-serif"
+)
+
+
+def _wordmark() -> str:
+    return (
+        f'<table role="presentation" cellpadding="0" cellspacing="0" border="0">'
+        f"<tr>"
+        f'<td style="background:{_PRIMARY};border-radius:8px;width:34px;'
+        f"height:34px;text-align:center;vertical-align:middle;color:#fff;"
+        f'font-size:18px;font-family:{_FONT};">&#10022;</td>'
+        f'<td style="padding-left:10px;font-family:{_FONT};font-size:19px;'
+        f'font-weight:700;color:{_INK};letter-spacing:-0.01em;">'
+        f"{BRAND_NAME}</td>"
+        f"</tr></table>"
+    )
+
+
+def _button(label: str, href: str) -> str:
+    safe = safe_href(href)
+    return (
+        f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        f'style="margin:24px 0;"><tr>'
+        f'<td style="background:{_PRIMARY};border-radius:8px;">'
+        f'<a href="{safe}" style="display:inline-block;padding:12px 24px;'
+        f"font-family:{_FONT};font-size:15px;font-weight:600;color:#ffffff;"
+        f'text-decoration:none;">{html.escape(label)}</a>'
+        f"</td></tr></table>"
+    )
+
+
+def render_email(
+    *,
+    heading: str,
+    paragraphs: list[str],
+    cta: tuple[str, str] | None = None,
+    context_line: str,
+    preheader: str = "",
+) -> str:
+    """`heading` et `context_line` sont échappés ; `paragraphs` est du HTML
+    déjà sûr (les appelants n'y injectent que des libellés maîtrisés ou des
+    valeurs passées par `html.escape`). `cta` = (label, href)."""
+    blocks = "".join(
+        f'<p style="margin:0 0 16px;font-family:{_FONT};font-size:15px;'
+        f'line-height:1.6;color:{_INK};">{p}</p>'
+        for p in paragraphs
+    )
+    button = _button(*cta) if cta else ""
+    hidden_preheader = (
+        f'<div style="display:none;max-height:0;overflow:hidden;opacity:0;">'
+        f"{html.escape(preheader)}</div>"
+        if preheader
+        else ""
+    )
+    return (
+        '<!doctype html><html lang="fr"><head>'
+        '<meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="color-scheme" content="light">'
+        f"<title>{html.escape(heading)}</title></head>"
+        f'<body style="margin:0;padding:0;background:{_BG};">'
+        f"{hidden_preheader}"
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'border="0" style="background:{_BG};padding:32px 12px;"><tr><td align="center">'
+        f'<table role="presentation" width="600" cellpadding="0" cellspacing="0" '
+        f'border="0" style="width:600px;max-width:100%;">'
+        # header
+        f'<tr><td style="padding:0 8px 20px;">{_wordmark()}</td></tr>'
+        # card
+        f'<tr><td style="background:{_CARD};border:1px solid {_BORDER};'
+        f'border-radius:14px;padding:32px;">'
+        f'<h1 style="margin:0 0 20px;font-family:{_FONT};font-size:20px;'
+        f'font-weight:700;color:{_INK};">{html.escape(heading)}</h1>'
+        f"{blocks}{button}"
+        f"</td></tr>"
+        # footer
+        f'<tr><td style="padding:20px 8px 0;font-family:{_FONT};font-size:12px;'
+        f'line-height:1.6;color:{_MUTED};">'
+        f'<p style="margin:0 0 6px;">{html.escape(context_line)}</p>'
+        f'<p style="margin:0;">{BRAND_NAME} — un produit '
+        f'<a href="{PARENT_URL}" style="color:{_MUTED};">{PARENT_NAME}</a>. '
+        "Le copilote IA pour ta recherche d’emploi, pensé pour Dakar "
+        "et l’Afrique de l’Ouest.</p>"
+        f"</td></tr>"
+        f"</table></td></tr></table></body></html>"
+    )

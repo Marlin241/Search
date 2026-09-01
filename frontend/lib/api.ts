@@ -1,5 +1,10 @@
 import {
   ApiError,
+  type AdminAccessRequest,
+  type AdminFeedback,
+  type AdminInvite,
+  type AdminOverview,
+  type AdminUser,
   type ApplicationCreateIn,
   type ApplicationOut,
   type CandidateProfileIn,
@@ -33,6 +38,7 @@ import {
   type SavedSearchOut,
   type SearchCriteria,
   type Token,
+  type UsageItem,
   type User,
 } from "./types";
 
@@ -50,9 +56,13 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   onUnauthorized = handler;
 }
 
-function handleResponseError(status: number, detail: string): never {
+function handleResponseError(
+  status: number,
+  detail: string,
+  code?: string
+): never {
   if (status === 401) onUnauthorized?.();
-  throw new ApiError(status, detail);
+  throw new ApiError(status, detail, code);
 }
 
 /* ─── Helpers ─── */
@@ -80,13 +90,20 @@ async function request<T>(
 
   if (!res.ok) {
     let detail = `Erreur ${res.status}`;
+    let code: string | undefined;
     try {
       const body = await res.json();
-      detail = body.detail ?? detail;
+      if (body && typeof body.detail === "object" && body.detail !== null) {
+        // Structured errors, e.g. { code: "quota_exceeded", message, ... }
+        detail = body.detail.message ?? detail;
+        code = body.detail.code;
+      } else {
+        detail = body.detail ?? detail;
+      }
     } catch {
       /* ignore parse error */
     }
-    handleResponseError(res.status, detail);
+    handleResponseError(res.status, detail, code);
   }
 
   if (res.status === 204) return undefined as T;
@@ -100,11 +117,34 @@ async function request<T>(
 
 export async function register(
   email: string,
-  password: string
+  password: string,
+  inviteCode: string
 ): Promise<User> {
   return request<User>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      invite_code: inviteCode,
+      accept_terms: true,
+    }),
+  });
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  await request<void>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(
+  token: string,
+  password: string
+): Promise<void> {
+  await request<void>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
   });
 }
 
@@ -120,6 +160,25 @@ export async function login(
     body: form,
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
+}
+
+export async function getUsage(token: string): Promise<UsageItem[]> {
+  return request<UsageItem[]>("/auth/me/usage", {}, token);
+}
+
+export async function exportAccount(token: string): Promise<Blob> {
+  return requestBlob("/auth/me/export", token);
+}
+
+export async function deleteAccount(
+  token: string,
+  password: string
+): Promise<void> {
+  await request<void>(
+    "/auth/me",
+    { method: "DELETE", body: JSON.stringify({ password }) },
+    token
+  );
 }
 
 export async function fetchMe(token: string): Promise<User> {
@@ -608,3 +667,126 @@ export async function deleteInterview(
 ): Promise<void> {
   return request<void>(`/interviews/${interviewId}`, { method: "DELETE" }, token);
 }
+
+/* ─── Feedback ─── */
+
+export async function sendFeedback(
+  token: string,
+  page: string,
+  message: string
+): Promise<void> {
+  await request<void>(
+    "/feedback",
+    { method: "POST", body: JSON.stringify({ page, message }) },
+    token
+  );
+}
+
+/* ─── Demande d'accès (public, sans token) ─── */
+
+export async function requestAccess(email: string, note: string): Promise<void> {
+  await request<void>("/access-requests", {
+    method: "POST",
+    body: JSON.stringify({ email, note, company: "" }),
+  });
+}
+
+/* ─── Admin ─── */
+
+export const admin = {
+  getOverview: (token: string): Promise<AdminOverview> =>
+    request<AdminOverview>("/admin/overview", {}, token),
+
+  getUsers: (token: string): Promise<AdminUser[]> =>
+    request<AdminUser[]>("/admin/users", {}, token),
+
+  getUser: (token: string, id: number): Promise<AdminUser> =>
+    request<AdminUser>(`/admin/users/${id}`, {}, token),
+
+  patchUserQuota: (
+    token: string,
+    id: number,
+    feature: string,
+    limit: number | null
+  ): Promise<AdminUser> =>
+    request<AdminUser>(
+      `/admin/users/${id}/quota`,
+      { method: "PATCH", body: JSON.stringify({ feature, limit }) },
+      token
+    ),
+
+  patchUserActive: (
+    token: string,
+    id: number,
+    active: boolean
+  ): Promise<AdminUser> =>
+    request<AdminUser>(
+      `/admin/users/${id}/active`,
+      { method: "PATCH", body: JSON.stringify({ active }) },
+      token
+    ),
+
+  getInvites: (token: string): Promise<AdminInvite[]> =>
+    request<AdminInvite[]>("/admin/invites", {}, token),
+
+  createInvites: (
+    token: string,
+    count: number,
+    note: string | null
+  ): Promise<{ codes: string[] }> =>
+    request<{ codes: string[] }>(
+      "/admin/invites",
+      { method: "POST", body: JSON.stringify({ count, note }) },
+      token
+    ),
+
+  revokeInvite: (token: string, code: string): Promise<void> =>
+    request<void>(
+      `/admin/invites/${encodeURIComponent(code)}`,
+      { method: "DELETE" },
+      token
+    ),
+
+  toggleLlm: (token: string, enabled: boolean): Promise<{ enabled: boolean }> =>
+    request<{ enabled: boolean }>(
+      "/admin/llm-toggle",
+      { method: "POST", body: JSON.stringify({ enabled }) },
+      token
+    ),
+
+  getFeedback: (token: string): Promise<AdminFeedback[]> =>
+    request<AdminFeedback[]>("/admin/feedback", {}, token),
+
+  markFeedbackHandled: (token: string, id: number): Promise<void> =>
+    request<void>(`/admin/feedback/${id}/handled`, { method: "POST" }, token),
+
+  getAccessRequests: (
+    token: string,
+    pendingOnly = false
+  ): Promise<AdminAccessRequest[]> =>
+    request<AdminAccessRequest[]>(
+      `/admin/access-requests${pendingOnly ? "?pending=true" : ""}`,
+      {},
+      token
+    ),
+
+  approveAccessRequest: (
+    token: string,
+    id: number
+  ): Promise<AdminAccessRequest> =>
+    request<AdminAccessRequest>(
+      `/admin/access-requests/${id}/approve`,
+      { method: "POST" },
+      token
+    ),
+
+  dismissAccessRequest: (
+    token: string,
+    id: number
+  ): Promise<AdminAccessRequest> =>
+    request<AdminAccessRequest>(
+      `/admin/access-requests/${id}/dismiss`,
+      { method: "POST" },
+      token
+    ),
+};

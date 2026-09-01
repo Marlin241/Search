@@ -1,0 +1,9 @@
+# Copier vers deploy/backup/rclone.conf (gitignoré) et renseigner.
+# Valeurs depuis Cloudflare dashboard > R2 > Manage R2 API Tokens.
+[r2]
+type = s3
+provider = Cloudflare
+access_key_id = REMPLIR
+secret_access_key = REMPLIR
+endpoint = https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+acl = private

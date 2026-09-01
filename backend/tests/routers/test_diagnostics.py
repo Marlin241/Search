@@ -35,9 +35,9 @@ def _clean_cv_docx_bytes() -> bytes:
 
 
 def _register_and_login(client, email: str = "jane@example.com") -> str:
-    client.post("/auth/register", json={"email": email, "password": "s3cret!1"})
-    login = client.post("/auth/login", data={"username": email, "password": "s3cret!1"})
-    return login.json()["access_token"]
+    from tests._helpers import register_and_login
+
+    return register_and_login(client, email)
 
 
 def test_create_diagnostic_returns_combined_report(client):
@@ -220,9 +220,15 @@ def test_create_diagnostic_oversized_offer_text_returns_422(client):
 
 
 def test_rate_limit_returns_429(client):
+    from app.models.user import User
+
     app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
     token = _register_and_login(client)
     headers = {"Authorization": f"Bearer {token}"}
+    # This test exercises the HOURLY limit; raise the monthly quota so it
+    # isn't the thing that trips first (Beta 3: monthly quota 7 < hourly 10).
+    client.db_session.query(User).update({"quota_overrides": {"diagnostic": 9999}})
+    client.db_session.commit()
 
     for _ in range(MAX_DIAGNOSTICS_PER_HOUR):
         response = client.post(

@@ -1,0 +1,66 @@
+name: search-monitoring
+
+x-gt-env: &gt-env
+  DATABASE_URL: postgres://postgres:${GT_PG_PASSWORD:?set GT_PG_PASSWORD}@gt-postgres:5432/glitchtip
+  SECRET_KEY: ${GT_SECRET_KEY:?set GT_SECRET_KEY}
+  REDIS_URL: redis://gt-redis:6379/0
+  DEFAULT_FROM_EMAIL: ${GT_FROM_EMAIL:-monitoring@yokkutelabs.com}
+  EMAIL_URL: ${GT_EMAIL_URL:-consolemail://}
+  GLITCHTIP_DOMAIN: ${GT_DOMAIN:-http://localhost:3001}
+  ENABLE_OPEN_USER_REGISTRATION: "False"
+
+services:
+  gt-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${GT_PG_PASSWORD:?set GT_PG_PASSWORD}
+      POSTGRES_DB: glitchtip
+    volumes: [gt_pg:/var/lib/postgresql/data]
+    restart: unless-stopped
+    networks: [monitoring]
+
+  gt-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks: [monitoring]
+
+  gt-web:
+    image: glitchtip/glitchtip:latest
+    depends_on: [gt-postgres, gt-redis]
+    environment: *gt-env
+    volumes: [gt_uploads:/code/uploads]
+    ports: ["127.0.0.1:3001:8080"]
+    restart: unless-stopped
+    networks: [monitoring]
+
+  gt-worker:
+    image: glitchtip/glitchtip:latest
+    command: ./bin/run-celery-with-beat.sh
+    depends_on: [gt-postgres, gt-redis]
+    environment: *gt-env
+    volumes: [gt_uploads:/code/uploads]
+    restart: unless-stopped
+    networks: [monitoring]
+
+  gt-migrate:
+    image: glitchtip/glitchtip:latest
+    command: ./manage.py migrate
+    depends_on: [gt-postgres]
+    environment: *gt-env
+    networks: [monitoring]
+    restart: on-failure
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    volumes: [kuma:/app/data]
+    ports: ["127.0.0.1:3002:3001"]
+    restart: unless-stopped
+
+volumes:
+  gt_pg:
+  gt_uploads:
+  kuma:
+
+networks:
+  monitoring:

@@ -1,9 +1,8 @@
 from functools import lru_cache
 
-import anthropic
-
 from app.config import get_settings
 from app.interview_prep.analyzer import InterviewPrepAnalyzer
+from app.llm.client import build_anthropic_client
 
 
 @lru_cache
@@ -13,7 +12,7 @@ def get_interview_prep_analyzer() -> InterviewPrepAnalyzer:
     # never while holding the rate-limit row lock (unlike the synchronous
     # personalization calls) - so a long timeout is safe here. Phase A
     # (web search) alone can take several minutes per the plan.
-    client = anthropic.Anthropic(
+    client = build_anthropic_client(
         api_key=settings.anthropic_api_key,
         timeout=300.0,
         max_retries=0,

@@ -1,12 +1,11 @@
 from functools import lru_cache
 
-import anthropic
-
 from app.config import get_settings
+from app.llm.client import UsageRecordingAnthropic, build_anthropic_client
 from app.personalization.analyzer import CoverLetterGenerator, CvRewriter
 
 
-def _build_client() -> anthropic.Anthropic:
+def _build_client() -> UsageRecordingAnthropic:
     settings = get_settings()
     # Same reasoning as app.llm_analyzer.dependencies.get_semantic_analyzer:
     # this call holds the per-user rate-limit row lock for its duration, so
@@ -15,7 +14,7 @@ def _build_client() -> anthropic.Anthropic:
     # 2-attempt retry loop in app.personalization.analyzer. The timeout is
     # higher than the diagnostic's 30s because CV rewriting produces more
     # output tokens.
-    return anthropic.Anthropic(
+    return build_anthropic_client(
         api_key=settings.anthropic_api_key,
         timeout=60.0,
         max_retries=0,

@@ -9,6 +9,8 @@ from app.job_search.schemas import JobListing
 from app.models.application import Application
 from app.notifications.resend_client import (
     EmailSendError,
+    send_access_granted_email,
+    send_access_request_confirmation,
     send_application_reminders_email,
     send_daily_digest_email,
 )
@@ -211,3 +213,70 @@ def test_send_application_reminders_email_escapes_html_in_fields():
     payload = json.loads(route.calls[0].request.content)
     assert "<script>" not in payload["html"]
     assert "&lt;script&gt;" in payload["html"]
+
+
+@respx.mock
+def test_send_access_request_confirmation_posts_to_resend():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    send_access_request_confirmation("cand@example.com")
+
+    assert route.called
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["to"] == ["cand@example.com"]
+    assert "demande d'accès" in payload["subject"].lower()
+
+
+@respx.mock
+def test_send_access_request_confirmation_raises_on_http_error():
+    respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(422, json={"message": "bad"})
+    )
+    with pytest.raises(EmailSendError):
+        send_access_request_confirmation("cand@example.com")
+
+
+@respx.mock
+def test_send_access_granted_email_includes_code_and_login_link():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    send_access_granted_email(
+        "cand@example.com", "TALYA-x8k2", "https://beta.example.com/login"
+    )
+
+    payload = json.loads(route.calls[0].request.content)
+    assert payload["to"] == ["cand@example.com"]
+    assert "TALYA-x8k2" in payload["html"]
+    assert 'href="https://beta.example.com/login"' in payload["html"]
+
+
+@respx.mock
+def test_send_access_granted_email_rejects_non_http_login_url():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    send_access_granted_email("cand@example.com", "CODE", "javascript:alert(1)")
+
+    payload = json.loads(route.calls[0].request.content)
+    assert "javascript:" not in payload["html"]
+    assert 'href="#"' in payload["html"]
+
+
+@respx.mock
+def test_send_access_granted_email_escapes_html_in_code():
+    route = respx.post("https://api.resend.com/emails").mock(
+        return_value=httpx.Response(200, json={"id": "abc"})
+    )
+
+    send_access_granted_email(
+        "cand@example.com", "<b>x</b>", "https://beta.example.com/login"
+    )
+
+    payload = json.loads(route.calls[0].request.content)
+    assert "<b>x</b>" not in payload["html"]
+    assert "&lt;b&gt;x&lt;/b&gt;" in payload["html"]

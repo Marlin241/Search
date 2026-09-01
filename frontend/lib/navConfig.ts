@@ -3,6 +3,7 @@ import {
   Search,
   FileCheck2,
   UserCheck,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,6 +23,14 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/diagnostic", label: "Diagnostic ATS", mobileLabel: "ATS", icon: FileCheck2 },
   { href: "/profil", label: "Mon profil", mobileLabel: "Profil", icon: UserCheck },
 ];
+
+// Shown in the sidebar/mobile nav only when the current user has `is_admin`.
+export const ADMIN_NAV_ITEM: NavItem = {
+  href: "/admin",
+  label: "Admin",
+  mobileLabel: "Admin",
+  icon: Shield,
+};
 
 export function isNavItemActive(pathname: string, href: string): boolean {
   return pathname === href || (href !== "/dashboard" && pathname.startsWith(href));

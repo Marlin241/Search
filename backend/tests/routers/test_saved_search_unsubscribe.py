@@ -2,9 +2,9 @@ from app.job_search.unsubscribe import create_unsubscribe_token
 
 
 def _register_and_login(client, email: str = "jane@example.com") -> str:
-    client.post("/auth/register", json={"email": email, "password": "s3cret!1"})
-    login = client.post("/auth/login", data={"username": email, "password": "s3cret!1"})
-    return login.json()["access_token"]
+    from tests._helpers import register_and_login
+
+    return register_and_login(client, email)
 
 
 def test_unsubscribe_disables_the_saved_search(client):

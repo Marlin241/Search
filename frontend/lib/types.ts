@@ -3,6 +3,7 @@
 export interface User {
   id: number;
   email: string;
+  is_admin: boolean;
 }
 
 export interface Token {
@@ -456,10 +457,74 @@ export interface ConfirmApplicationIn {
 export class ApiError extends Error {
   status: number;
   detail: string;
+  code?: string;
 
-  constructor(status: number, detail: string) {
+  constructor(status: number, detail: string, code?: string) {
     super(detail);
     this.status = status;
     this.detail = detail;
+    this.code = code;
   }
+}
+
+export interface UsageItem {
+  feature: string;
+  label: string;
+  used: number;
+  limit: number;
+  reset_date: string;
+}
+
+/* ─── Admin ─── */
+
+export interface AdminOverview {
+  users_total: number;
+  users_active_7d: number;
+  llm_calls_this_month: Record<string, number>;
+  tokens_this_month: { input: number; output: number };
+  llm_features_enabled: boolean;
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  created_at: string;
+  is_admin: boolean;
+  is_active: boolean;
+  invite_note: string | null;
+  consent_version: string | null;
+  consent_accepted_at: string | null;
+  last_activity_at: string | null;
+  quota_overrides: Record<string, number> | null;
+  usage: UsageItem[];
+}
+
+export interface AdminInvite {
+  code: string;
+  note: string | null;
+  created_at: string;
+  expires_at: string | null;
+  used_by_email: string | null;
+  used_at: string | null;
+}
+
+export interface AdminFeedback {
+  id: number;
+  user_email: string | null;
+  page: string;
+  message: string;
+  created_at: string;
+  handled_at: string | null;
+}
+
+export type AccessRequestStatus = "pending" | "approved" | "dismissed";
+
+export interface AdminAccessRequest {
+  id: number;
+  email: string;
+  note: string;
+  status: AccessRequestStatus;
+  created_at: string;
+  handled_at: string | null;
+  invite_code: string | null;
 }

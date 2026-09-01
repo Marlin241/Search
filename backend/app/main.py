@@ -1,8 +1,11 @@
+import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app import (
     database,
@@ -10,14 +13,20 @@ from app import (
 )
 from app.applications.reminders import run_application_reminders
 from app.config import get_settings
+from app.database import get_db
+from app.errors import register_exception_handlers
 from app.job_search.crawl_runner import run_crawl
 from app.job_search.daily_search import run_daily_search
+from app.observability import init_sentry
 from app.routers import (
+    access_requests,
+    admin,
     applications,
     auth,
     candidate_profile,
     dashboard,
     diagnostics,
+    feedback,
     generation_jobs,
     interview_prep,
     interviews,
@@ -27,6 +36,9 @@ from app.routers import (
 )
 
 settings = get_settings()
+
+# No-op unless GLITCHTIP_DSN is set (so tests / dev are unaffected).
+init_sentry()
 
 
 @asynccontextmanager
@@ -39,6 +51,18 @@ async def lifespan(app: FastAPI):
     # tests can monkeypatch `app.database.engine` to an isolated in-memory
     # database before the lifespan runs.
     database.Base.metadata.create_all(bind=database.engine)
+
+    # Promote any account whose email is listed in ADMIN_EMAILS. Guarded so a
+    # bootstrap hiccup never blocks startup. get_settings() is re-read (not the
+    # module-level `settings`) so the test suite's env overrides take effect.
+    if get_settings().admin_email_set:
+        from app.auth.admin_bootstrap import promote_configured_admins
+
+        try:
+            with database.SessionLocal() as bootstrap_db:
+                promote_configured_admins(bootstrap_db, get_settings().admin_email_set)
+        except Exception:  # pragma: no cover - defensive
+            logging.getLogger(__name__).exception("admin bootstrap failed")
 
     # A fresh BackgroundScheduler is created on every lifespan entry
     # (rather than a module-level singleton) because APScheduler schedulers
@@ -91,6 +115,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(applications.router)
 app.include_router(diagnostics.router)
 app.include_router(personalization.router)
@@ -101,8 +126,24 @@ app.include_router(generation_jobs.router)
 app.include_router(interview_prep.router)
 app.include_router(interviews.router)
 app.include_router(dashboard.router)
+app.include_router(feedback.router)
+app.include_router(access_requests.router)
+
+register_exception_handlers(app)
+
+
+APP_VERSION = "beta"
+
+
+def _probe_db(db: Session) -> None:
+    db.execute(text("SELECT 1"))
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health(response: Response, db: Session = Depends(get_db)) -> dict[str, str | None]:
+    try:
+        _probe_db(db)
+        return {"status": "ok", "db": "ok", "version": APP_VERSION}
+    except Exception:  # noqa: BLE001 - a health probe must never propagate
+        response.status_code = 503
+        return {"status": "degraded", "db": "error", "version": APP_VERSION}

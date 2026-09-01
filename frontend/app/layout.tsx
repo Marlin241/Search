@@ -3,6 +3,7 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Providers } from "@/app/providers";
+import { PRODUCT_NAME, TAGLINE, SITE_URL } from "@/lib/brand";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,9 +18,9 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Search — Copilote IA de recherche d'emploi",
-  description:
-    "Analyse ton CV, optimise tes candidatures et décroche ton job idéal avec l'IA.",
+  metadataBase: new URL(SITE_URL),
+  title: `${PRODUCT_NAME} — recherche d'emploi assistée par IA`,
+  description: TAGLINE,
 };
 
 export default function RootLayout({
