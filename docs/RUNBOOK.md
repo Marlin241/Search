@@ -59,11 +59,36 @@ ajoutent leurs sections au fil de leur exécution.
 
 ## 2. Déploiement courant
 
-`cd /opt/search && deploy/deploy.sh` (ou `deploy/deploy.sh <tag-ou-commit>`).
+**Automatique** : chaque push sur `main` déclenche `.github/workflows/ci.yml` ;
+si les jobs `backend` + `frontend` passent, le job `deploy` se connecte en SSH
+au VPS et lance `deploy/deploy.sh origin/main`. Redéploiement manuel possible
+via l'onglet **Actions ▸ CI ▸ Run workflow**.
+
+**Manuel** (rollback, ou CI indisponible) : `cd /opt/search && deploy/deploy.sh`
+(ou `deploy/deploy.sh <tag-ou-commit>`).
+
 Rappel : le backend n'a pas de volume mount — le rebuild est fait par le
 script. Vérif : `curl -s https://api.beta.yokkutelabs.com/health`.
 Les migrations Alembic sont appliquées automatiquement au démarrage du
-conteneur backend (`alembic upgrade head` dans son `CMD`).
+conteneur backend (`alembic upgrade head` dans son `CMD`) ; si elles échouent,
+`/health` ne repasse pas OK, `deploy.sh` sort en erreur et le job GitHub échoue.
+
+### Secrets GitHub à créer (Settings ▸ Secrets and variables ▸ Actions)
+
+Tant qu'ils sont absents, le job `deploy` se contente d'un message et passe.
+
+| Secret | Contenu |
+| --- | --- |
+| `DEPLOY_SSH_HOST` | IP ou hostname du VPS |
+| `DEPLOY_SSH_USER` | utilisateur de déploiement (accès à `/opt/search` + `docker`) |
+| `DEPLOY_SSH_KEY` | clé privée SSH **dédiée au déploiement** (`ssh-keygen -t ed25519 -f deploy_key -N ""` ; `deploy_key.pub` → `~/.ssh/authorized_keys` de l'utilisateur sur le VPS) |
+| `DEPLOY_KNOWN_HOSTS` | sortie de `ssh-keyscan <host>` (épingle la clé du serveur — anti-MITM) |
+
+Restreindre la clé côté serveur (`authorized_keys`) :
+`from="<ip-github-actions>",no-port-forwarding,no-agent-forwarding,no-X11-forwarding …`
+n'est pas possible (les runners GitHub n'ont pas d'IP fixe) — utiliser un
+utilisateur dédié aux droits minimaux, ou un runner self-hosted sur le VPS si
+on veut fermer l'accès SSH entrant.
 
 ## 3. Rollback
 

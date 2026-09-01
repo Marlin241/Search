@@ -4,6 +4,7 @@ on:
   push:
   pull_request:
     branches: [main]
+  workflow_dispatch: # permet un redéploiement manuel depuis l'onglet Actions
 
 jobs:
   backend:
@@ -51,3 +52,47 @@ jobs:
         run: npm run typecheck
       - name: next build
         run: npm run build
+
+  # Déploiement automatique : uniquement sur push (ou run manuel) vers main,
+  # et seulement si backend + frontend passent. Le VPS applique les migrations
+  # au démarrage du conteneur (cf. RUNBOOK §2) ; si /health ne repasse pas OK,
+  # deploy.sh sort en erreur et ce job échoue.
+  deploy:
+    needs: [backend, frontend]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Vérifier la présence des secrets de déploiement
+        id: cfg
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+        run: |
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "::notice::Secrets de deploiement absents (DEPLOY_SSH_HOST/USER/KEY/KNOWN_HOSTS) — job ignore."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Déployer sur le VPS via SSH
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_SSH_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            'cd /opt/search && deploy/deploy.sh origin/main'
