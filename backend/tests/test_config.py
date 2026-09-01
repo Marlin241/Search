@@ -2,8 +2,14 @@ from app.config import Settings
 
 
 def _settings(**kw):
+    # _env_file=None so an ambient backend/.env (which may set ADMIN_EMAILS on a
+    # dev machine) never leaks into these assertions.
     return Settings(
-        database_url="postgresql://x/x", jwt_secret="x", anthropic_api_key="x", **kw
+        _env_file=None,
+        database_url="postgresql://x/x",
+        jwt_secret="x",
+        anthropic_api_key="x",
+        **kw,
     )
 
 
