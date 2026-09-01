@@ -565,9 +565,7 @@ def test_compatibility_detail_rate_limited_after_max_per_hour(client):
     _onboard_with_cv(client, headers)
     # Exercise the HOURLY limit; raise the monthly quota out of the way
     # (Beta 3: monthly compatibility quota 13 < hourly 30).
-    client.db_session.query(User).update(
-        {"quota_overrides": {"compatibility": 99999}}
-    )
+    client.db_session.query(User).update({"quota_overrides": {"compatibility": 99999}})
     client.db_session.commit()
 
     for _ in range(MAX_COMPATIBILITY_DETAILS_PER_HOUR):
