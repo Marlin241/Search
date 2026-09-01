@@ -3,7 +3,7 @@
 # Usage: deploy/deploy.sh [git-ref]
 set -euo pipefail
 
-REF="${1:-origin/feature/beta-launch}"
+REF="${1:-origin/main}"
 COMPOSE="docker compose -f docker-compose.prod.yml"
 
 echo "==> Fetch + checkout $REF"
