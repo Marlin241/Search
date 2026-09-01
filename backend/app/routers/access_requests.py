@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models.access_request import AccessRequest
 from app.notifications.resend_client import (
     EmailSendError,
+    send_access_request_confirmation,
     send_access_request_notification,
 )
 from app.rate_limit.auth_throttle import (
@@ -32,6 +33,8 @@ def create_access_request(
     if payload.company.strip():
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    email = str(payload.email).strip().lower()
+
     ip = client_ip(request)
     try:
         check_auth_throttle(db, action="access_request", identifier=ip)
@@ -47,16 +50,23 @@ def create_access_request(
 
     db.add(
         AccessRequest(
-            email=str(payload.email).strip().lower(),
+            email=email,
             note=payload.note.strip()[:1000],
             source_ip=ip,
         )
     )
     db.commit()
 
+    # Accusé de réception au demandeur (non bloquant).
+    try:
+        send_access_request_confirmation(email)
+    except EmailSendError:
+        logger.exception("access request confirmation email failed")
+
+    # Notification à l'admin (no-op si ADMIN_NOTIFY_EMAIL vide, non bloquant).
     try:
         send_access_request_notification(
-            get_settings().admin_notify_email, str(payload.email), payload.note
+            get_settings().admin_notify_email, email, payload.note
         )
     except EmailSendError:
         logger.exception("access request notification email failed")

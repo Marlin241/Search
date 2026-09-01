@@ -770,9 +770,22 @@ export const admin = {
       token
     ),
 
-  markAccessRequestHandled: (token: string, id: number): Promise<void> =>
-    request<void>(
-      `/admin/access-requests/${id}/handled`,
+  approveAccessRequest: (
+    token: string,
+    id: number
+  ): Promise<AdminAccessRequest> =>
+    request<AdminAccessRequest>(
+      `/admin/access-requests/${id}/approve`,
+      { method: "POST" },
+      token
+    ),
+
+  dismissAccessRequest: (
+    token: string,
+    id: number
+  ): Promise<AdminAccessRequest> =>
+    request<AdminAccessRequest>(
+      `/admin/access-requests/${id}/dismiss`,
       { method: "POST" },
       token
     ),

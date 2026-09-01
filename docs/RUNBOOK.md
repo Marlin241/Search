@@ -118,9 +118,13 @@ jamais supprimer ni renommer de colonne (ajouts nullable uniquement).
   `[À CONFIRMER : …]` (forme juridique, pays de l'hébergeur, email) doivent
   être renseignées avant l'ouverture du beta.
 - **Demandes d'accès (table `access_requests`)** : déposées depuis la landing
-  publique, non rattachées à un compte. Purge des demandes non converties
-  (> 90 j) :
-  `docker exec search-db-1 psql -U postgres -d ats_diagnostic -c "DELETE FROM access_requests WHERE handled_at IS NULL AND created_at < now() - interval '90 days';"`
+  publique, non rattachées à un compte. Le demandeur reçoit un accusé de
+  réception ; l'admin est notifié si `ADMIN_NOTIFY_EMAIL` est renseigné.
+  Traitement dans `/admin ▸ Demandes d'accès` : **Approuver** génère un code
+  d'invitation à usage unique (30 j) et l'envoie par email au demandeur ;
+  **Écarter** clôt sans email. `status` ∈ `pending` / `approved` / `dismissed`.
+  Purge des demandes en attente (> 90 j) :
+  `docker exec search-db-1 psql -U postgres -d ats_diagnostic -c "DELETE FROM access_requests WHERE status = 'pending' AND created_at < now() - interval '90 days';"`
   Sur demande d'effacement d'une personne qui avait demandé un accès :
   `docker exec search-db-1 psql -U postgres -d ats_diagnostic -c "DELETE FROM access_requests WHERE email = 'la-personne@example.com';"`
 

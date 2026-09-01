@@ -74,6 +74,35 @@ def send_access_request_notification(
     _send_email(admin_email, "Nouvelle demande d'accès à la beta", body)
 
 
+def send_access_request_confirmation(to_email: str) -> None:
+    """Accusé de réception envoyé au demandeur juste après le dépôt du
+    formulaire « Demander un accès » de la landing publique."""
+    body = (
+        "<p>Salut,</p>"
+        "<p>On a bien reçu ta demande d'accès à la beta. Elle est sur "
+        "invitation et les places sont limitées — on revient vers toi par "
+        "email dès qu'une place se libère.</p>"
+        "<p>— L'équipe Yokkute Labs</p>"
+    )
+    _send_email(to_email, "On a bien reçu ta demande d'accès", body)
+
+
+def send_access_granted_email(to_email: str, invite_code: str, login_url: str) -> None:
+    """Envoi du code d'invitation au demandeur quand l'admin approuve sa
+    demande d'accès."""
+    href = _safe_href(login_url)
+    body = (
+        "<p>Bonne nouvelle — ton accès à la beta est ouvert.</p>"
+        "<p><strong>Ton code d'invitation :</strong> "
+        f"<code>{html.escape(invite_code)}</code></p>"
+        f'<p><a href="{href}">Crée ton compte ici</a> — onglet '
+        "« Inscription », colle le code.</p>"
+        "<p>Le code est à usage unique et expire dans 30 jours.</p>"
+        "<p>— L'équipe Yokkute Labs</p>"
+    )
+    _send_email(to_email, "Ton accès à la beta est ouvert", body)
+
+
 def send_password_reset_email(to_email: str, reset_url: str) -> None:
     safe = _safe_href(reset_url)
     html_body = (

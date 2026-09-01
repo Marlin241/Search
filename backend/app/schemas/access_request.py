@@ -12,5 +12,7 @@ class AdminAccessRequestOut(BaseModel):
     id: int
     email: str
     note: str
+    status: str
     created_at: str
     handled_at: str | None
+    invite_code: str | None

@@ -42,7 +42,8 @@ export function AccessRequestForm() {
           Merci, c&apos;est noté.
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          On te recontacte dès qu&apos;une place se libère.
+          Un email de confirmation vient de t&apos;être envoyé. On te
+          recontacte dès qu&apos;une place se libère.
         </p>
       </div>
     );

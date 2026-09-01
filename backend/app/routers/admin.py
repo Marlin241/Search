@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -5,13 +6,20 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_admin
+from app.config import get_settings
 from app.database import get_db
 from app.llm.switch import llm_features_enabled, set_llm_features_enabled
-from app.models.access_request import AccessRequest
+from app.models.access_request import (
+    STATUS_APPROVED,
+    STATUS_DISMISSED,
+    STATUS_PENDING,
+    AccessRequest,
+)
 from app.models.feedback import Feedback
 from app.models.invite_code import InviteCode
 from app.models.llm_call_log import LlmCallLog
 from app.models.user import User
+from app.notifications.resend_client import EmailSendError, send_access_granted_email
 from app.rate_limit.llm_quota import FEATURES, usage_summary
 from app.schemas.access_request import AdminAccessRequestOut
 from app.schemas.admin import (
@@ -27,6 +35,8 @@ from app.schemas.admin import (
 )
 from app.utils.time import utcnow
 from scripts.invites import generate_codes, revoke_code
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/admin", tags=["admin"], dependencies=[Depends(get_current_admin)]
@@ -235,38 +245,76 @@ def mark_feedback_handled(feedback_id: int, db: Session = Depends(get_db)) -> Re
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def _access_request_out(row: AccessRequest) -> AdminAccessRequestOut:
+    return AdminAccessRequestOut(
+        id=row.id,
+        email=row.email,
+        note=row.note,
+        status=row.status,
+        created_at=_iso(row.created_at) or "",
+        handled_at=_iso(row.handled_at),
+        invite_code=row.invite_code,
+    )
+
+
 @router.get("/access-requests", response_model=list[AdminAccessRequestOut])
 def list_access_requests(
     pending: bool = False, db: Session = Depends(get_db)
 ) -> list[AdminAccessRequestOut]:
     stmt = select(AccessRequest).order_by(AccessRequest.created_at.desc())
     if pending:
-        stmt = stmt.where(AccessRequest.handled_at.is_(None))
-    return [
-        AdminAccessRequestOut(
-            id=r.id,
-            email=r.email,
-            note=r.note,
-            created_at=_iso(r.created_at) or "",
-            handled_at=_iso(r.handled_at),
-        )
-        for r in db.scalars(stmt)
-    ]
+        stmt = stmt.where(AccessRequest.status == STATUS_PENDING)
+    return [_access_request_out(r) for r in db.scalars(stmt)]
 
 
-@router.post(
-    "/access-requests/{request_id}/handled",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-def mark_access_request_handled(
-    request_id: int, db: Session = Depends(get_db)
-) -> Response:
+def _get_access_request(db: Session, request_id: int) -> AccessRequest:
     row = db.get(AccessRequest, request_id)
     if row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Demande introuvable."
         )
-    if row.handled_at is None:
+    return row
+
+
+@router.post(
+    "/access-requests/{request_id}/approve", response_model=AdminAccessRequestOut
+)
+def approve_access_request(
+    request_id: int, db: Session = Depends(get_db)
+) -> AdminAccessRequestOut:
+    """Génère un code d'invitation à usage unique, l'envoie par email au
+    demandeur, et marque la demande approuvée. Idempotent : ne régénère
+    pas de code si la demande est déjà traitée."""
+    row = _get_access_request(db, request_id)
+    if row.status == STATUS_PENDING:
+        (code,) = generate_codes(
+            db, count=1, note=f"demande d'accès #{row.id} · {row.email}"
+        )
+        row.status = STATUS_APPROVED
+        row.handled_at = utcnow()
+        row.invite_code = code
+        db.commit()
+        db.refresh(row)
+
+        login_url = f"{get_settings().frontend_base_url.rstrip('/')}/login"
+        try:
+            send_access_granted_email(row.email, code, login_url)
+        except EmailSendError:
+            logger.exception("access granted email failed for request %s", row.id)
+    return _access_request_out(row)
+
+
+@router.post(
+    "/access-requests/{request_id}/dismiss", response_model=AdminAccessRequestOut
+)
+def dismiss_access_request(
+    request_id: int, db: Session = Depends(get_db)
+) -> AdminAccessRequestOut:
+    """Écarte la demande sans envoyer d'email. Idempotent."""
+    row = _get_access_request(db, request_id)
+    if row.status == STATUS_PENDING:
+        row.status = STATUS_DISMISSED
         row.handled_at = utcnow()
         db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+        db.refresh(row)
+    return _access_request_out(row)

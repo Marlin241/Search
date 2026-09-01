@@ -517,10 +517,14 @@ export interface AdminFeedback {
   handled_at: string | null;
 }
 
+export type AccessRequestStatus = "pending" | "approved" | "dismissed";
+
 export interface AdminAccessRequest {
   id: number;
   email: string;
   note: string;
+  status: AccessRequestStatus;
   created_at: string;
   handled_at: string | null;
+  invite_code: string | null;
 }

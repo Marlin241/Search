@@ -13,6 +13,8 @@ def test_access_request_row_roundtrips(db_session):
     assert fetched.note == "je cherche un poste de dev"
     assert fetched.source_ip == "1.2.3.4"
     assert fetched.handled_at is None
+    assert fetched.status == "pending"
+    assert fetched.invite_code is None
     assert fetched.created_at is not None
 
 

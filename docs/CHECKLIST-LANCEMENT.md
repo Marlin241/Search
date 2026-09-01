@@ -7,7 +7,8 @@ pas tant que tout n'est pas coché.
 ## Landing publique
 - [ ] `/` en anonyme affiche la landing (présentation produit), **pas** le formulaire de login — sur desktop **et** téléphone ; aucun scroll horizontal.
 - [ ] `/` en tant qu'utilisateur connecté redirige vers `/dashboard` (sans flash de la landing).
-- [ ] Formulaire « Demander un accès » → message de remerciement ; la demande apparaît dans `/admin ▸ Demandes d'accès` ; email de notif reçu sur `ADMIN_NOTIFY_EMAIL`.
+- [ ] Formulaire « Demander un accès » → message de remerciement + **email d'accusé de réception reçu** par le demandeur ; la demande apparaît dans `/admin ▸ Demandes d'accès` ; email de notif reçu sur `ADMIN_NOTIFY_EMAIL`.
+- [ ] `/admin ▸ Demandes d'accès` → **Approuver** : le demandeur reçoit un email avec un code d'invitation valide (inscription OK avec ce code) ; **Écarter** : pas d'email.
 - [ ] Liens du footer (Conditions, Confidentialité, Contact, Yokkute Labs) fonctionnels.
 
 ## Infra & accès
