@@ -11,15 +11,15 @@ ajoutent leurs sections au fil de leur exécution.
 3. Pare-feu : `ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable`
 4. SSH : dans `/etc/ssh/sshd_config` → `PasswordAuthentication no`,
    `PermitRootLogin no` ; `systemctl restart ssh`.
-5. `git clone <repo> /opt/search && cd /opt/search && git checkout main`
+5. `git clone <repo> /opt/Search && cd /opt/Search && git checkout main`
 6. **Deux fichiers d'environnement distincts :**
-   - `/opt/search/.env` (`chmod 600`) — lu par `docker compose` pour
+   - `/opt/Search/.env` (`chmod 600`) — lu par `docker compose` pour
      l'interpolation. Depuis `.env.prod.example` :
      `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`
      (obligatoires : le compose de prod échoue si l'un manque — pas de
      valeur par défaut faible). Générer chacun avec `openssl rand -hex 32`
      (ou `-base64 24` pour l'user MinIO).
-   - `/opt/search/backend/.env` (`chmod 600`) — injecté dans le conteneur
+   - `/opt/Search/backend/.env` (`chmod 600`) — injecté dans le conteneur
      backend. Depuis `backend/.env.example` :
      - `JWT_SECRET` : `openssl rand -hex 32`
      - `CORS_ORIGINS=["https://beta.yokkutelabs.com"]`
@@ -32,7 +32,7 @@ ajoutent leurs sections au fil de leur exécution.
      - `ADMIN_NOTIFY_EMAIL=guyroland879@gmail.com` (notifs demandes d'accès
        + retours in-app)
      - **Ne PAS** y remettre `DATABASE_URL` / `MINIO_*` : le compose de prod
-       les construit et les surcharge à partir de `/opt/search/.env`.
+       les construit et les surcharge à partir de `/opt/Search/.env`.
 7. nginx :
    - `cp deploy/nginx/security-headers.conf /etc/nginx/snippets/beta-security-headers.conf`
    - `cp deploy/nginx/beta.yokkutelabs.com.conf /etc/nginx/sites-available/`
@@ -46,15 +46,15 @@ ajoutent leurs sections au fil de leur exécution.
     - `cp deploy/backup/rclone.conf.example deploy/backup/rclone.conf` (renseigner
       depuis Cloudflare > R2 > API Tokens)
     - `cp deploy/backup/backup.env.example deploy/backup/backup.env`
-      (`RCLONE_CONFIG=/opt/search/deploy/backup/rclone.conf`, `R2_BUCKET=…`,
-      `MINIO_ROOT_USER`/`PASSWORD` = mêmes valeurs que `/opt/search/.env`)
+      (`RCLONE_CONFIG=/opt/Search/deploy/backup/rclone.conf`, `R2_BUCKET=…`,
+      `MINIO_ROOT_USER`/`PASSWORD` = mêmes valeurs que `/opt/Search/.env`)
     - Générer la paire `age` **hors serveur** : `age-keygen -o key.txt` ;
       copier **uniquement** la clé publique `age1…` dans `AGE_RECIPIENT` ;
       garder `key.txt` (clé privée) en lieu sûr hors serveur.
     - Cron :
       ```
-      0 2 * * * cd /opt/search && deploy/backup/pg_backup.sh >> /var/log/pg_backup.log 2>&1
-      30 2 * * * cd /opt/search && deploy/backup/minio_mirror.sh >> /var/log/minio_mirror.log 2>&1
+      0 2 * * * cd /opt/Search && deploy/backup/pg_backup.sh >> /var/log/pg_backup.log 2>&1
+      30 2 * * * cd /opt/Search && deploy/backup/minio_mirror.sh >> /var/log/minio_mirror.log 2>&1
       ```
 
 ## 2. Déploiement courant
@@ -64,7 +64,7 @@ si les jobs `backend` + `frontend` passent, le job `deploy` se connecte en SSH
 au VPS et lance `deploy/deploy.sh origin/main`. Redéploiement manuel possible
 via l'onglet **Actions ▸ CI ▸ Run workflow**.
 
-**Manuel** (rollback, ou CI indisponible) : `cd /opt/search && deploy/deploy.sh`
+**Manuel** (rollback, ou CI indisponible) : `cd /opt/Search && deploy/deploy.sh`
 (ou `deploy/deploy.sh <tag-ou-commit>`).
 
 Rappel : le backend n'a pas de volume mount — le rebuild est fait par le
@@ -80,7 +80,7 @@ Tant qu'ils sont absents, le job `deploy` se contente d'un message et passe.
 | Secret | Contenu |
 | --- | --- |
 | `DEPLOY_SSH_HOST` | IP ou hostname du VPS |
-| `DEPLOY_SSH_USER` | utilisateur de déploiement (accès à `/opt/search` + `docker`) |
+| `DEPLOY_SSH_USER` | utilisateur de déploiement (accès à `/opt/Search` + `docker`) |
 | `DEPLOY_SSH_KEY` | clé privée SSH **dédiée au déploiement** (`ssh-keygen -t ed25519 -f deploy_key -N ""` ; `deploy_key.pub` → `~/.ssh/authorized_keys` de l'utilisateur sur le VPS) |
 | `DEPLOY_SSH_PORT` | port SSH si non-standard (facultatif ; 22 par défaut) |
 | `DEPLOY_KNOWN_HOSTS` | sortie de `ssh-keyscan -p <port> <host>` (épingle la clé du serveur — anti-MITM). Sur port non-standard les lignes sont au format `[host]:port …` |
@@ -176,7 +176,7 @@ puis http://localhost:3001 (GlitchTip) et http://localhost:3002 (Uptime Kuma).
 2. Projet « backend » (plateforme Python) → copier le DSN →
    `backend/.env` `GLITCHTIP_DSN=` + `ENVIRONMENT=production` →
    `deploy/deploy.sh`.
-3. Projet « frontend » (plateforme JavaScript) → DSN → `/opt/search/.env`
+3. Projet « frontend » (plateforme JavaScript) → DSN → `/opt/Search/.env`
    `NEXT_PUBLIC_GLITCHTIP_DSN=` → redeploy (rebuild frontend).
 4. Rétention des events : 30 j (Settings du projet).
 5. Alertes : Settings > Alerts → email sur « nouveau problème »

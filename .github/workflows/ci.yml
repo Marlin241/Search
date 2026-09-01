@@ -97,4 +97,4 @@ jobs:
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             -o ConnectTimeout=15 \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            'cd /opt/search && deploy/deploy.sh origin/main'
+            'cd /opt/Search && deploy/deploy.sh origin/main'
