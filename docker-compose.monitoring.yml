@@ -30,7 +30,9 @@ services:
     depends_on: [gt-postgres, gt-redis]
     environment: *gt-env
     volumes: [gt_uploads:/code/uploads]
-    ports: ["127.0.0.1:3001:8080"]
+    # glitchtip/glitchtip:latest (v6.2.6, serveur granian) écoute sur 8000,
+    # pas 8080 (comportement d'une image plus ancienne).
+    ports: ["127.0.0.1:3001:8000"]
     restart: unless-stopped
     networks: [monitoring]
 
