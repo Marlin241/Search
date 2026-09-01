@@ -82,7 +82,8 @@ Tant qu'ils sont absents, le job `deploy` se contente d'un message et passe.
 | `DEPLOY_SSH_HOST` | IP ou hostname du VPS |
 | `DEPLOY_SSH_USER` | utilisateur de déploiement (accès à `/opt/search` + `docker`) |
 | `DEPLOY_SSH_KEY` | clé privée SSH **dédiée au déploiement** (`ssh-keygen -t ed25519 -f deploy_key -N ""` ; `deploy_key.pub` → `~/.ssh/authorized_keys` de l'utilisateur sur le VPS) |
-| `DEPLOY_KNOWN_HOSTS` | sortie de `ssh-keyscan <host>` (épingle la clé du serveur — anti-MITM) |
+| `DEPLOY_SSH_PORT` | port SSH si non-standard (facultatif ; 22 par défaut) |
+| `DEPLOY_KNOWN_HOSTS` | sortie de `ssh-keyscan -p <port> <host>` (épingle la clé du serveur — anti-MITM). Sur port non-standard les lignes sont au format `[host]:port …` |
 
 Restreindre la clé côté serveur (`authorized_keys`) :
 `from="<ip-github-actions>",no-port-forwarding,no-agent-forwarding,no-X11-forwarding …`
