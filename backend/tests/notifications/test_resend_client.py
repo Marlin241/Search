@@ -5,6 +5,7 @@ import httpx
 import pytest
 import respx
 
+from app.config import get_settings
 from app.job_search.schemas import JobListing
 from app.models.application import Application
 from app.notifications.resend_client import (
@@ -14,6 +15,17 @@ from app.notifications.resend_client import (
     send_application_reminders_email,
     send_daily_digest_email,
 )
+
+
+@pytest.fixture(autouse=True)
+def _resend_configured(monkeypatch):
+    """conftest force RESEND_API_KEY="" pour toute la suite (no-op réseau).
+    Ces tests-ci vérifient justement _send_email : on le réactive, respx
+    interceptant l'appel HTTP."""
+    monkeypatch.setenv("RESEND_API_KEY", "test-resend-key")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 def _listing(url: str = "https://example.com/job/1") -> JobListing:

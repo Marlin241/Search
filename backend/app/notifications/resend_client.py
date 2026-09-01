@@ -25,6 +25,10 @@ def _from_field(from_email: str) -> str:
 
 def _send_email(to_email: str, subject: str, html_body: str) -> None:
     settings = get_settings()
+    if not settings.resend_api_key:
+        # Resend non configuré (dev / CI) → l'envoi d'email est un no-op.
+        # Évite un POST voué à l'échec et un header "Bearer " illégal.
+        return
     response = httpx.post(
         _RESEND_API_URL,
         headers={"Authorization": f"Bearer {settings.resend_api_key}"},

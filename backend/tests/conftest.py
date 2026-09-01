@@ -2,6 +2,10 @@ import os
 
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
+# Force Resend OFF for the suite regardless of any ambient backend/.env, so
+# _send_email() is a no-op and no test ever hits the network. The unit tests
+# in tests/notifications/ re-enable it (with respx mocking the HTTP call).
+os.environ["RESEND_API_KEY"] = ""
 # Only used to satisfy Settings() validation for the module-level app.database.engine,
 # which SQLAlchemy builds lazily and never actually connects to during tests — every
 # test uses the isolated in-memory SQLite engine from the db_session fixture below.
