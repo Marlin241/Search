@@ -1,28 +1,26 @@
 import html
-from urllib.parse import urlsplit
 
 import httpx
 
 from app.config import get_settings
 from app.job_search.schemas import JobListing
 from app.models.application import Application
+from app.notifications.email_layout import BRAND_NAME, render_email, safe_href
 
 _RESEND_API_URL = "https://api.resend.com/emails"
-_ALLOWED_URL_SCHEMES = {"http", "https"}
+
+# Conservé pour les appelants internes de ce module.
+_safe_href = safe_href
 
 
 class EmailSendError(Exception):
     pass
 
 
-def _safe_href(url: str) -> str:
-    """Only http(s) URLs are ever linked - rejects `javascript:` and other
-    executable schemes a compromised/malicious upstream source could
-    smuggle in. HTML-escaping alone does not stop this, since the scheme
-    itself contains no special HTML characters to escape."""
-    if urlsplit(url).scheme not in _ALLOWED_URL_SCHEMES:
-        return "#"
-    return html.escape(url)
+def _from_field(from_email: str) -> str:
+    """Ajoute un nom d'expéditeur lisible ("Search <alertes@…>") — un `from`
+    nu passe plus facilement en spam. Respecte une valeur déjà formatée."""
+    return from_email if "<" in from_email else f"{BRAND_NAME} <{from_email}>"
 
 
 def _send_email(to_email: str, subject: str, html_body: str) -> None:
@@ -31,7 +29,7 @@ def _send_email(to_email: str, subject: str, html_body: str) -> None:
         _RESEND_API_URL,
         headers={"Authorization": f"Bearer {settings.resend_api_key}"},
         json={
-            "from": settings.resend_from_email,
+            "from": _from_field(settings.resend_from_email),
             "to": [to_email],
             "subject": subject,
             "html": html_body,
@@ -66,10 +64,16 @@ def send_access_request_notification(
     No-op when no admin email is configured."""
     if not admin_email:
         return
-    body = (
-        f"<p><strong>Email :</strong> {html.escape(from_email)}</p>"
-        f"<p><strong>Message :</strong></p>"
-        f"<p>{html.escape(note) or '<em>(vide)</em>'}</p>"
+    escaped_note = html.escape(note) or "<em>(vide)</em>"
+    body = render_email(
+        heading="Nouvelle demande d'accès",
+        paragraphs=[
+            f"<strong>Email :</strong> {html.escape(from_email)}",
+            f"<strong>Message :</strong><br>{escaped_note}",
+            "À traiter dans <em>Admin ▸ Demandes d'accès</em>.",
+        ],
+        context_line="Notification interne — nouvelle demande d'accès à la beta.",
+        preheader=from_email,
     )
     _send_email(admin_email, "Nouvelle demande d'accès à la beta", body)
 
@@ -77,12 +81,27 @@ def send_access_request_notification(
 def send_access_request_confirmation(to_email: str) -> None:
     """Accusé de réception envoyé au demandeur juste après le dépôt du
     formulaire « Demander un accès » de la landing publique."""
-    body = (
-        "<p>Salut,</p>"
-        "<p>On a bien reçu ta demande d'accès à la beta. Elle est sur "
-        "invitation et les places sont limitées — on revient vers toi par "
-        "email dès qu'une place se libère.</p>"
-        "<p>— L'équipe Yokkute Labs</p>"
+    body = render_email(
+        heading="Demande bien reçue",
+        paragraphs=[
+            "Salut,",
+            (
+                f"On a bien reçu ta demande d'accès à la beta de "
+                f"<strong>{BRAND_NAME}</strong> — l'outil qui t'aide à décrocher "
+                f"ton job : diagnostic ATS de ton CV, réécriture ciblée, lettre "
+                f"de motivation et préparation d'entretien par IA, offres locales."
+            ),
+            (
+                "La beta est sur invitation et les places sont limitées. On "
+                "revient vers toi par email dès qu'une place se libère."
+            ),
+            "— L'équipe Yokkute Labs",
+        ],
+        context_line=(
+            f"Tu reçois cet email parce que tu as demandé un accès à la beta "
+            f"de {BRAND_NAME}."
+        ),
+        preheader="On revient vers toi dès qu'une place se libère.",
     )
     _send_email(to_email, "On a bien reçu ta demande d'accès", body)
 
@@ -90,28 +109,54 @@ def send_access_request_confirmation(to_email: str) -> None:
 def send_access_granted_email(to_email: str, invite_code: str, login_url: str) -> None:
     """Envoi du code d'invitation au demandeur quand l'admin approuve sa
     demande d'accès."""
-    href = _safe_href(login_url)
-    body = (
-        "<p>Bonne nouvelle — ton accès à la beta est ouvert.</p>"
-        "<p><strong>Ton code d'invitation :</strong> "
-        f"<code>{html.escape(invite_code)}</code></p>"
-        f'<p><a href="{href}">Crée ton compte ici</a> — onglet '
-        "« Inscription », colle le code.</p>"
-        "<p>Le code est à usage unique et expire dans 30 jours.</p>"
-        "<p>— L'équipe Yokkute Labs</p>"
+    body = render_email(
+        heading="Ton accès à la beta est ouvert",
+        paragraphs=[
+            "Bonne nouvelle — une place s'est libérée pour toi.",
+            "Ton code d'invitation à usage unique :",
+            (
+                '<span style="display:inline-block;padding:8px 14px;'
+                "border-radius:8px;background:#f1f0fb;font-family:ui-monospace,"
+                "SFMono-Regular,Menlo,monospace;font-size:16px;font-weight:600;"
+                'letter-spacing:0.04em;color:#1e1b2e;">'
+                f"{html.escape(invite_code)}</span>"
+            ),
+            (
+                "Clique sur le bouton, va sur l'onglet « Inscription » et colle "
+                "le code. Il expire dans 30 jours."
+            ),
+        ],
+        cta=("Créer mon compte", login_url),
+        context_line=(
+            f"Tu reçois cet email parce que ta demande d'accès à la beta de "
+            f"{BRAND_NAME} a été acceptée."
+        ),
+        preheader=f"Ton code : {invite_code}",
     )
     _send_email(to_email, "Ton accès à la beta est ouvert", body)
 
 
 def send_password_reset_email(to_email: str, reset_url: str) -> None:
-    safe = _safe_href(reset_url)
-    html_body = (
-        "<p>Tu as demandé à réinitialiser ton mot de passe.</p>"
-        f'<p><a href="{safe}">Choisir un nouveau mot de passe</a></p>'
-        "<p>Ce lien expire dans 1 heure. Si tu n'es pas à l'origine de "
-        "cette demande, ignore cet email.</p>"
+    body = render_email(
+        heading="Réinitialisation de ton mot de passe",
+        paragraphs=[
+            (
+                "Tu as demandé à réinitialiser ton mot de passe. Clique sur le "
+                "bouton ci-dessous pour en choisir un nouveau."
+            ),
+            (
+                "Ce lien expire dans 1 heure. Si tu n'es pas à l'origine de "
+                "cette demande, ignore cet email — rien ne change."
+            ),
+        ],
+        cta=("Choisir un nouveau mot de passe", reset_url),
+        context_line=(
+            f"Tu reçois cet email parce qu'une réinitialisation de mot de passe "
+            f"a été demandée pour ton compte {BRAND_NAME}."
+        ),
+        preheader="Lien valable 1 heure.",
     )
-    _send_email(to_email, "Réinitialisation de ton mot de passe", html_body)
+    _send_email(to_email, "Réinitialisation de ton mot de passe", body)
 
 
 def _render_job_listings_html(listings: list[JobListing], unsubscribe_url: str) -> str:
