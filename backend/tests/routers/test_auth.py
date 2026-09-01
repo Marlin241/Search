@@ -145,6 +145,84 @@ def test_code_cannot_be_reused(client, invite_code):
     assert _register(client, invite_code, email="b@e.com").status_code == 400
 
 
+# --- bootstrap admin (ADMIN_EMAILS) ---
+
+
+@pytest.fixture()
+def admin_emails_env(monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setenv("ADMIN_EMAILS", "founder@example.com")
+    get_settings.cache_clear()
+    yield "founder@example.com"
+    get_settings.cache_clear()
+
+
+def test_bootstrap_admin_registers_without_valid_code(
+    client, admin_emails_env, db_session
+):
+    from app.models.user import User
+
+    resp = client.post(
+        "/auth/register",
+        json={
+            "email": "founder@example.com",
+            "password": "s3cret!1",
+            "invite_code": "placeholder-ignored",
+            "accept_terms": True,
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["is_admin"] is True
+    assert db_session.query(User).filter_by(email="founder@example.com").one().is_admin
+
+
+def test_bootstrap_admin_match_is_case_insensitive(client, admin_emails_env):
+    resp = client.post(
+        "/auth/register",
+        json={
+            "email": "Founder@Example.com",
+            "password": "s3cret!1",
+            "invite_code": "x",
+            "accept_terms": True,
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["is_admin"] is True
+
+
+def test_non_admin_email_still_needs_a_valid_code(client, admin_emails_env):
+    resp = client.post(
+        "/auth/register",
+        json={
+            "email": "stranger@example.com",
+            "password": "s3cret!1",
+            "invite_code": "bogus",
+            "accept_terms": True,
+        },
+    )
+    assert resp.status_code == 400
+
+
+def test_bootstrap_admin_does_not_consume_a_real_code(
+    client, admin_emails_env, db_session
+):
+    (code,) = generate_codes(db_session, count=1, note="unused")
+    resp = client.post(
+        "/auth/register",
+        json={
+            "email": "founder@example.com",
+            "password": "s3cret!1",
+            "invite_code": code,
+            "accept_terms": True,
+        },
+    )
+    assert resp.status_code == 201
+    from app.models.invite_code import InviteCode
+
+    assert db_session.query(InviteCode).filter_by(code=code).one().used_at is None
+
+
 def test_me_usage_lists_all_features(client, invite_code):
     _register(client, invite_code)
     token = client.post(
