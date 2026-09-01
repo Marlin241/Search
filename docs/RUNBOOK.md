@@ -11,7 +11,7 @@ ajoutent leurs sections au fil de leur exécution.
 3. Pare-feu : `ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable`
 4. SSH : dans `/etc/ssh/sshd_config` → `PasswordAuthentication no`,
    `PermitRootLogin no` ; `systemctl restart ssh`.
-5. `git clone <repo> /opt/search && cd /opt/search && git checkout feature/beta-launch`
+5. `git clone <repo> /opt/search && cd /opt/search && git checkout main`
 6. **Deux fichiers d'environnement distincts :**
    - `/opt/search/.env` (`chmod 600`) — lu par `docker compose` pour
      l'interpolation. Depuis `.env.prod.example` :
@@ -27,6 +27,10 @@ ajoutent leurs sections au fil de leur exécution.
      - `FRONTEND_BASE_URL=https://beta.yokkutelabs.com`
      - `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, et les
        clés de sources d'offres (France Travail, Adzuna…)
+     - `ADMIN_EMAILS=guyroland879@gmail.com` (inscription sans code +
+       promotion admin auto ; cf. §9)
+     - `ADMIN_NOTIFY_EMAIL=guyroland879@gmail.com` (notifs demandes d'accès
+       + retours in-app)
      - **Ne PAS** y remettre `DATABASE_URL` / `MINIO_*` : le compose de prod
        les construit et les surcharge à partir de `/opt/search/.env`.
 7. nginx :
