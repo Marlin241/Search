@@ -13,29 +13,17 @@ export default function ConfidentialitePage() {
       <p className="mb-8 text-xs text-muted-foreground">Version 2026-09</p>
 
       <Section title="1. Responsable du traitement">
-        yokkutelabs{" "}
-        <span className="text-muted-foreground">
-          [À CONFIRMER : identité et coordonnées]
-        </span>
-        . Contact :{" "}
+        L&apos;équipe Yokkute Labs. Contact :{" "}
         <a
           className="text-primary-600 hover:underline"
-          href="mailto:contact@yokkutelabs.com"
+          href="mailto:yokkutelabs@gmail.com"
         >
-          contact@yokkutelabs.com
+          yokkutelabs@gmail.com
         </a>
         .
       </Section>
 
-      <Section title="2. Hébergement">
-        Le service est hébergé sur un serveur situé{" "}
-        <span className="text-muted-foreground">
-          [À CONFIRMER : pays de l&apos;hébergeur du VPS]
-        </span>
-        .
-      </Section>
-
-      <Section title="3. Données collectées">
+      <Section title="2. Données collectées">
         Adresse email ; mot de passe (stocké haché, jamais en clair) ; CV et
         documents que tu téléverses ; profil candidat (nom, téléphone,
         préférences de recherche) ; historique de recherche d&apos;offres ;
@@ -44,58 +32,56 @@ export default function ConfidentialitePage() {
         d&apos;IA (nombre d&apos;appels, volumes de texte).
       </Section>
 
-      <Section title="4. Finalités et base légale">
+      <Section title="3. Finalités et base légale">
         Ces données servent uniquement à fournir le service. La base légale du
         traitement est <strong>ton consentement</strong>, recueilli lors de
         l&apos;inscription (version 2026-09).
       </Section>
 
-      <Section title="5. Sous-traitants et destinataires">
+      <Section title="4. Sous-traitants et destinataires">
         <ul className="ml-4 list-disc space-y-1">
           <li>
-            <strong>Anthropic PBC (États-Unis)</strong> — traitement des CV,
-            offres et textes par le modèle d&apos;IA. Ce traitement implique un{" "}
-            <strong>transfert hors Union européenne</strong> (États-Unis).
+            <strong>Anthropic</strong> — traitement des CV, offres et textes
+            par le modèle d&apos;IA (hébergé à l&apos;étranger).
           </li>
           <li>
             <strong>Resend</strong> — envoi des emails transactionnels
             (réinitialisation de mot de passe, alertes d&apos;offres).
           </li>
-          <li>L&apos;hébergeur du serveur.</li>
+          <li>Notre hébergeur cloud, basé en Europe.</li>
         </ul>
         Aucune donnée n&apos;est vendue ni utilisée à des fins publicitaires.
       </Section>
 
-      <Section title="6. Durée de conservation">
+      <Section title="5. Durée de conservation">
         Tes données sont conservées tant que ton compte est actif, puis
         supprimées après 6 mois d&apos;inactivité. La suppression est immédiate
         sur demande, via le bouton « Supprimer mon compte » de ton profil.
       </Section>
 
-      <Section title="7. Tes droits">
+      <Section title="6. Tes droits">
         Tu disposes des droits d&apos;accès, de rectification,
         d&apos;effacement et de portabilité (bouton « Exporter mes données »),
         ainsi que du droit de retirer ton consentement (équivalent à la
         suppression du compte). Pour les exercer :{" "}
         <a
           className="text-primary-600 hover:underline"
-          href="mailto:contact@yokkutelabs.com"
+          href="mailto:yokkutelabs@gmail.com"
         >
-          contact@yokkutelabs.com
+          yokkutelabs@gmail.com
         </a>
         .
       </Section>
 
-      <Section title="8. Réclamation">
-        Tu peux introduire une réclamation auprès de la CNIL (France,
-        cnil.fr) ou de la Commission de protection des données personnelles du
-        Sénégal (cdp.sn).
+      <Section title="7. Réclamation">
+        Tu peux introduire une réclamation auprès de la Commission de
+        protection des données personnelles du Sénégal (cdp.sn).
       </Section>
 
-      <Section title="9. Cookies">
-        Le site utilise un seul cookie, strictement nécessaire au
-        fonctionnement de la session (<code>search_app_token</code>). Aucun
-        cookie publicitaire ni de mesure d&apos;audience tierce.
+      <Section title="8. Cookies">
+        Le site utilise un unique cookie de session, strictement nécessaire au
+        fonctionnement du service (connexion). Aucun cookie publicitaire ni de
+        mesure d&apos;audience tierce.
       </Section>
     </main>
   );

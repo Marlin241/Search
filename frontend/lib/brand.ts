@@ -8,7 +8,7 @@ export const TAGLINE =
   "Le copilote IA pour décrocher ton job — pensé pour Dakar et l'Afrique de l'Ouest.";
 export const PARENT_NAME = "Yokkute Labs";
 export const PARENT_URL = "https://yokkutelabs.com";
-export const CONTACT_EMAIL = "solution@yokkutelabs.com";
+export const CONTACT_EMAIL = "yokkutelabs@gmail.com";
 /** URL publique du produit — sert de base pour les métadonnées OpenGraph. */
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://beta.yokkutelabs.com";

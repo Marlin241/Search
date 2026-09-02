@@ -13,16 +13,13 @@ export default function ConditionsPage() {
       <p className="mb-8 text-xs text-muted-foreground">Version 2026-09</p>
 
       <Section title="1. Éditeur">
-        Le service « Search » est édité par yokkutelabs{" "}
-        <span className="text-muted-foreground">
-          [À CONFIRMER : forme juridique et siège]
-        </span>
-        . Contact :{" "}
+        Le service « Search » est édité par l&apos;équipe Yokkute Labs.
+        Contact :{" "}
         <a
           className="text-primary-600 hover:underline"
-          href="mailto:contact@yokkutelabs.com"
+          href="mailto:yokkutelabs@gmail.com"
         >
-          contact@yokkutelabs.com
+          yokkutelabs@gmail.com
         </a>
         .
       </Section>
@@ -76,7 +73,17 @@ export default function ConditionsPage() {
         .
       </Section>
 
-      <Section title="9. Évolution des conditions">
+      <Section title="9. Offres d&apos;emploi affichées">
+        Les offres affichées sur Search proviennent de sites tiers publics
+        (sites d&apos;emploi, organismes, entreprises) : nous nous contentons
+        de les reprendre et de les afficher. Nous ne vérifions ni
+        l&apos;authenticité, ni l&apos;exactitude, ni la légalité de ces
+        offres, et ne sommes partie à aucune relation entre toi et
+        l&apos;employeur ou le site source. Vérifie toujours une offre avant
+        d&apos;y répondre ou de transmettre des informations personnelles.
+      </Section>
+
+      <Section title="10. Évolution des conditions">
         Ces conditions peuvent être modifiées. La version en vigueur est
         indiquée en haut de cette page.
       </Section>
