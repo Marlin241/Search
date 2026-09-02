@@ -28,6 +28,12 @@ export const Dialog: React.FC<DialogProps> = ({
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  // Toujours à jour sans figurer dans les deps de l'effet ci-dessous : un
+  // appelant qui passe `onClose={() => ...}` en inline (courant) recrée cette
+  // fonction à chaque rendu. Si l'effet en dépendait, il se relancerait à
+  // chaque frappe dans un champ du dialogue et redéplacerait le focus.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => setMounted(true), []);
 
@@ -47,7 +53,7 @@ export const Dialog: React.FC<DialogProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -78,7 +84,8 @@ export const Dialog: React.FC<DialogProps> = ({
       window.removeEventListener("keydown", handleKeyDown);
       previouslyFocused.current?.focus?.();
     };
-  }, [isOpen, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onClose lu via onCloseRef, voir plus haut
+  }, [isOpen]);
 
   if (!isOpen || !mounted) return null;
 

@@ -75,12 +75,14 @@ export default function ConditionsPage() {
 
       <Section title="9. Offres d&apos;emploi affichées">
         Les offres affichées sur Search proviennent de sites tiers publics
-        (sites d&apos;emploi, organismes, entreprises) : nous nous contentons
-        de les reprendre et de les afficher. Nous ne vérifions ni
-        l&apos;authenticité, ni l&apos;exactitude, ni la légalité de ces
-        offres, et ne sommes partie à aucune relation entre toi et
-        l&apos;employeur ou le site source. Vérifie toujours une offre avant
-        d&apos;y répondre ou de transmettre des informations personnelles.
+        (sites d&apos;emploi, organismes, entreprises) et sont reprises telles
+        quelles, à titre purement informatif. <strong>L&apos;éditeur décline
+        toute responsabilité</strong> quant à l&apos;authenticité,
+        l&apos;exactitude, la légalité ou la disponibilité de ces offres, et
+        n&apos;est partie à aucune relation entre l&apos;utilisateur et
+        l&apos;employeur ou le site source. Il appartient à
+        l&apos;utilisateur de vérifier une offre avant d&apos;y répondre ou de
+        transmettre des informations personnelles.
       </Section>
 
       <Section title="10. Évolution des conditions">
