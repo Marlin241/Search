@@ -1,12 +1,12 @@
 # Runbook — Beta yokkutelabs
 
-Opérations du beta fermé (`beta.yokkutelabs.com`). Les plans Beta 2 à 7
+Opérations du beta fermé (`search.yokkutelabs.com`). Les plans Beta 2 à 7
 ajoutent leurs sections au fil de leur exécution.
 
 ## 1. Provisioning initial du VPS (une fois)
 
 1. VPS Debian 12, **8 Go RAM**. DNS : enregistrements **A** (+ **AAAA** si
-   IPv6) `beta` et `api.beta` de `yokkutelabs.com` → IP du VPS.
+   IPv6) `search` et `api.search` de `yokkutelabs.com` → IP du VPS.
 2. `apt update && apt install -y docker.io docker-compose-plugin age rclone git ufw fail2ban`
 3. Pare-feu : `ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable`
 4. SSH : dans `/etc/ssh/sshd_config` → `PasswordAuthentication no`,
@@ -22,9 +22,9 @@ ajoutent leurs sections au fil de leur exécution.
    - `/opt/Search/backend/.env` (`chmod 600`) — injecté dans le conteneur
      backend. Depuis `backend/.env.example` :
      - `JWT_SECRET` : `openssl rand -hex 32`
-     - `CORS_ORIGINS=["https://beta.yokkutelabs.com"]`
-     - `BACKEND_BASE_URL=https://api.beta.yokkutelabs.com`
-     - `FRONTEND_BASE_URL=https://beta.yokkutelabs.com`
+     - `CORS_ORIGINS=["https://search.yokkutelabs.com"]`
+     - `BACKEND_BASE_URL=https://api.search.yokkutelabs.com`
+     - `FRONTEND_BASE_URL=https://search.yokkutelabs.com`
      - `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, et les
        clés de sources d'offres (France Travail, Adzuna…)
      - `ADMIN_EMAILS=guyroland879@gmail.com` (inscription sans code +
@@ -35,12 +35,12 @@ ajoutent leurs sections au fil de leur exécution.
        les construit et les surcharge à partir de `/opt/Search/.env`.
 7. nginx :
    - `cp deploy/nginx/security-headers.conf /etc/nginx/snippets/beta-security-headers.conf`
-   - `cp deploy/nginx/beta.yokkutelabs.com.conf /etc/nginx/sites-available/`
-   - `cp deploy/nginx/api.beta.yokkutelabs.com.conf /etc/nginx/sites-available/`
-   - `ln -s ../sites-available/beta.yokkutelabs.com.conf /etc/nginx/sites-enabled/`
-   - `ln -s ../sites-available/api.beta.yokkutelabs.com.conf /etc/nginx/sites-enabled/`
+   - `cp deploy/nginx/search.yokkutelabs.com.conf /etc/nginx/sites-available/`
+   - `cp deploy/nginx/api.search.yokkutelabs.com.conf /etc/nginx/sites-available/`
+   - `ln -s ../sites-available/search.yokkutelabs.com.conf /etc/nginx/sites-enabled/`
+   - `ln -s ../sites-available/api.search.yokkutelabs.com.conf /etc/nginx/sites-enabled/`
    - `nginx -t && systemctl reload nginx`
-8. TLS : `certbot --nginx -d beta.yokkutelabs.com -d api.beta.yokkutelabs.com`
+8. TLS : `certbot --nginx -d search.yokkutelabs.com -d api.search.yokkutelabs.com`
 9. Premier déploiement : `deploy/deploy.sh`
 10. Sauvegardes :
     - `cp deploy/backup/rclone.conf.example deploy/backup/rclone.conf` (renseigner
@@ -68,7 +68,7 @@ via l'onglet **Actions ▸ CI ▸ Run workflow**.
 (ou `deploy/deploy.sh <tag-ou-commit>`).
 
 Rappel : le backend n'a pas de volume mount — le rebuild est fait par le
-script. Vérif : `curl -s https://api.beta.yokkutelabs.com/health`.
+script. Vérif : `curl -s https://api.search.yokkutelabs.com/health`.
 Les migrations Alembic sont appliquées automatiquement au démarrage du
 conteneur backend (`alembic upgrade head` dans son `CMD`) ; si elles échouent,
 `/health` ne repasse pas OK, `deploy.sh` sort en erreur et le job GitHub échoue.
@@ -183,9 +183,9 @@ puis http://localhost:3001 (GlitchTip) et http://localhost:3002 (Uptime Kuma).
    (SMTP via `GT_EMAIL_URL`).
 
 ### Uptime Kuma — sondes à créer
-- `API health` : HTTP(s) `https://api.beta.yokkutelabs.com/health`, 300 s,
+- `API health` : HTTP(s) `https://api.search.yokkutelabs.com/health`, 300 s,
   mot-clé attendu `"status":"ok"`.
-- `Frontend` : HTTP(s) `https://beta.yokkutelabs.com`, 300 s.
+- `Frontend` : HTTP(s) `https://search.yokkutelabs.com`, 300 s.
 - Sur le moniteur API : activer « Certificate Expiry » (alerte à 14 j).
 - Notification : email (SMTP Resend) ou Telegram.
 
@@ -204,7 +204,7 @@ Rotation `json-file` (max-size 10m, max-file 3) déjà dans le compose.
   - **Promotion seule** : retirer un email d'`ADMIN_EMAILS` ne retire **pas**
     `is_admin`. Pour révoquer :
     `docker compose -f docker-compose.prod.yml exec db psql -U postgres -d ats_diagnostic -c "UPDATE users SET is_admin = false WHERE email = '...';"`
-- **Dashboard** : https://beta.yokkutelabs.com/admin (visible seulement pour un
+- **Dashboard** : https://search.yokkutelabs.com/admin (visible seulement pour un
   compte `is_admin` ; un compte normal est redirigé vers `/dashboard` et ne voit
   pas l'entrée de nav « Admin »).
 - **Codes d'invitation** : onglet Invitations (ou CLI

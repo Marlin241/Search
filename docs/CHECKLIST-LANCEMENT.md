@@ -1,6 +1,6 @@
 # Checklist de lancement — Beta yokkutelabs
 
-À faire sur l'environnement de prod (`beta.yokkutelabs.com`), navigateur réel,
+À faire sur l'environnement de prod (`search.yokkutelabs.com`), navigateur réel,
 dont **au moins un passage complet depuis un téléphone**. Le beta ne s'ouvre
 pas tant que tout n'est pas coché.
 
@@ -12,8 +12,8 @@ pas tant que tout n'est pas coché.
 - [ ] Liens du footer (Conditions, Confidentialité, Contact, Yokkute Labs) fonctionnels.
 
 ## Infra & accès
-- [ ] `beta.` et `api.beta.` résolvent ; TLS valide (cadenas) sur les deux.
-- [ ] `curl https://api.beta.yokkutelabs.com/health` → `{"status":"ok","db":"ok",...}`.
+- [ ] `search.` et `api.search.` résolvent ; TLS valide (cadenas) sur les deux.
+- [ ] `curl https://api.search.yokkutelabs.com/health` → `{"status":"ok","db":"ok",...}`.
 - [ ] `db` et `minio` ne sont pas joignables depuis l'extérieur.
 - [ ] Requête `fetch` depuis une autre origine → bloquée par CORS.
 

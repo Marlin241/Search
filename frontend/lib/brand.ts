@@ -11,4 +11,4 @@ export const PARENT_URL = "https://yokkutelabs.com";
 export const CONTACT_EMAIL = "yokkutelabs@gmail.com";
 /** URL publique du produit — sert de base pour les métadonnées OpenGraph. */
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://beta.yokkutelabs.com";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://search.yokkutelabs.com";
