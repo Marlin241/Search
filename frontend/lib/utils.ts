@@ -112,6 +112,7 @@ export function sourceLabel(source: string): string {
     ngojobs: "NGO Jobs in Africa",
     emploi_dakar: "Emploi Dakar",
     senjob: "Senjob",
+    educarriere_ci: "Educarriere.ci",
     crawled: "Job board local",
   };
   return map[source] ?? source;
