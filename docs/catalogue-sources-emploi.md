@@ -24,7 +24,7 @@ Résultats des tests réels. **Trois surprises importantes.**
 | **UN Talent** (untalent.org) | API **JSON + RSS confirmée**, filtres `areas`/`locations`/`homebased`/`contract types`/`job levels`/`companies`. **Gratuit en fair-use avec attribution**, mais **sur demande d'accès** (endpoint non public, fourni après « Request access »). Fraîcheur **inégale** selon la source (World Bank : 2 h ; UNDP / AfDB : ~1 an). Couverture ONU/IGO/INGO mondiale, Afrique incluse mais non ciblée. Fallback : pages HTML `untalent.org/jobs/in-anything/contract-*/anywhere` **sont** rendues serveur (scrapables). | **P0 → P1** (accès gated + fraîcheur variable). Demander l'accès ; en attendant, le fallback HTML est possible. |
 | **Senjob** ✅ **INTÉGRÉ** (2026-09-03, branche `feature/crawler-senjob`, `bca999d`) | Crawler `app/job_search/crawlers/senjob.py` : pagine `/sn/offres-d-emploi.php?page=N`, dédupe les URLs d'offres (`_e_<id>.html`), fetch chaque page détail → description depuis `og:description`. Titre `<title>`, lieu + date (ISO) depuis la ligne du listing, type de contrat inféré du texte, `company=None` (non exposé). robots OK, aucune CGU trouvée. 9 tests + vérif Docker : 80 lignes `crawled_listing`, tous secteurs (audit, ONG, télécom, électricité, compta, design, commercial, médical, journalisme…). | **Fait.** Offres visibles avec `source="senjob"`, scorées. |
 | **Novojob** ✅ | Site **Joomla**. `robots.txt` = défaut Joomla (rien de bloquant sur les offres). `sitemap.xml` **redirige** vers `/senegal/` (pas de vrai sitemap). Listing `/senegal/offres-d-emploi` → **200, 52 Ko** rendu serveur. Réseau multi-pays par segment d'URL `/{pays}/`. | **crawl, Moyen.** P1 confirmé. |
-| **Educarriere.ci** ✅ | `emploi.educarriere.ci/` → **200, 343 Ko** rendu serveur (offres dans le HTML). Pas de `robots.txt` (404), pas de `sitemap.xml` (404) → aucune restriction déclarée. | **crawl, Moyen.** P1 confirmé. Vérifier les CGU du site avant activation. |
+| **Educarriere.ci** ✅ **INTÉGRÉ** (2026-09-03, `feature/crawler-educarriere`, `da87ff9`) | Crawler `app/job_search/crawlers/educarriere.py`. `emploi.educarriere.ci` : rendu serveur, pas de robots/sitemap/RSS, **pagination cassée** (`/page/all` renvoie toujours la même page) → lit cette page unique (~30 offres) + fetch chaque `/offre-<id>-<slug>.html`. Piège : les meta `og:` de la fiche sont du boilerplate (« Lorem ipsum ») ; le vrai contenu est en texte brut dans `div.post-body`, parsé par marqueurs (`<title>`, entête `<société> <badge> Postuler`, `Lieu` / `Publiée le` / `TYPE DE CONTRAT`). 7 tests + vérif Docker : 32 offres tous secteurs (contrôle de gestion, génie civil, commercial, couture, menuiserie, resto, électricité, logistique, community manager…). | **Fait.** `source="educarriere_ci"`. |
 | **RemoteOK** ⛔ | Connecteur écrit puis **retiré** (2026-09-03, branche `feature/sources-remote-json`, nette = 0). L'API `remoteok.com/api` **n'est plus un flux remote curé** : elle syndique des annonces hôtellerie/BTP/retail **sur site** (« Chief Steward @ W Hotels Budapest », « Store Manager @ Ampol Port Macquarie »), lieux physiques réels, tags auto-générés incohérents. Signal/bruit inexploitable. | **Abandonné, P1 → P3.** |
 | **Remotive** ⛔ | Connecteur écrit puis **retiré** (même branche). L'API libre `remotive.com/api/remote-jobs` **ignore le paramètre `search`** (toute requête renvoie les 17 mêmes offres) et ses CGU interdisent quasi explicitement notre usage (offres retardées 24 h, pas de rediffusion tierce, « collecter des signups en affichant nos offres = violation », max ~4 req/jour, API réelle payante 5 000 $/mois). | **Abandonné, P1 → P3.** |
 | Bilan **S1** | Les deux « API remote libres » du catalogue ne tiennent pas en conditions réelles. **Jobicy** (déjà intégré) reste la seule source remote libre exploitable. | La vague S1 saute ; on passe direct aux crawlers FR-Afrique (S3+) et aux API gated (Careerjet/UN Talent, S2). |
@@ -143,7 +143,7 @@ paramétré par segment pays.
 
 | Organisme | URL | Famille | Accès | API | RSS | Scrap. | Fiab. | Prio |
 |---|---|---|---|---|---|---|---|---|
-| **Educarriere.ci** | emploi.educarriere.ci | crawl | 🟢 | ❌ | ❌ | Moyen (rendu serveur, pas de robots/sitemap → vérifier CGU) | ●●● | P1 |
+| **Educarriere.ci** | emploi.educarriere.ci | crawl | 🟢 | ❌ | ❌ | Moyen (rendu serveur, pagination cassée → ~30 offres/run) | ●●● | P1 | ✅ **intégré** (`da87ff9`) |
 | RMO Jobcenter (cabinet, multi-pays) | rmo-jobcenter.com | crawl | 🟢 | ❌ | ❓ | Moyen | ●● | P2 |
 | Offre-emploi.ci | offre-emploi.ci | crawl | 🟢 | ❓ | ❓ | Moyen | ●● | P2 |
 
@@ -237,7 +237,7 @@ paramétré par segment pays.
 | ~~S1~~ | ~~RemoteOK + Remotive~~ — **fait puis annulé** 2026-09-03 : feed RemoteOK pollué, API libre Remotive bridée + CGU hostiles (§0). Rien à intégrer. | — | — |
 | **S2** | **Careerjet** v4 (si le test S0 est concluant) · **UN Talent** (client JSON, si accès obtenu) | live | Couverture agrégée francophone + ONU |
 | ~~S3~~ | Crawler **Senjob** — ✅ **FAIT** 2026-09-03 (`feature/crawler-senjob`, `bca999d`). 80 offres tous secteurs vérifiées en Docker. Extension `/ci/`, `/ml/`… = un `_BASE_URLS` de plus. | crawl | Board national #1 bis |
-| **S4** | Crawler **Educarriere.ci** | crawl | Board CI à fort trafic |
+| ~~S4~~ | Crawler **Educarriere.ci** — ✅ **FAIT** 2026-09-03 (`feature/crawler-educarriere`, `da87ff9`). 32 offres CI tous secteurs. | crawl | Board CI |
 | **S5** | Crawler **réseau Novojob** paramétré : SN, CI, BJ, TG | crawl | 1 connecteur → 4 pays |
 | **S6** | Sénégal public : ANPEJ, Fonction Publique, concoursn.com | crawl | Secteur public / concours |
 | **S7+** | Minajobs (CM), MyJobMag RSS, Jooble/Talent.com feeds partenaires, AfDB/UNDP | mixte | Élargissement |
@@ -275,7 +275,7 @@ un_talent_api_key: str = ""          # jeton fourni après demande d'accès ; at
 ## 6. Synthèse par priorité
 
 - **P0 (6)** : France Travail ✅, Adzuna ✅ (`fr`), Jobicy ✅, Emploi Dakar ✅, ReliefWeb ⚠️ (appname à approuver), **Careerjet ⬜** (couverture Afrique à confirmer), **UN Talent ⬜** (accès à demander)
-- **P1 (~7)** : Senjob ✅ (intégré), Novojob (SN/CI), Educarriere.ci, NGO Jobs ✅, WWR ✅
+- **P1 (~7)** : Senjob ✅ (intégré), Educarriere.ci ✅ (intégré), Novojob (SN/CI), NGO Jobs ✅, WWR ✅
 - **P2 (~14)** : Novojob (BJ/TG/BF/ML/NE/GN), Minajobs, RMO, Offre-emploi.ci, ANPEJ, Fonction Publique SN, concoursn, Sociumjob, Jooble, Talent.com, MyJobMag, Jobberman, Impactpool, UNjobs, AfDB, UNDP
 - **P3 (~18)** : **AfricaWork réseau (Cloudflare)**, **RemoteOK (feed pollué)**, **Remotive (API bridée + CGU)**, Jobartis, iWorks, DigiJob Guinée, Guineejob, MediaCongo, Radio Okapi, AfriqueJob, Afri-Emploi, JobAfrique, Michael Page, Talent2Africa, institutions régionales, Devex, Working Nomads
 - **Exclu** : LinkedIn, Google Jobs (sans budget SerpAPI)
