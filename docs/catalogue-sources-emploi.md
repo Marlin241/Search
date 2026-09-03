@@ -25,8 +25,9 @@ Résultats des tests réels. **Trois surprises importantes.**
 | **Senjob** ✅ | `robots.txt` **200**, Apache. Disallow limité aux pages CV/employeur/`/abonnes/prix.html` ; bloc `googlebot` qui **autorise explicitement `/*/jobseekers/voir_offre.php`** (pages d'offre). Listing `/sn/offres-d-emploi.php` → **200, 141 Ko** HTML rendu serveur. `sitemap.xml` → **404**. Pas de RSS. `Sitemap:` dans robots pointe vers un sitemap absent. | **crawl, Moyen.** P1 confirmé. Préfixe pays `/sn/`, `/ci/`… ; parser les cartes du listing + `voir_offre.php`. |
 | **Novojob** ✅ | Site **Joomla**. `robots.txt` = défaut Joomla (rien de bloquant sur les offres). `sitemap.xml` **redirige** vers `/senegal/` (pas de vrai sitemap). Listing `/senegal/offres-d-emploi` → **200, 52 Ko** rendu serveur. Réseau multi-pays par segment d'URL `/{pays}/`. | **crawl, Moyen.** P1 confirmé. |
 | **Educarriere.ci** ✅ | `emploi.educarriere.ci/` → **200, 343 Ko** rendu serveur (offres dans le HTML). Pas de `robots.txt` (404), pas de `sitemap.xml` (404) → aucune restriction déclarée. | **crawl, Moyen.** P1 confirmé. Vérifier les CGU du site avant activation. |
-| **RemoteOK** ✅ | `https://remoteok.com/api` → **200, JSON ~430 Ko, sans clé**. Flux RSS aussi. | **live, Facile.** P1 confirmé, quasi zéro effort. Attribution demandée par leurs CGU. |
-| **Remotive** ✅ | `https://remotive.com/api/remote-jobs` → **200, JSON ~200 Ko, sans clé**. | **live, Facile.** P1 confirmé, quasi zéro effort. |
+| **RemoteOK** ⛔ | Connecteur écrit puis **retiré** (2026-09-03, branche `feature/sources-remote-json`, nette = 0). L'API `remoteok.com/api` **n'est plus un flux remote curé** : elle syndique des annonces hôtellerie/BTP/retail **sur site** (« Chief Steward @ W Hotels Budapest », « Store Manager @ Ampol Port Macquarie »), lieux physiques réels, tags auto-générés incohérents. Signal/bruit inexploitable. | **Abandonné, P1 → P3.** |
+| **Remotive** ⛔ | Connecteur écrit puis **retiré** (même branche). L'API libre `remotive.com/api/remote-jobs` **ignore le paramètre `search`** (toute requête renvoie les 17 mêmes offres) et ses CGU interdisent quasi explicitement notre usage (offres retardées 24 h, pas de rediffusion tierce, « collecter des signups en affichant nos offres = violation », max ~4 req/jour, API réelle payante 5 000 $/mois). | **Abandonné, P1 → P3.** |
+| Bilan **S1** | Les deux « API remote libres » du catalogue ne tiennent pas en conditions réelles. **Jobicy** (déjà intégré) reste la seule source remote libre exploitable. | La vague S1 saute ; on passe direct aux crawlers FR-Afrique (S3+) et aux API gated (Careerjet/UN Talent, S2). |
 | **Jobicy** ✅ | `https://jobicy.com/api/v2/remote-jobs` → **200 JSON**. Déjà intégré, OK. | RAS. |
 | **Emploi Dakar** ✅ | `robots.txt` = WordPress (bloque `/CV/`, `/resume/`, MauiBot ; offres OK). `sitemap.xml` → `sitemap_index.xml` **200**. Déjà intégré via sitemap. | RAS. |
 | **Adzuna** | Couverture Afrique = **Afrique du Sud (`za`) uniquement**. Aucun pays d'Afrique francophone. Déjà intégré (`fr`). | Activer `za` marginal pour la cible Sénégal ; faible priorité. |
@@ -36,7 +37,7 @@ Résultats des tests réels. **Trois surprises importantes.**
 1. **ReliefWeb** — demander un `appname` approuvé (sinon la source est déjà cassée en prod).
 2. **Careerjet** — ouvrir un compte Publisher, tester une clé réelle sur les locales `fr_SN` / `fr_CI` / `fr_CM`, mesurer le volume avant de s'engager.
 3. **UN Talent** — envoyer la demande d'accès API (fair-use gratuit).
-4. **RemoteOK + Remotive** — intégrables tout de suite, aucune clé (S1).
+4. ~~RemoteOK + Remotive~~ — **testés et abandonnés** (feed pollué / API bridée + CGU hostiles). Jobicy reste la seule source remote libre.
 5. **Senjob / Novojob / Educarriere.ci** — 3 crawlers `crawl`, markup à snapshoter dans les fixtures.
 6. **AfricaWork** — abandonner pour l'instant (Cloudflare). Ré-évaluer si un jour on a un pool de navigateurs headless.
 
@@ -74,9 +75,9 @@ valent le détour.
 | Multi (agrégateur) | **Careerjet** | careerjet.com/partners/api | live | 🟢 | ext | 🔑 API v4, Basic auth, clé Publisher, en-tête `Referer` requis, JSON | ❌ (v4) | Facile (API) | ●● | ⬜ (tester couverture Afrique) |
 | Mondial / humanitaire | ReliefWeb (OCHA) | api.reliefweb.int/**v2**/jobs | live | 🟢 | ext | ✅ **appname pré-approuvé requis** (gratuit, sur formulaire) | ✅ | Facile | ●●● | ⚠️ code OK, **appname non approuvé → 403** |
 | Mondial / ONU-ONG | **UN Talent** | untalent.org/open | live | 🟢 | ext | ✅ JSON + RSS, **sur demande d'accès**, fair-use gratuit + attribution | ✅ | Facile | ●● (fraîcheur inégale) | ⬜ (demander l'accès) |
-| Mondial / remote | Jobicy | jobicy.com/jobs-rss-feed | live | 🟢 | ext | ✅ (`/api/v2/remote-jobs`) | ✅ | Facile | ●● | ✅ |
-| Mondial / remote | **RemoteOK** | remoteok.com/api | live | 🟢 | ext | ✅ JSON **sans clé** | ✅ | Facile | ●● | ⬜ (S1, trivial) |
-| Mondial / remote | **Remotive** | remotive.com/api/remote-jobs | live | 🟢 | ext | ✅ JSON **sans clé** | ✅ | Facile | ●● | ⬜ (S1, trivial) |
+| Mondial / remote | Jobicy | jobicy.com/jobs-rss-feed | live | 🟢 | ext | ✅ (`/api/v2/remote-jobs`) | ✅ | Facile | ●● | ✅ (seule source remote libre qui tient) |
+| Mondial / remote | ~~RemoteOK~~ | remoteok.com/api | — | — | — | — | — | — | — | ⛔ testé, feed pollué (voir §0) |
+| Mondial / remote | ~~Remotive~~ | remotive.com/api/remote-jobs | — | — | — | — | — | — | — | ⛔ testé, `search` bridé + CGU (voir §0) |
 | Sénégal | **Emploi Dakar** | emploidakar.com | crawl | 🟢 | ext / compte | ❌ | ❌ | Moyen (`sitemap_index.xml` OK) | ●●● | ✅ |
 
 **Careerjet** — après vérification, moins évident que prévu : l'API legacy est
@@ -95,9 +96,11 @@ les pages `untalent.org/jobs/in-anything/contract-*/anywhere` sont rendues
 serveur donc scrapables. Recouvre partiellement ReliefWeb, ratisse plus large
 côté ONU/IGO.
 
-**RemoteOK / Remotive** : les deux exposent une API JSON publique **sans
-clé** — intégration `SearchClient` triviale, à faire en S1. Attribution
-demandée par leurs CGU (garder titre + lien).
+**RemoteOK / Remotive** — écartés après implémentation + test réel
+(2026-09-03) : RemoteOK ne curate plus son flux (jobs sur site en pagaille),
+Remotive bride le `search` de l'API libre et ses CGU proscrivent notre usage.
+Détail dans [§0](#0-constats-de-vérification-p0p1--2026-09-03). **Jobicy** reste
+la seule source remote gratuite exploitable.
 
 ---
 
@@ -150,8 +153,8 @@ paramétré par segment pays.
 |---|---|---|---|---|---|---|---|---|---|
 | NGO Jobs in Africa | ngojobsinafrica.com | live (RSS + cache) | 🟢 | ❌ | ✅ (`/media-rss/`, flux par pays) | Facile | ●● | P1 | ✅ |
 | We Work Remotely | weworkremotely.com/remote-jobs.rss | live (RSS) | 🟢 | ❌ | ✅ | Facile | ●● | P1 | ✅ |
-| RemoteOK | remoteok.com/api | live | 🟢 | ✅ JSON **sans clé** (vérifié) | ✅ | Facile | ●● | P1 | ⬜ |
-| Remotive | remotive.com/api/remote-jobs | live | 🟢 | ✅ JSON **sans clé** (vérifié) | ✅ | Facile | ●● | P1 | ⬜ |
+| Jobicy | jobicy.com/api/v2/remote-jobs | live | 🟢 | ✅ sans clé | ✅ | Facile | ●● | P1 | ✅ |
+| ~~RemoteOK~~ / ~~Remotive~~ | — | — | — | — | — | — | — | ~~P1~~ → P3 | ⛔ testés, écartés (§0) |
 
 ---
 
@@ -194,9 +197,12 @@ paramétré par segment pays.
 
 | Organisme | URL | API | RSS | Prio |
 |---|---|---|---|---|
-| Remotive | remotive.com/api/remote-jobs | ✅ (JSON public) | ✅ | P2 |
 | Working Nomads | workingnomads.com | ❌ | ✅ | P3 |
-| Remote OK | (voir P1) | ✅ | ✅ | P1 |
+| ~~RemoteOK~~ / ~~Remotive~~ | — | — | — | ⛔ testés 2026-09-03, écartés (§0) |
+
+> Le remote gratuit exploitable se limite à **Jobicy** + le flux RSS **We Work
+> Remotely**, tous deux déjà intégrés. Les autres (RemoteOK, Remotive) sont
+> soit pollués soit sous CGU incompatibles.
 
 ---
 
@@ -228,7 +234,7 @@ paramétré par segment pays.
 | Sprint | Contenu | Famille | Gain |
 |---|---|---|---|
 | **S0 (démarches, hors code)** | Demander l'`appname` **ReliefWeb** approuvé · ouvrir un compte **Careerjet Publisher** + tester une clé sur `fr_SN`/`fr_CI`/`fr_CM` · envoyer la demande d'accès **UN Talent** | — | Débloque 3 sources ; ReliefWeb est **déjà cassée** en prod sans ça |
-| **S1** | **RemoteOK + Remotive** (clients `SearchClient` JSON, sans clé) | live | Remote first-class, ~0 risque, aucune démarche |
+| ~~S1~~ | ~~RemoteOK + Remotive~~ — **fait puis annulé** 2026-09-03 : feed RemoteOK pollué, API libre Remotive bridée + CGU hostiles (§0). Rien à intégrer. | — | — |
 | **S2** | **Careerjet** v4 (si le test S0 est concluant) · **UN Talent** (client JSON, si accès obtenu) | live | Couverture agrégée francophone + ONU |
 | **S3** | Crawler **Senjob** (préfixe pays `/sn/`, `/ci/`…) | crawl | Board national #1 bis, multi-pays |
 | **S4** | Crawler **Educarriere.ci** | crawl | Board CI à fort trafic |
@@ -257,8 +263,6 @@ paramétré par segment pays.
 reliefweb_appname: str = ""          # ⚠️ DOIT être un appname APPROUVÉ (v1 morte, v2 refuse les autres)
 careerjet_api_key: str = ""          # clé Publisher Careerjet (Basic auth), + referer requis à l'appel
 un_talent_api_key: str = ""          # jeton fourni après demande d'accès ; attribution obligatoire
-remoteok_enabled: bool = True
-remotive_enabled: bool = True
 # enabled_crawlers : ajouter au fil de l'eau
 #   "senjob:sn", "senjob:ci", "educarriere_ci",
 #   "novojob:sn", "novojob:ci", "novojob:bj", "novojob:tg",
@@ -270,11 +274,12 @@ remotive_enabled: bool = True
 
 ## 6. Synthèse par priorité
 
-- **P0 (8)** : France Travail ✅, Adzuna ✅ (`fr`), Jobicy ✅, Emploi Dakar ✅, **RemoteOK ⬜**, **Remotive ⬜**, ReliefWeb ⚠️ (appname à approuver), **Careerjet ⬜** (couverture Afrique à confirmer), **UN Talent ⬜** (accès à demander)
+- **P0 (6)** : France Travail ✅, Adzuna ✅ (`fr`), Jobicy ✅, Emploi Dakar ✅, ReliefWeb ⚠️ (appname à approuver), **Careerjet ⬜** (couverture Afrique à confirmer), **UN Talent ⬜** (accès à demander)
 - **P1 (~7)** : Senjob, Novojob (SN/CI), Educarriere.ci, NGO Jobs ✅, WWR ✅
 - **P2 (~14)** : Novojob (BJ/TG/BF/ML/NE/GN), Minajobs, RMO, Offre-emploi.ci, ANPEJ, Fonction Publique SN, concoursn, Sociumjob, Jooble, Talent.com, MyJobMag, Jobberman, Impactpool, UNjobs, AfDB, UNDP
-- **P3 (~16)** : **AfricaWork réseau (Cloudflare)**, Jobartis, iWorks, DigiJob Guinée, Guineejob, MediaCongo, Radio Okapi, AfriqueJob, Afri-Emploi, JobAfrique, Michael Page, Talent2Africa, institutions régionales, Devex, Working Nomads
+- **P3 (~18)** : **AfricaWork réseau (Cloudflare)**, **RemoteOK (feed pollué)**, **Remotive (API bridée + CGU)**, Jobartis, iWorks, DigiJob Guinée, Guineejob, MediaCongo, Radio Okapi, AfriqueJob, Afri-Emploi, JobAfrique, Michael Page, Talent2Africa, institutions régionales, Devex, Working Nomads
 - **Exclu** : LinkedIn, Google Jobs (sans budget SerpAPI)
+- **Testés et abandonnés (2026-09-03)** : ReliefWeb v1 (mort), AfricaWork (Cloudflare), RemoteOK (feed non curé), Remotive (search bridé + CGU). Voir §0.
 
 ---
 
