@@ -111,6 +111,7 @@ export function sourceLabel(source: string): string {
     weworkremotely: "We Work Remotely",
     ngojobs: "NGO Jobs in Africa",
     emploi_dakar: "Emploi Dakar",
+    senjob: "Senjob",
     crawled: "Job board local",
   };
   return map[source] ?? source;

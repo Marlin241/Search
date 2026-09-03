@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.job_search.crawlers.base import CrawledListingData, Crawler, CrawlerConfig
 from app.job_search.crawlers.emploi_dakar import EmploiDakarCrawler
+from app.job_search.crawlers.senjob import SenjobCrawler
 from app.models.crawled_listing import CrawledListing
 from app.utils.time import utcnow
 
@@ -14,10 +15,12 @@ logger = logging.getLogger(__name__)
 
 ENABLED_CRAWLER_REGISTRY: dict[str, Crawler] = {
     "emploi_dakar": EmploiDakarCrawler(),
+    "senjob": SenjobCrawler(),
 }
 
 _BASE_URLS = {
     "emploi_dakar": "https://www.emploidakar.com",
+    "senjob": "https://senjob.com/sn",
 }
 
 
