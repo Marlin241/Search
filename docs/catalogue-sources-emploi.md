@@ -5,10 +5,40 @@
 > remote, humanitaire/international.
 >
 > Dernière mise à jour : 2026-09-03. Établi à partir de recherches web +
-> connaissance du terrain. Les colonnes **API** et **RSS** marquées `❓` n'ont
-> **pas** été vérifiées en conditions réelles (curl avec vrai User-Agent,
-> lecture de `/robots.txt`, `/sitemap.xml`, `/feed`) — c'est le premier travail
-> à faire sur chaque source P0/P1 avant d'écrire le connecteur.
+> connaissance du terrain. Le **tier P0/P1 a été vérifié en réel le 2026-09-03**
+> (curl avec User-Agent navigateur : `robots.txt`, `sitemap.xml`, endpoints
+> d'API, comportement anti-bot) — voir [§0 Constats de vérification](#0-constats-de-vérification-p0p1--2026-09-03).
+> Les valeurs `❓` restantes (tiers P2/P3) ne sont pas vérifiées.
+
+---
+
+## 0. Constats de vérification P0/P1 — 2026-09-03
+
+Résultats des tests réels. **Trois surprises importantes.**
+
+| Source | Constat | Impact |
+|---|---|---|
+| **ReliefWeb** ⚠️ | API **v1 décommissionnée depuis le 1ᵉʳ nov. 2025**. `v2` exige un **`appname` pré-approuvé** (formulaire Google, revue manuelle, gratuit). Le défaut `reliefweb_appname="ats-diagnostic-search"` renvoie **403** → **la source est muette en prod aujourd'hui**. Le code (`reliefweb.py`) est déjà en v2, seul l'appname manque. | **Action requise** : demander un appname sur https://apidoc.reliefweb.int/parameters#appname puis remplir `RELIEFWEB_APPNAME`. Tant que ce n'est pas fait, retirer ReliefWeb des sources actives ou l'accepter en `unavailable_sources`. |
+| **Réseau AfricaWork** ⚠️ (emploisenegal.com, emploi.ci, emploi.cm) | **Cloudflare "challenge" (Turnstile/JS) sur TOUTES les URLs**, y compris `/robots.txt` → **403 "Just a moment"** pour tout client non-navigateur, même avec en-têtes navigateur complets. Non contournable sans navigateur headless (Playwright). Leur « Recruitment API » est côté **publication** d'offres, pas consultation. | **Rétrogradé P1 → P3 / bloqué.** Ne pas investir : coût élevé (headless), fragile, hostile. Le sitemap n'est même pas atteignable. |
+| **Careerjet** ⚠️ | L'**API legacy est fermée** ("only accessible for authenticated legacy users"). Nouvelle **API v4** : `https://search.api.careerjet.net/v4/query`, **Basic auth** (clé API par site éditeur, obtenue via un compte Publisher), en-tête `Referer` obligatoire, params `user_ip` + `user_agent` requis, GET → JSON, `page_size` 1-100. La **couverture Afrique francophone n'est pas documentée** (liste des `locale_code` non publiée). | Toujours **P0** mais : (1) créer un compte Publisher Careerjet, (2) **tester une vraie clé sur `fr_SN`, `fr_CI`, `fr_CM`** avant de compter dessus. Si le volume Afrique est faible → rétrograder P2. |
+| **UN Talent** (untalent.org) | API **JSON + RSS confirmée**, filtres `areas`/`locations`/`homebased`/`contract types`/`job levels`/`companies`. **Gratuit en fair-use avec attribution**, mais **sur demande d'accès** (endpoint non public, fourni après « Request access »). Fraîcheur **inégale** selon la source (World Bank : 2 h ; UNDP / AfDB : ~1 an). Couverture ONU/IGO/INGO mondiale, Afrique incluse mais non ciblée. Fallback : pages HTML `untalent.org/jobs/in-anything/contract-*/anywhere` **sont** rendues serveur (scrapables). | **P0 → P1** (accès gated + fraîcheur variable). Demander l'accès ; en attendant, le fallback HTML est possible. |
+| **Senjob** ✅ | `robots.txt` **200**, Apache. Disallow limité aux pages CV/employeur/`/abonnes/prix.html` ; bloc `googlebot` qui **autorise explicitement `/*/jobseekers/voir_offre.php`** (pages d'offre). Listing `/sn/offres-d-emploi.php` → **200, 141 Ko** HTML rendu serveur. `sitemap.xml` → **404**. Pas de RSS. `Sitemap:` dans robots pointe vers un sitemap absent. | **crawl, Moyen.** P1 confirmé. Préfixe pays `/sn/`, `/ci/`… ; parser les cartes du listing + `voir_offre.php`. |
+| **Novojob** ✅ | Site **Joomla**. `robots.txt` = défaut Joomla (rien de bloquant sur les offres). `sitemap.xml` **redirige** vers `/senegal/` (pas de vrai sitemap). Listing `/senegal/offres-d-emploi` → **200, 52 Ko** rendu serveur. Réseau multi-pays par segment d'URL `/{pays}/`. | **crawl, Moyen.** P1 confirmé. |
+| **Educarriere.ci** ✅ | `emploi.educarriere.ci/` → **200, 343 Ko** rendu serveur (offres dans le HTML). Pas de `robots.txt` (404), pas de `sitemap.xml` (404) → aucune restriction déclarée. | **crawl, Moyen.** P1 confirmé. Vérifier les CGU du site avant activation. |
+| **RemoteOK** ✅ | `https://remoteok.com/api` → **200, JSON ~430 Ko, sans clé**. Flux RSS aussi. | **live, Facile.** P1 confirmé, quasi zéro effort. Attribution demandée par leurs CGU. |
+| **Remotive** ✅ | `https://remotive.com/api/remote-jobs` → **200, JSON ~200 Ko, sans clé**. | **live, Facile.** P1 confirmé, quasi zéro effort. |
+| **Jobicy** ✅ | `https://jobicy.com/api/v2/remote-jobs` → **200 JSON**. Déjà intégré, OK. | RAS. |
+| **Emploi Dakar** ✅ | `robots.txt` = WordPress (bloque `/CV/`, `/resume/`, MauiBot ; offres OK). `sitemap.xml` → `sitemap_index.xml` **200**. Déjà intégré via sitemap. | RAS. |
+| **Adzuna** | Couverture Afrique = **Afrique du Sud (`za`) uniquement**. Aucun pays d'Afrique francophone. Déjà intégré (`fr`). | Activer `za` marginal pour la cible Sénégal ; faible priorité. |
+
+### Ce qu'il faut faire maintenant (issu des constats)
+
+1. **ReliefWeb** — demander un `appname` approuvé (sinon la source est déjà cassée en prod).
+2. **Careerjet** — ouvrir un compte Publisher, tester une clé réelle sur les locales `fr_SN` / `fr_CI` / `fr_CM`, mesurer le volume avant de s'engager.
+3. **UN Talent** — envoyer la demande d'accès API (fair-use gratuit).
+4. **RemoteOK + Remotive** — intégrables tout de suite, aucune clé (S1).
+5. **Senjob / Novojob / Educarriere.ci** — 3 crawlers `crawl`, markup à snapshoter dans les fixtures.
+6. **AfricaWork** — abandonner pour l'instant (Cloudflare). Ré-évaluer si un jour on a un pool de navigateurs headless.
 
 ---
 
@@ -40,25 +70,34 @@ valent le détour.
 | Pays | Organisme | URL | Famille | Accès | Postuler | API | RSS | Scrap. | Fiab. | État |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Multi (FR + Europe) | France Travail | francetravail.io | live | 🟢 | ext | 🔑 | ❌ | — | ●●● | ✅ |
-| Afrique du Sud + monde | Adzuna | developer.adzuna.com | live | 🟢 | ext | 🔑 | ❌ | — | ●●● | ✅ (FR) — activer `za` |
-| Multi Afrique francophone | **Careerjet** | www.careerjet.fr/partners | live | 🟢 | ext | 🔑 (clé gratuite, 1000 req/h, JSON+XML) | ✅ | Facile (API) | ●●● | ⬜ |
-| Mondial / humanitaire | ReliefWeb (OCHA) | reliefweb.int/help / /rss | live | 🟢 | ext | ✅ (`api.reliefweb.int/v1/jobs`, pas de clé, `appname`) | ✅ | Facile | ●●● | ✅ |
-| Mondial / ONU-ONG | **UN Talent** | untalent.org/open | live | 🟢 | ext | ✅ (JSON, fair-use gratuit + attribution) | ✅ | Facile | ●●● | ⬜ |
+| Afrique du Sud + monde | Adzuna | developer.adzuna.com | live | 🟢 | ext | 🔑 | ❌ | — | ●●● | ✅ (`fr`) — Afrique = `za` seulement |
+| Multi (agrégateur) | **Careerjet** | careerjet.com/partners/api | live | 🟢 | ext | 🔑 API v4, Basic auth, clé Publisher, en-tête `Referer` requis, JSON | ❌ (v4) | Facile (API) | ●● | ⬜ (tester couverture Afrique) |
+| Mondial / humanitaire | ReliefWeb (OCHA) | api.reliefweb.int/**v2**/jobs | live | 🟢 | ext | ✅ **appname pré-approuvé requis** (gratuit, sur formulaire) | ✅ | Facile | ●●● | ⚠️ code OK, **appname non approuvé → 403** |
+| Mondial / ONU-ONG | **UN Talent** | untalent.org/open | live | 🟢 | ext | ✅ JSON + RSS, **sur demande d'accès**, fair-use gratuit + attribution | ✅ | Facile | ●● (fraîcheur inégale) | ⬜ (demander l'accès) |
 | Mondial / remote | Jobicy | jobicy.com/jobs-rss-feed | live | 🟢 | ext | ✅ (`/api/v2/remote-jobs`) | ✅ | Facile | ●● | ✅ |
-| Sénégal | **Emploi Dakar** | emploidakar.com | crawl | 🟢 | ext / compte | ❌ | ❓ | Moyen (sitemap.xml OK) | ●●● | ✅ |
+| Mondial / remote | **RemoteOK** | remoteok.com/api | live | 🟢 | ext | ✅ JSON **sans clé** | ✅ | Facile | ●● | ⬜ (S1, trivial) |
+| Mondial / remote | **Remotive** | remotive.com/api/remote-jobs | live | 🟢 | ext | ✅ JSON **sans clé** | ✅ | Facile | ●● | ⬜ (S1, trivial) |
+| Sénégal | **Emploi Dakar** | emploidakar.com | crawl | 🟢 | ext / compte | ❌ | ❌ | Moyen (`sitemap_index.xml` OK) | ●●● | ✅ |
 
-**Careerjet** est le meilleur ratio effort/couverture pour l'Afrique
-francophone : domaines pays (`careerjet.sn`, `.ci`, `.cm`, `.bj`, `.tg`,
-`.ml`, `.bf`, `.ne`, `.cg`, `.ga`…), une seule clé, réponse JSON structurée,
-rate-limit 1000/h large. C'est lui-même un agrégateur — attention aux
-doublons avec les sources natives (dédup par URL déjà en place dans
-`aggregator.py`, mais les URLs Careerjet sont des redirections → prévoir une
-normalisation / résolution d'URL).
+**Careerjet** — après vérification, moins évident que prévu : l'API legacy est
+fermée, la v4 impose une clé Publisher + `Referer`, et **la couverture des
+pays d'Afrique francophone n'est pas documentée**. Reste P0 *conditionnel* :
+ouvrir un compte Publisher, tester `fr_SN` / `fr_CI` / `fr_CM` avec une vraie
+clé, mesurer le volume. Bon repli si le volume tient ; sinon P2. C'est un
+agrégateur → dédup par URL (les liens Careerjet sont des redirections → à
+résoudre/normaliser).
 
-**UN Talent** (untalent.org) : API JSON + RSS, filtres `areas`, `locations`,
-`homebased`, `contract_types`, `job_levels`, `companies`. Gratuit en fair-use
-avec attribution (garder les liens de candidature). Recouvre partiellement
-ReliefWeb mais ratisse plus large côté ONU/IGO.
+**UN Talent** (untalent.org) : API JSON + RSS confirmée, filtres `areas`,
+`locations`, `homebased`, `contract_types`, `job_levels`, `companies`.
+Gratuit en fair-use avec attribution, **mais l'endpoint est fourni après une
+demande d'accès**. Fraîcheur inégale selon l'agence source. Fallback possible :
+les pages `untalent.org/jobs/in-anything/contract-*/anywhere` sont rendues
+serveur donc scrapables. Recouvre partiellement ReliefWeb, ratisse plus large
+côté ONU/IGO.
+
+**RemoteOK / Remotive** : les deux exposent une API JSON publique **sans
+clé** — intégration `SearchClient` triviale, à faire en S1. Attribution
+demandée par leurs CGU (garder titre + lien).
 
 ---
 
@@ -70,59 +109,49 @@ Fort intérêt pour un candidat sénégalais, effort d'intégration modéré.
 
 | Organisme | URL | Famille | Accès | Postuler | API | RSS | Scrap. | Fiab. | Prio | État |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Senjob | senjob.com/sn/offres-d-emploi.php | crawl | 🟢 | compte / ext | ❓ | ❓ | Moyen (PHP, pagination, préfixe pays `/sn/`) | ●●● | P1 | ⬜ |
-| EmploiSenegal.com (réseau AfricaWork) | emploisenegal.com | crawl | 🟡 (login pour certaines offres) | compte | 🔑 (« Recruitment API » côté publication) | ❓ | **Difficile** (Cloudflare, 403 sur UA non-navigateur) | ●●● | P1 | ⬜ |
-| Novojob Sénégal | novojob.com/senegal | crawl | 🟢 | compte / ext | ❓ | ❓ | Moyen | ●● | P1 | ⬜ |
+| **Senjob** | senjob.com/sn/offres-d-emploi.php | crawl | 🟢 | compte / ext | ❌ | ❌ | Moyen (Apache/PHP, rendu serveur, pagination, préfixe pays `/sn/`, `robots` autorise `voir_offre.php`) | ●●● | P1 | ⬜ |
+| **Novojob Sénégal** | novojob.com/senegal | crawl | 🟢 | compte / ext | ❌ | ❌ | Moyen (Joomla, rendu serveur, pas de sitemap) | ●● | P1 | ⬜ |
+| ~~EmploiSenegal.com (AfricaWork)~~ | emploisenegal.com | — | 🔴 | compte | ❌ (côté conso) | ❌ | **Bloqué** — Cloudflare challenge JS sur toutes les URLs | ●●● | ~~P1~~ → **P3** | ⛔ |
 
-> Senjob et le réseau AfricaWork couvrent **plusieurs pays francophones avec
-> la même plateforme** → un crawler paramétré par domaine/préfixe pays sert
-> tout le réseau (cf. §2b, §3). AfricaWork bloque agressivement les bots :
-> prévoir un vrai User-Agent navigateur, un débit lent, et se rabattre sur le
-> sitemap si accessible ; sinon rester désactivé (`enabled_crawlers`).
+> **Senjob** et **Novojob** couvrent plusieurs pays francophones avec la même
+> plateforme → un crawler paramétré par préfixe/segment pays sert tout le
+> réseau. Les deux sont en **rendu serveur**, sans sitemap ni RSS : parser les
+> cartes du listing paginé + la page de détail.
+>
+> **AfricaWork est abandonné** (vérif 2026-09-03) : Cloudflare renvoie un
+> challenge JS (« Just a moment ») même sur `/robots.txt`, non contournable
+> sans navigateur headless. Voir [§0](#0-constats-de-vérification-p0p1--2026-09-03).
 
-### 2b. Réseau AfricaWork — un connecteur, ~15 pays
+### 2b. Réseau Novojob — un connecteur, Afrique de l'Ouest
 
-Même moteur (Drupal + Solr, URLs `im_field_offre_*`), donc **un seul crawler
-paramétré par domaine**. `kenyajob.com` expose une page « Job API » /
-« Recruitment API » → vérifier si un flux de consultation existe (sinon crawl).
+`novojob.com/<pays>/…` (Joomla, rendu serveur, pas de sitemap — vérifié SN).
+Sénégal, Côte d'Ivoire, Bénin, Togo, Burkina, Mali, Niger, Guinée. Un crawler
+paramétré par segment pays.
 
-| Pays | Domaine | Prio |
+| Pays | URL | Prio |
 |---|---|---|
-| Sénégal | emploisenegal.com | P1 |
-| Côte d'Ivoire | emploi.ci | P1 |
-| Cameroun | emploi.cm | P1 |
-| Bénin | emploi.bj | P2 |
-| Togo | emploi.tg | P2 |
-| Burkina Faso | emploi.bf | P2 |
-| Mali | emploi.ml | P2 |
-| Niger | emploi.ne | P2 |
-| Guinée | emploi.gn | P2 |
-| Gabon | emploi.ga | P2 |
-| Congo | emploi.cg | P2 |
-| RDC | emploi.cd | P2 |
-| Centrafrique | emploi.cf | P3 |
-| Kenya (anglophone, test API) | kenyajob.com | P2 |
+| Sénégal | novojob.com/senegal | P1 |
+| Côte d'Ivoire | novojob.com/cote-d-ivoire | P1 |
+| Bénin | novojob.com/benin | P2 |
+| Togo | novojob.com/togo | P2 |
+| Burkina / Mali / Niger / Guinée | novojob.com/{pays} | P2 |
 
-### 2c. Réseau Novojob — un connecteur, Afrique de l'Ouest
-
-`novojob.com/<pays>/…`. Sénégal, Côte d'Ivoire, Bénin, Togo, Burkina, Mali,
-Niger, Guinée. Un crawler paramétré par segment pays.
-
-### 2d. Côte d'Ivoire
+### 2c. Côte d'Ivoire
 
 | Organisme | URL | Famille | Accès | API | RSS | Scrap. | Fiab. | Prio |
 |---|---|---|---|---|---|---|---|---|
-| Educarriere.ci | emploi.educarriere.ci | crawl | 🟢 | ❓ | ❓ | Moyen | ●●● | P1 |
+| **Educarriere.ci** | emploi.educarriere.ci | crawl | 🟢 | ❌ | ❌ | Moyen (rendu serveur, pas de robots/sitemap → vérifier CGU) | ●●● | P1 |
 | RMO Jobcenter (cabinet, multi-pays) | rmo-jobcenter.com | crawl | 🟢 | ❌ | ❓ | Moyen | ●● | P2 |
 | Offre-emploi.ci | offre-emploi.ci | crawl | 🟢 | ❓ | ❓ | Moyen | ●● | P2 |
 
-### 2e. Humanitaire / ONG (déjà partiellement en place)
+### 2d. Humanitaire / ONG / remote (déjà partiellement en place)
 
 | Organisme | URL | Famille | Accès | API | RSS | Scrap. | Fiab. | Prio | État |
 |---|---|---|---|---|---|---|---|---|---|
 | NGO Jobs in Africa | ngojobsinafrica.com | live (RSS + cache) | 🟢 | ❌ | ✅ (`/media-rss/`, flux par pays) | Facile | ●● | P1 | ✅ |
 | We Work Remotely | weworkremotely.com/remote-jobs.rss | live (RSS) | 🟢 | ❌ | ✅ | Facile | ●● | P1 | ✅ |
-| RemoteOK | remoteok.com/api | live | 🟢 | ✅ (JSON public) | ✅ | Facile | ●● | P1 | ⬜ |
+| RemoteOK | remoteok.com/api | live | 🟢 | ✅ JSON **sans clé** (vérifié) | ✅ | Facile | ●● | P1 | ⬜ |
+| Remotive | remotive.com/api/remote-jobs | live | 🟢 | ✅ JSON **sans clé** (vérifié) | ✅ | Facile | ●● | P1 | ⬜ |
 
 ---
 
@@ -198,13 +227,18 @@ Niger, Guinée. Un crawler paramétré par segment pays.
 
 | Sprint | Contenu | Famille | Gain |
 |---|---|---|---|
-| **S1** | Careerjet (clé + client `SearchClient` JSON) · UN Talent (client JSON) | live | Couverture francophone multi-pays + ONU immédiate, ~0 risque |
-| **S2** | RemoteOK + Remotive (clients JSON) · activer Adzuna `za` | live | Remote first-class complété |
-| **S3** | Crawler **Senjob** (préfixe pays) · crawler **Educarriere.ci** | crawl | 2 boards nationaux à fort trafic |
-| **S4** | Crawler **réseau AfricaWork** paramétré (test API `kenyajob`, sinon sitemap) : SN, CI, CM | crawl | 1 connecteur → 3 pays, extensible à ~12 |
+| **S0 (démarches, hors code)** | Demander l'`appname` **ReliefWeb** approuvé · ouvrir un compte **Careerjet Publisher** + tester une clé sur `fr_SN`/`fr_CI`/`fr_CM` · envoyer la demande d'accès **UN Talent** | — | Débloque 3 sources ; ReliefWeb est **déjà cassée** en prod sans ça |
+| **S1** | **RemoteOK + Remotive** (clients `SearchClient` JSON, sans clé) | live | Remote first-class, ~0 risque, aucune démarche |
+| **S2** | **Careerjet** v4 (si le test S0 est concluant) · **UN Talent** (client JSON, si accès obtenu) | live | Couverture agrégée francophone + ONU |
+| **S3** | Crawler **Senjob** (préfixe pays `/sn/`, `/ci/`…) | crawl | Board national #1 bis, multi-pays |
+| **S4** | Crawler **Educarriere.ci** | crawl | Board CI à fort trafic |
 | **S5** | Crawler **réseau Novojob** paramétré : SN, CI, BJ, TG | crawl | 1 connecteur → 4 pays |
 | **S6** | Sénégal public : ANPEJ, Fonction Publique, concoursn.com | crawl | Secteur public / concours |
 | **S7+** | Minajobs (CM), MyJobMag RSS, Jooble/Talent.com feeds partenaires, AfDB/UNDP | mixte | Élargissement |
+
+> **AfricaWork** ne figure plus dans la roadmap : Cloudflare challenge JS
+> (vérifié 2026-09-03). À reconsidérer seulement si un pool de navigateurs
+> headless est mis en place pour d'autres besoins.
 
 ### Checklist de qualification d'une source (à faire avant chaque connecteur)
 
@@ -220,25 +254,26 @@ Niger, Guinée. Un crawler paramétré par segment pays.
 ### Config à prévoir (`backend/app/config.py`)
 
 ```python
-careerjet_affid: str = ""                     # clé partenaire Careerjet
-un_talent_appname: str = "search-app"          # attribution UN Talent
+reliefweb_appname: str = ""          # ⚠️ DOIT être un appname APPROUVÉ (v1 morte, v2 refuse les autres)
+careerjet_api_key: str = ""          # clé Publisher Careerjet (Basic auth), + referer requis à l'appel
+un_talent_api_key: str = ""          # jeton fourni après demande d'accès ; attribution obligatoire
 remoteok_enabled: bool = True
 remotive_enabled: bool = True
 # enabled_crawlers : ajouter au fil de l'eau
-#   "senjob", "educarriere_ci",
-#   "africawork:sn", "africawork:ci", "africawork:cm",
+#   "senjob:sn", "senjob:ci", "educarriere_ci",
 #   "novojob:sn", "novojob:ci", "novojob:bj", "novojob:tg",
 #   "anpej", "fonction_publique_sn"
+#   (PAS africawork:* — Cloudflare challenge, cf. §0)
 ```
 
 ---
 
 ## 6. Synthèse par priorité
 
-- **P0 (7)** : France Travail ✅, Adzuna ✅, ReliefWeb ✅, Jobicy ✅, Emploi Dakar ✅, **Careerjet ⬜**, **UN Talent ⬜**
-- **P1 (~12)** : Senjob, AfricaWork (SN/CI/CM), Novojob (SN/CI), Educarriere.ci, NGO Jobs ✅, WWR ✅, RemoteOK, Remotive
-- **P2 (~15)** : AfricaWork (BJ/TG/BF/ML/NE/GN/GA/CG/CD/KE), Novojob (BJ/TG), Minajobs, RMO, ANPEJ, Fonction Publique SN, concoursn, Sociumjob, Jooble, Talent.com, MyJobMag, Jobberman, Impactpool, UNjobs, AfDB, UNDP
-- **P3 (~15)** : Jobartis, iWorks, DigiJob Guinée, Guineejob, MediaCongo, Radio Okapi, AfriqueJob, Afri-Emploi, JobAfrique, Michael Page, Talent2Africa, institutions régionales, Devex, Working Nomads
+- **P0 (8)** : France Travail ✅, Adzuna ✅ (`fr`), Jobicy ✅, Emploi Dakar ✅, **RemoteOK ⬜**, **Remotive ⬜**, ReliefWeb ⚠️ (appname à approuver), **Careerjet ⬜** (couverture Afrique à confirmer), **UN Talent ⬜** (accès à demander)
+- **P1 (~7)** : Senjob, Novojob (SN/CI), Educarriere.ci, NGO Jobs ✅, WWR ✅
+- **P2 (~14)** : Novojob (BJ/TG/BF/ML/NE/GN), Minajobs, RMO, Offre-emploi.ci, ANPEJ, Fonction Publique SN, concoursn, Sociumjob, Jooble, Talent.com, MyJobMag, Jobberman, Impactpool, UNjobs, AfDB, UNDP
+- **P3 (~16)** : **AfricaWork réseau (Cloudflare)**, Jobartis, iWorks, DigiJob Guinée, Guineejob, MediaCongo, Radio Okapi, AfriqueJob, Afri-Emploi, JobAfrique, Michael Page, Talent2Africa, institutions régionales, Devex, Working Nomads
 - **Exclu** : LinkedIn, Google Jobs (sans budget SerpAPI)
 
 ---
@@ -248,5 +283,5 @@ remotive_enabled: bool = True
 - [Emploi Dakar](https://www.emploidakar.com/) · [EmploiSenegal.com / AfricaWork](https://www.emploisenegal.com/) · [Senjob](https://senjob.com/sn/offres-d-emploi.php) · [Senego — sites recrutement Sénégal](https://senego.com/services/offres-emploi) · [Xarala — 5 plateformes emploi Sénégal](https://www.xarala.co/blog/5-plateformes-pour-trouver-un-emploi-rapidement-au-senegal-et-en-afrique/)
 - [Socium — comparatif sites Afrique francophone 2026](https://sociumjob.com/medias/articles/meilleurs-sites-pour-postuler-en-afrique-francophone-le-comparatif-2026) · [Thot Cursus — répertoire sites emploi Afrique francophone](https://cursus.edu/fr/11623/repertoire-des-sites-doffres-demploi-maghreb-et-afrique-francophone) · [DigiJob Guinée — sites emploi Afrique de l'Ouest](https://digijobguinee.com/post.php?lang=fr&t=Les-Sites-D-offres-D-emploi-des-Pays-Francophones-En-Afrique-de-L-ouest&id=1122) · [ZeroName — top 10 plateformes emploi Afrique 2026](https://zeroname.space/ressources/top-10-plateformes-emploi-afrique)
 - [Careerjet API (PublicAPIs.io)](https://publicapis.io/careerjet-api) · [Cavuno — job feeds 2026 (Jooble/Careerjet/Talent.com)](https://cavuno.com/blog/job-feeds) · [Apify — Africa Jobs Scraper (Jobberman/BrighterMonday/Careers24/MyJobMag)](https://apify.com/jungle_synthesizer/africa-jobs-aggregator-scraper) · [Kenyajob — Job API](https://www.kenyajob.com/job-api)
-- [ReliefWeb — aide](https://reliefweb.int/help) · [ReliefWeb — flux RSS](https://reliefweb.int/rss) · [UN Talent — open project (API/RSS)](https://untalent.org/open) · [NGO Jobs in Africa](https://ngojobsinafrica.com/) · [Apify — Impactpool scraper](https://apify.com/nomad-agent/impactpool-scraper/api/python) · [The M&E Specialist — 15 best development job boards](https://themandespecialist.com/15-best-job-boards-international-development/)
+- [ReliefWeb API — paramètre appname (v1 décommissionnée, appname pré-approuvé)](https://apidoc.reliefweb.int/parameters#appname) · [ReliefWeb — flux RSS](https://reliefweb.int/rss) · [Careerjet Partners API v4](https://www.careerjet.com/partners/api/) · [UN Talent — open project (API/RSS)](https://untalent.org/open) · [NGO Jobs in Africa](https://ngojobsinafrica.com/) · [The M&E Specialist — 15 best development job boards](https://themandespecialist.com/15-best-job-boards-international-development/)
 - [Novojob West Africa (LinkedIn)](https://www.linkedin.com/company/novojobwa) · [Talent2Africa](https://talent2africa.com/) · [AfricaWork — emploi.cf](https://www.emploi.cf/) · [UNDP Jobs — région Afrique](https://jobs.undp.org/cj_view_jobs.cfm?cur_rgn_id_c=RAF)
