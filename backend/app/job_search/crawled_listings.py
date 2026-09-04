@@ -1,4 +1,3 @@
-import unicodedata
 from collections.abc import Callable
 
 from sqlalchemy import func
@@ -8,15 +7,11 @@ from sqlalchemy.orm import Session
 from app import database
 from app.job_search.errors import JobSearchSourceError
 from app.job_search.keyword_matching import keyword_matches_title
+from app.job_search.location_matching import location_matches
 from app.job_search.schemas import JobListing, SearchCriteria
 from app.models.crawled_listing import CrawledListing
 
 _RESULT_LIMIT = 50
-
-
-def _strip_accents(value: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", value)
-    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
 
 
 class CrawledListingClient:
@@ -28,17 +23,18 @@ class CrawledListingClient:
     text filters (keywords, location) run in Python. Keywords are matched
     against the offer title with the same accent-insensitive, synonym-aware
     helper the other title-matching sources use (so "développeur" also
-    finds "Developer"); location matching is accent-insensitive. The
-    candidate set is bounded by the number of active crawled rows (a few
-    thousand at most), so the in-memory pass is cheap.
+    finds "Developer"); location matching (app.job_search.location_matching)
+    is accent-insensitive and metro-aware, so a "Dakar" search also keeps an
+    offer posted in a Dakar neighbourhood or at country level. The candidate
+    set is bounded by the number of active crawled rows (a few thousand at
+    most), so the in-memory pass is cheap.
     """
 
     def __init__(self, session_factory: Callable[[], Session] | None = None):
         self._session_factory = session_factory or database.SessionLocal
 
     def search(self, criteria: SearchCriteria) -> list[JobListing]:
-        pinned_location = (criteria.location or "").strip()
-        location_needle = _strip_accents(pinned_location) if pinned_location else None
+        pinned_location = (criteria.location or "").strip() or None
 
         session = self._session_factory()
         try:
@@ -67,9 +63,7 @@ class CrawledListingClient:
         for row in rows:
             if not keyword_matches_title(criteria.keywords, row.title):
                 continue
-            if location_needle is not None and location_needle not in _strip_accents(
-                row.location or ""
-            ):
+            if not location_matches(pinned_location, row.location):
                 continue
             listings.append(
                 JobListing(

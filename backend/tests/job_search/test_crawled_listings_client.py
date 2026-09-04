@@ -100,6 +100,28 @@ def test_search_filters_by_location_accent_insensitive(db_session):
     assert {r.url for r in results} == {"https://x/1"}
 
 
+def test_search_dakar_keeps_an_offer_posted_in_a_dakar_neighbourhood(db_session):
+    db_session.add(
+        CrawledListing(
+            url="https://x/sec",
+            source="emploi_dakar",
+            title="Agent de sécurité",
+            snippet="Surveillance de site",
+            location="LIBERTE 6, en face UNO",
+            is_remote=False,
+            first_seen_at=datetime(2026, 9, 3),
+            last_seen_at=datetime(2026, 9, 3),
+            is_active=True,
+        )
+    )
+    db_session.commit()
+    client = CrawledListingClient(session_factory=lambda: db_session)
+    results = client.search(
+        SearchCriteria(keywords="agent de sécurité", location="Dakar")
+    )
+    assert "https://x/sec" in {r.url for r in results}
+
+
 def test_search_remote_flag_restricts_to_remote_rows(db_session):
     _seed(db_session)
     client = CrawledListingClient(session_factory=lambda: db_session)
