@@ -77,6 +77,7 @@ export interface DiagnosticReport {
   semantic_score: number;
   missing_keywords: string[];
   recommendations: string[];
+  documents: PersonalizedDocumentOut[];
 }
 
 /* ─── Personalized Document ─── */

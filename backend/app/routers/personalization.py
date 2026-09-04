@@ -18,12 +18,14 @@ from app.generation_jobs import state as generation_jobs_state
 from app.llm.dependencies import require_llm_enabled
 from app.llm_analyzer.analyzer import SemanticAnalyzer
 from app.llm_analyzer.dependencies import get_semantic_analyzer
+from app.models.candidate_profile import CandidateProfile
 from app.models.diagnostic import Diagnostic
 from app.models.personalized_document import PersonalizedDocument
 from app.models.user import User
 from app.personalization.analyzer import CoverLetterGenerator, CvRewriter
 from app.personalization.dependencies import get_cover_letter_generator, get_cv_rewriter
 from app.personalization.jobs import run_cv_generation_job, run_letter_generation_job
+from app.personalization.pdf_templates import render_cv
 from app.rate_limit.limiter import (
     RateLimitExceeded,
     check_personalization_rate_limit,
@@ -31,6 +33,7 @@ from app.rate_limit.limiter import (
 )
 from app.rate_limit.llm_quota import QuotaExceeded, enforce_monthly_quota
 from app.schemas.generation_job import GenerationJobStarted
+from app.schemas.saved_job import CvRenderPreviewIn
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
 
@@ -231,6 +234,27 @@ def download_cv(
     storage: ObjectStorage = Depends(get_object_storage),
 ) -> Response:
     return _download(diagnostic_id, "cv", "cv_optimise.pdf", db, current_user, storage)
+
+
+@router.post("/{diagnostic_id}/cv/render-preview")
+def render_cv_preview(
+    diagnostic_id: int,
+    payload: CvRenderPreviewIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    """Diagnostic-scoped twin of saved_jobs.render_cv_preview: same pure
+    re-render (no LLM call), just ownership-checked via the diagnostic
+    instead of a SavedJob, for the CV editor on /diagnostic."""
+    _get_owned_diagnostic(db, diagnostic_id, current_user.id)
+
+    profile = (
+        db.query(CandidateProfile)
+        .filter(CandidateProfile.user_id == current_user.id)
+        .first()
+    )
+    pdf_bytes, _ = render_cv(payload.template, payload.content, profile, payload.style)
+    return Response(content=pdf_bytes, media_type="application/pdf")
 
 
 @router.get("/{diagnostic_id}/lettre")

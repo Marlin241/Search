@@ -28,12 +28,30 @@ from app.rate_limit.limiter import (
 from app.rate_limit.llm_quota import QuotaExceeded, enforce_monthly_quota
 from app.rules_engine.rules import evaluate_structure
 from app.schemas.diagnostic import DiagnosticReport
+from app.schemas.personalization import PersonalizedDocumentOut
 from app.storage.client import ObjectStorage, ObjectStorageError
 from app.storage.dependencies import get_object_storage
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
+
+
+def _documents_out(db: Session, diagnostic_id: int) -> list[PersonalizedDocumentOut]:
+    return [
+        PersonalizedDocumentOut(
+            kind=document.kind,
+            needs_review=document.needs_review,
+            created_at=document.created_at,
+            updated_at=document.updated_at,
+            ats_score_before=document.ats_score_before,
+            ats_score_after=document.ats_score_after,
+            content_json=document.content_json,
+        )
+        for document in db.query(PersonalizedDocument)
+        .filter(PersonalizedDocument.diagnostic_id == diagnostic_id)
+        .all()
+    ]
 
 
 @router.post("", response_model=DiagnosticReport, status_code=status.HTTP_201_CREATED)
@@ -198,9 +216,38 @@ def list_diagnostics(
             semantic_score=d.semantic_score,
             missing_keywords=d.missing_keywords,
             recommendations=d.recommendations,
+            documents=_documents_out(db, d.id),
         )
         for d in diagnostics
     ]
+
+
+@router.get("/{diagnostic_id}", response_model=DiagnosticReport)
+def get_diagnostic(
+    diagnostic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DiagnosticReport:
+    diagnostic = (
+        db.query(Diagnostic)
+        .filter(Diagnostic.id == diagnostic_id, Diagnostic.user_id == current_user.id)
+        .first()
+    )
+    if diagnostic is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Diagnostic introuvable."
+        )
+    return DiagnosticReport(
+        id=diagnostic.id,
+        created_at=diagnostic.created_at,
+        overall_score=diagnostic.overall_score,
+        structural_score=diagnostic.structural_score,
+        structural_issues=diagnostic.structural_issues,
+        semantic_score=diagnostic.semantic_score,
+        missing_keywords=diagnostic.missing_keywords,
+        recommendations=diagnostic.recommendations,
+        documents=_documents_out(db, diagnostic.id),
+    )
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
