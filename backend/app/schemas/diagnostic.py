@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.personalization import PersonalizedDocumentOut
+
 
 class DiagnosticReport(BaseModel):
     id: int | None = None
@@ -12,3 +14,4 @@ class DiagnosticReport(BaseModel):
     semantic_score: int
     missing_keywords: list[str]
     recommendations: list[str]
+    documents: list[PersonalizedDocumentOut] = []

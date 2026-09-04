@@ -498,3 +498,63 @@ def test_delete_all_diagnostics_does_not_purge_other_users_applications(
     other_get = client.get("/applications", headers=other_headers)
     assert other_get.status_code == 200
     assert len(other_get.json()) == 1
+
+
+def test_get_diagnostic_includes_generated_documents(client):
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+    app.dependency_overrides[get_object_storage] = lambda: _FakeObjectStorage()
+    app.dependency_overrides[get_cv_rewriter] = lambda: _FakeCvRewriter()
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    diagnostic_id = client.post(
+        "/diagnostics",
+        headers=headers,
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+        data={"offer_text": "We need a Python developer."},
+    ).json()["id"]
+
+    client.post(f"/diagnostics/{diagnostic_id}/cv", headers=headers)
+
+    fetched = client.get(f"/diagnostics/{diagnostic_id}", headers=headers)
+    assert fetched.status_code == 200
+    documents = fetched.json()["documents"]
+    assert len(documents) == 1
+    assert documents[0]["kind"] == "cv"
+    assert documents[0]["content_json"]["summary"] == "Résumé."
+
+    app.dependency_overrides.pop(get_semantic_analyzer, None)
+    app.dependency_overrides.pop(get_object_storage, None)
+    app.dependency_overrides.pop(get_cv_rewriter, None)
+
+
+def test_get_diagnostic_not_found_for_other_user(client):
+    app.dependency_overrides[get_semantic_analyzer] = lambda: FakeAnalyzer()
+    owner_token = _register_and_login(client)
+    diagnostic_id = client.post(
+        "/diagnostics",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        files={
+            "cv_file": (
+                "cv.docx",
+                _clean_cv_docx_bytes(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+        data={"offer_text": "We need a Python developer."},
+    ).json()["id"]
+
+    other_token = _register_and_login(client, email="other-diag@example.com")
+    response = client.get(
+        f"/diagnostics/{diagnostic_id}",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+    assert response.status_code == 404
+
+    app.dependency_overrides.pop(get_semantic_analyzer, None)

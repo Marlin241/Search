@@ -470,3 +470,51 @@ def test_personalization_request_log_only_written_on_job_success(client, db_sess
     assert _log_count() == before + 1
 
     _clear_personalization_overrides()
+
+
+_RENDER_PREVIEW_CONTENT = {
+    "summary": "Résumé.",
+    "experience": [
+        {
+            "title": "Dev",
+            "company": "Acme",
+            "dates": "2020-2022",
+            "bullets": ["Bullet."],
+        }
+    ],
+    "education": ["Master Informatique"],
+    "skills": ["Python"],
+}
+
+
+def test_render_cv_preview_returns_pdf_without_any_llm_call(client):
+    # No get_semantic_analyzer/get_cv_rewriter override needed here - this
+    # endpoint is a pure fpdf2 re-render from already-generated content, the
+    # diagnostic-scoped twin of saved_jobs.render_cv_preview.
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    diagnostic_id = _create_diagnostic(client, headers)
+
+    response = client.post(
+        f"/diagnostics/{diagnostic_id}/cv/render-preview",
+        headers=headers,
+        json={"content": _RENDER_PREVIEW_CONTENT, "template": "modern"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
+
+
+def test_render_cv_preview_404s_for_another_users_diagnostic(client):
+    owner_token = _register_and_login(client, "render-owner@example.com")
+    diagnostic_id = _create_diagnostic(
+        client, {"Authorization": f"Bearer {owner_token}"}
+    )
+
+    attacker_token = _register_and_login(client, "render-attacker@example.com")
+    response = client.post(
+        f"/diagnostics/{diagnostic_id}/cv/render-preview",
+        headers={"Authorization": f"Bearer {attacker_token}"},
+        json={"content": _RENDER_PREVIEW_CONTENT},
+    )
+    assert response.status_code == 404
