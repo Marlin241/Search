@@ -84,9 +84,11 @@ export function CompatibilityDetailModal({
             </div>
 
             <p className="text-center text-xs text-muted-foreground">
-              Les pourcentages reflètent vos critères de recherche ; le résumé
-              et les points ci-dessous s&apos;appuient en plus sur le contenu
-              de votre CV.
+              Ce score indique à quel point cette offre correspond à vos
+              critères de recherche (intitulé, lieu, expérience, salaire,
+              fraîcheur) — plus il est élevé, mieux l&apos;offre correspond.
+              Le résumé et les points ci-dessous s&apos;appuient en plus sur
+              le contenu de votre CV.
             </p>
 
             <div className="space-y-2.5">

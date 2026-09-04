@@ -2,20 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { renderCvPreview } from "@/lib/api";
 import type { CvStyleOptions, CvTemplate, RewrittenCv } from "@/lib/types";
 
 const DEBOUNCE_MS = 500;
 
 export function CvPreviewFrame({
-  token,
-  savedJobId,
+  cacheKey,
+  renderPreview,
   content,
   template,
   style,
 }: {
-  token: string;
-  savedJobId: number;
+  /** Identifies the scope being previewed (e.g. `savedJob:${id}` or
+   * `diagnostic:${id}`) so the debounce effect below only restarts when the
+   * scope itself changes, not on every render. */
+  cacheKey: string;
+  renderPreview: (payload: {
+    content: RewrittenCv;
+    template: CvTemplate;
+    style: CvStyleOptions;
+  }) => Promise<Blob>;
   content: RewrittenCv;
   template: CvTemplate;
   style: CvStyleOptions;
@@ -23,12 +29,15 @@ export function CvPreviewFrame({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const previewUrlRef = useRef<string | null>(null);
+  const renderPreviewRef = useRef(renderPreview);
+  renderPreviewRef.current = renderPreview;
 
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
     const timer = setTimeout(() => {
-      renderCvPreview(token, savedJobId, { content, template, style })
+      renderPreviewRef
+        .current({ content, template, style })
         .then((blob) => {
           if (cancelled) return;
           const url = URL.createObjectURL(blob);
@@ -46,7 +55,7 @@ export function CvPreviewFrame({
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, savedJobId, JSON.stringify(content), template, JSON.stringify(style)]);
+  }, [cacheKey, JSON.stringify(content), template, JSON.stringify(style)]);
 
   useEffect(() => {
     return () => {

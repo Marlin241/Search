@@ -312,6 +312,13 @@ export async function listDiagnostics(
   return request<DiagnosticReport[]>("/diagnostics", {}, token);
 }
 
+export async function getDiagnostic(
+  token: string,
+  diagnosticId: number
+): Promise<DiagnosticReport> {
+  return request<DiagnosticReport>(`/diagnostics/${diagnosticId}`, {}, token);
+}
+
 export async function deleteAllDiagnostics(
   token: string
 ): Promise<void> {
@@ -347,22 +354,19 @@ export async function getGenerationJob<TResult = CvGenerationResult>(
   return request<GenerationJobOut<TResult>>(`/generation-jobs/${jobId}`, {}, token);
 }
 
-export async function renderCvPreview(
+async function _renderCvPreview(
   token: string,
-  savedJobId: number,
+  path: string,
   payload: { content: RewrittenCv; template: CvTemplate; style: CvStyleOptions }
 ): Promise<Blob> {
-  const res = await fetch(
-    `${API_BASE}/saved-jobs/${savedJobId}/cv/render-preview`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    }
-  );
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
   if (!res.ok) {
     let detail = `Erreur ${res.status}`;
     try {
@@ -374,6 +378,30 @@ export async function renderCvPreview(
     handleResponseError(res.status, detail);
   }
   return res.blob();
+}
+
+export async function renderCvPreview(
+  token: string,
+  savedJobId: number,
+  payload: { content: RewrittenCv; template: CvTemplate; style: CvStyleOptions }
+): Promise<Blob> {
+  return _renderCvPreview(
+    token,
+    `/saved-jobs/${savedJobId}/cv/render-preview`,
+    payload
+  );
+}
+
+export async function renderCvPreviewForDiagnostic(
+  token: string,
+  diagnosticId: number,
+  payload: { content: RewrittenCv; template: CvTemplate; style: CvStyleOptions }
+): Promise<Blob> {
+  return _renderCvPreview(
+    token,
+    `/diagnostics/${diagnosticId}/cv/render-preview`,
+    payload
+  );
 }
 
 export async function generateLetter(
