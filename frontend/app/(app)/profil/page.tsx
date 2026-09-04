@@ -14,8 +14,11 @@ import {
   Phone,
   MapPin,
   Euro,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import {
   getCandidateProfile,
   updateCandidateProfile,
@@ -48,6 +51,7 @@ const WORK_AUTHORIZATIONS = [
 
 export default function ProfilPage() {
   const { token, user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const [profile, setProfile] = useState<CandidateProfileOut | null>(null);
   const [firstName, setFirstName] = useState("");
@@ -264,6 +268,32 @@ export default function ProfilPage() {
           <span>{errorMsg}</span>
         </div>
       )}
+
+      {/* Appearance */}
+      <Card>
+        <CardContent className="p-6 flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-base font-bold font-display text-foreground">
+              Apparence
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Basculez entre le thème clair et le thème sombre.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex shrink-0 items-center gap-2 rounded-full border border-border/80 px-4 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted/60"
+          >
+            {theme === "dark" ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
+            {theme === "dark" ? "Thème clair" : "Thème sombre"}
+          </button>
+        </CardContent>
+      </Card>
 
       {/* CV de référence card */}
       <Card>
