@@ -5,9 +5,43 @@ flex/grid, largeur ~600px, les polices web ne chargent pas (fallback
 système). Le nom produit reste "Search" (provisoire, cf. lib/brand.ts)."""
 
 import html
+import re
 from urllib.parse import urlsplit
 
 _ALLOWED_URL_SCHEMES = {"http", "https"}
+
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_LINK_RE = re.compile(
+    r'<a\s+[^>]*href="([^"]*)"[^>]*>(.*?)</a>', re.IGNORECASE | re.DOTALL
+)
+_BLOCK_END_RE = re.compile(r"</(p|div|li|tr|h[1-6])>", re.IGNORECASE)
+_BR_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+_HEAD_STYLE_RE = re.compile(r"<(head|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+
+
+def html_to_text(html_body: str) -> str:
+    """Dérive une version texte brut à partir d'un corps HTML email, pour
+    fournir la part `text/plain` que les filtres anti-spam (et les clients
+    mail en mode texte) attendent en plus du HTML - un email HTML-only sans
+    alternative texte est un signal négatif de plus pour Gmail/SES. Les
+    liens `<a href="...">libellé</a>` sont convertis en "libellé (url)" pour
+    ne pas perdre l'URL au passage."""
+    text = _HEAD_STYLE_RE.sub("", html_body)
+    text = _LINK_RE.sub(
+        lambda m: (
+            f"{_TAG_RE.sub('', m.group(2)).strip()} ({m.group(1)})"
+            if m.group(1) not in ("", "#")
+            else _TAG_RE.sub("", m.group(2)).strip()
+        ),
+        text,
+    )
+    text = _BR_RE.sub("\n", text)
+    text = _BLOCK_END_RE.sub("\n", text)
+    text = _TAG_RE.sub("", text)
+    text = html.unescape(text)
+    lines = [line.strip() for line in text.splitlines()]
+    return "\n\n".join(line for line in lines if line)
 
 
 def safe_href(url: str) -> str:

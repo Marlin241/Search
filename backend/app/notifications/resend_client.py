@@ -5,7 +5,12 @@ import httpx
 from app.config import get_settings
 from app.job_search.schemas import JobListing
 from app.models.application import Application
-from app.notifications.email_layout import BRAND_NAME, render_email, safe_href
+from app.notifications.email_layout import (
+    BRAND_NAME,
+    html_to_text,
+    render_email,
+    safe_href,
+)
 
 _RESEND_API_URL = "https://api.resend.com/emails"
 
@@ -23,21 +28,33 @@ def _from_field(from_email: str) -> str:
     return from_email if "<" in from_email else f"{BRAND_NAME} <{from_email}>"
 
 
-def _send_email(to_email: str, subject: str, html_body: str) -> None:
+def _send_email(
+    to_email: str,
+    subject: str,
+    html_body: str,
+    *,
+    extra_headers: dict[str, str] | None = None,
+) -> None:
     settings = get_settings()
     if not settings.resend_api_key:
         # Resend non configuré (dev / CI) → l'envoi d'email est un no-op.
         # Évite un POST voué à l'échec et un header "Bearer " illégal.
         return
+    payload: dict[str, object] = {
+        "from": _from_field(settings.resend_from_email),
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+        # Version texte dérivée du HTML : un email HTML-only sans part texte
+        # est un signal négatif de plus pour les filtres anti-spam.
+        "text": html_to_text(html_body),
+    }
+    if extra_headers:
+        payload["headers"] = extra_headers
     response = httpx.post(
         _RESEND_API_URL,
         headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-        json={
-            "from": _from_field(settings.resend_from_email),
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-        },
+        json=payload,
         timeout=10.0,
     )
     if response.status_code >= 400:
@@ -194,7 +211,20 @@ def send_daily_digest_email(
         f"{settings.backend_base_url}/job-search/saved-search/unsubscribe"
         f"?token={unsubscribe_token}"
     )
-    _send_email(to_email, subject, _render_job_listings_html(listings, unsubscribe_url))
+    _send_email(
+        to_email,
+        subject,
+        _render_job_listings_html(listings, unsubscribe_url),
+        # Désabonnement en un clic (RFC 8058) : Gmail/Yahoo/Outlook affichent
+        # un bouton "Se désabonner" dans leur UI qui POST directement cette
+        # URL, sans jamais ouvrir l'app - un mail récurrent qui ne l'a pas
+        # est traité comme moins fiable par les filtres anti-spam. La route
+        # POST correspondante est définie à côté du GET dans job_search.py.
+        extra_headers={
+            "List-Unsubscribe": f"<{unsubscribe_url}>",
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
+    )
 
 
 def _render_application_reminders_html(
