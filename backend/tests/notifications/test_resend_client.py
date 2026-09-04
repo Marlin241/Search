@@ -56,6 +56,12 @@ def test_send_daily_digest_email_posts_to_resend():
     assert "1 nouvelle offre" in payload["subject"]
     assert "https://example.com/job/1" in payload["html"]
     assert "tok-123" in payload["html"]
+    # Version texte + désabonnement en un clic (RFC 8058) : cf.
+    # notes de deliverabilité dans resend_client.py.
+    assert "https://example.com/job/1" in payload["text"]
+    unsubscribe_url = payload["headers"]["List-Unsubscribe"].strip("<>")
+    assert "tok-123" in unsubscribe_url
+    assert payload["headers"]["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
 
 
 @respx.mock

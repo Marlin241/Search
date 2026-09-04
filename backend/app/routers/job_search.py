@@ -2,7 +2,7 @@ from typing import cast
 from zoneinfo import available_timezones
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app import database
@@ -327,6 +327,20 @@ def put_saved_search(
     return _to_saved_search_out(saved_search)
 
 
+def _disable_saved_search(token: str, db: Session) -> bool:
+    """Désactive la recherche sauvegardée liée au token. Retourne False si le
+    token est invalide. Idempotent : rappelable sans effet de bord."""
+    try:
+        user_id = verify_unsubscribe_token(token)
+    except InvalidUnsubscribeTokenError:
+        return False
+    saved_search = db.query(SavedSearch).filter(SavedSearch.user_id == user_id).first()
+    if saved_search is not None:
+        saved_search.enabled = False
+        db.commit()
+    return True
+
+
 @router.get("/saved-search/unsubscribe", response_class=HTMLResponse)
 def unsubscribe_saved_search(token: str, db: Session = Depends(get_db)) -> HTMLResponse:
     # GET (not POST) is deliberate: this link is clicked directly from an
@@ -339,20 +353,30 @@ def unsubscribe_saved_search(token: str, db: Session = Depends(get_db)) -> HTMLR
     # set so the token in the URL can't leak via a Referer header if a
     # future revision of this page ever adds an outbound link.
     headers = {"Referrer-Policy": "no-referrer"}
-    try:
-        user_id = verify_unsubscribe_token(token)
-    except InvalidUnsubscribeTokenError:
+    if not _disable_saved_search(token, db):
         return HTMLResponse(
             "<html><body><p>Ce lien de désabonnement n'est plus valide.</p></body></html>",
             status_code=400,
             headers=headers,
         )
-    saved_search = db.query(SavedSearch).filter(SavedSearch.user_id == user_id).first()
-    if saved_search is not None:
-        saved_search.enabled = False
-        db.commit()
     return HTMLResponse(
         "<html><body><p>Vous ne recevrez plus d'alertes email pour votre "
         "recherche sauvegardée.</p></body></html>",
         headers=headers,
     )
+
+
+@router.post("/saved-search/unsubscribe")
+def unsubscribe_saved_search_one_click(
+    token: str, db: Session = Depends(get_db)
+) -> Response:
+    """Pendant du GET ci-dessus pour le "List-Unsubscribe-Post" (RFC 8058) :
+    Gmail/Yahoo/Outlook POSTent directement cette URL quand l'utilisateur
+    clique leur propre bouton "Se désabonner", sans jamais ouvrir l'app.
+    C'est ce mécanisme qui permet à ces webmails de proposer le
+    désabonnement en un clic plutôt que de router le message vers les spams.
+    Toujours 200 (même token invalide/déjà utilisé) : le client mail
+    n'affiche jamais le corps de la réponse, un échec ici ne ferait que
+    perturber son UI sans bénéfice."""
+    _disable_saved_search(token, db)
+    return Response(status_code=status.HTTP_200_OK)
