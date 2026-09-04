@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -37,6 +38,7 @@ import {
   cn,
   formatDate,
   isValidCvFile,
+  scoreColor,
   MAX_FILE_SIZE,
 } from "@/lib/utils";
 import type { DiagnosticReport } from "@/lib/types";
@@ -74,7 +76,11 @@ export default function DiagnosticPage() {
   const [isPurgeOpen, setIsPurgeOpen] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
 
+  // History panel
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const reportSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -242,6 +248,16 @@ export default function DiagnosticPage() {
     }
   };
 
+  const handleSelectHistoryItem = (item: DiagnosticReport) => {
+    setReport(item);
+    setHasCvGenerated(false);
+    setHasLetterGenerated(false);
+    setGenerationError(null);
+    requestAnimationFrame(() => {
+      reportSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const handlePurge = async () => {
     if (!token) return;
     setIsPurging(true);
@@ -288,6 +304,75 @@ export default function DiagnosticPage() {
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>{generationError}</span>
         </div>
+      )}
+
+      {/* History Panel */}
+      {history.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <button
+              type="button"
+              onClick={() => setIsHistoryOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <History className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold font-display text-foreground">
+                  Historique des diagnostics
+                </span>
+                <Badge variant="default">{history.length}</Badge>
+              </div>
+              {isHistoryOpen ? (
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {isHistoryOpen && (
+              <div className="border-t border-border/60 divide-y divide-border/60 max-h-72 overflow-y-auto">
+                {history.map((item) => {
+                  const isActive = report?.id === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSelectHistoryItem(item)}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-4 px-5 py-3 text-left transition-colors",
+                        isActive ? "bg-primary/5" : "hover:bg-muted/40"
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className={cn(
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted/60 text-xs font-bold font-display",
+                            scoreColor(item.overall_score)
+                          )}
+                        >
+                          {item.overall_score}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            Diagnostic du {formatDate(item.created_at)}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {item.missing_keywords?.length ?? 0} mot(s)-clé(s) manquant(s)
+                          </p>
+                        </div>
+                      </div>
+                      {isActive && (
+                        <Badge variant="accent" className="shrink-0">
+                          Affiché
+                        </Badge>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Analysis Form Card */}
@@ -437,7 +522,7 @@ export default function DiagnosticPage() {
 
       {/* Active Diagnostic Report */}
       {report && (
-        <div className="space-y-6 animate-fade-in">
+        <div ref={reportSectionRef} className="space-y-6 animate-fade-in scroll-mt-6">
           {/* Score overview & Action buttons */}
           <Card className="p-6 border-primary/20 bg-card shadow-card">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6">

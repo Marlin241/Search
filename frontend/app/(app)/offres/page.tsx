@@ -145,7 +145,6 @@ export default function OffresPage() {
 
   const [listings, setListings] = useState<JobListing[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
-  const [unavailableSources, setUnavailableSources] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchId, setSearchId] = useState<string | null>(null);
   const [discoveryPending, setDiscoveryPending] = useState(false);
@@ -261,7 +260,6 @@ export default function OffresPage() {
       const res = await searchJobs(token, criteria);
       setListings(res.listings || []);
       setHasSearched(true);
-      setUnavailableSources(res.unavailable_sources || []);
       setSearchId(res.search_id);
       setDiscoveryPending(res.discovery_pending);
       writeSearchCache(user.id, {
@@ -489,25 +487,6 @@ export default function OffresPage() {
             <RefreshCw className="w-3.5 h-3.5" />
             Actualiser
           </button>
-        </div>
-      )}
-
-      {/* Discovery pending banner */}
-      {discoveryPending && (
-        <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-xl text-primary text-xs font-medium animate-pulse">
-          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-          <span>
-            Recherche approfondie en cours sur les portails carrières d'entreprises (Greenhouse, Lever)... De nouvelles offres vont apparaître.
-          </span>
-        </div>
-      )}
-
-      {unavailableSources.length > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-2.5 text-xs text-foreground">
-          Certaines sources n'ont pas répondu cette fois (
-          {unavailableSources.map((s) => sourceLabel(s)).join(", ")}). Les
-          résultats peuvent être incomplets — relance la recherche dans un
-          moment.
         </div>
       )}
 
