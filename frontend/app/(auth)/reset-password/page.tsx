@@ -2,9 +2,9 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Logo } from "@/components/common/Logo";
 import { resetPassword } from "@/lib/api";
 
 function ResetPasswordForm() {
@@ -42,14 +42,7 @@ function ResetPasswordForm() {
 
   return (
     <div className="w-full max-w-md space-y-8">
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-primary-600/10 rounded-xl">
-          <Sparkles className="w-6 h-6 text-primary-600" />
-        </div>
-        <span className="text-2xl font-display font-bold tracking-tight text-foreground">
-          Search
-        </span>
-      </div>
+      <Logo />
 
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">

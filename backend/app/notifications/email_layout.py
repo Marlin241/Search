@@ -23,6 +23,12 @@ def safe_href(url: str) -> str:
 BRAND_NAME = "Search"
 PARENT_NAME = "Yokkute Labs"
 PARENT_URL = "https://yokkutelabs.com"
+SITE_URL = "https://search.yokkutelabs.com"
+# Marque (l'arche + la flèche montante) en PNG transparent — les clients mail
+# ne rendent pas le SVG de façon fiable (Outlook desktop ne le supporte pas
+# du tout), donc image hébergée plutôt qu'inline. Généré depuis le même
+# tracé que frontend/components/common/LogoMark.tsx.
+_LOGO_MARK_URL = f"{SITE_URL}/brand/logo-mark-email.png"
 
 _PRIMARY = "#4f46e5"  # indigo — cohérent avec le design system du produit
 _INK = "#1e1b2e"
@@ -41,8 +47,9 @@ def _wordmark() -> str:
         f'<table role="presentation" cellpadding="0" cellspacing="0" border="0">'
         f"<tr>"
         f'<td style="background:{_PRIMARY};border-radius:8px;width:34px;'
-        f"height:34px;text-align:center;vertical-align:middle;color:#fff;"
-        f'font-size:18px;font-family:{_FONT};">&#10022;</td>'
+        f'height:34px;text-align:center;vertical-align:middle;">'
+        f'<img src="{_LOGO_MARK_URL}" width="18" height="18" alt="" '
+        f'style="display:block;margin:0 auto;border:0;outline:none;" /></td>'
         f'<td style="padding-left:10px;font-family:{_FONT};font-size:19px;'
         f'font-weight:700;color:{_INK};letter-spacing:-0.01em;">'
         f"{BRAND_NAME}</td>"
