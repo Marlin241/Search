@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, AlertCircle, Sparkles, ArrowRight } from "lucide-react";
+import { CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { LegalFooter } from "@/components/common/LegalFooter";
+import { Logo } from "@/components/common/Logo";
 import { useAuth } from "@/context/AuthContext";
-import { PRODUCT_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export default function LoginPage() {
@@ -82,12 +82,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-16">
-            <div className="p-2 bg-white/15 rounded-xl backdrop-blur-md">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-display font-bold tracking-tight">{PRODUCT_NAME}</span>
-          </div>
+          <Logo className="mb-16 text-white" />
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}

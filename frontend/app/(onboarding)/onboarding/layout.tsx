@@ -1,5 +1,5 @@
-import { Sparkles } from "lucide-react";
 import { RequireAuth } from "@/components/layout/RequireAuth";
+import { Logo } from "@/components/common/Logo";
 
 export default function OnboardingLayout({
   children,
@@ -14,14 +14,7 @@ export default function OnboardingLayout({
           <div className="absolute -bottom-[15%] -right-[10%] h-[50%] w-[50%] rounded-full bg-accent blur-3xl" />
         </div>
 
-        <div className="relative z-10 mb-8 flex items-center gap-2.5">
-          <div className="rounded-xl bg-white/15 p-2 backdrop-blur-md">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-display text-xl font-bold tracking-tight text-white">
-            Search
-          </span>
-        </div>
+        <Logo className="relative z-10 mb-8 text-white" />
 
         <div className="relative z-10 flex w-full flex-col items-center">
           {children}
