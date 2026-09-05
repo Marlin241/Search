@@ -182,7 +182,10 @@ def test_nothing_evaluable_falls_back_to_neutral_overall():
         salary_max=None,
     )
     score = score_breakdown(listing, profile)
-    assert all(score[key] is None for key in ("title", "location", "seniority", "salary", "freshness"))
+    assert all(
+        score[key] is None
+        for key in ("title", "location", "seniority", "salary", "freshness")
+    )
     assert score["overall"] == 50
 
 
