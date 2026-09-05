@@ -8,8 +8,8 @@ const FEATURES = [
   },
   {
     icon: MapPin,
-    title: "Offres locales, scorées pour toi",
-    body: "Emploi Dakar, France Travail, offres remote… agrégées, avec un score de compatibilité par offre.",
+    title: "Offres agrégées, scorées pour toi",
+    body: "France Travail, jobboards locaux, offres remote… agrégées, avec un score de compatibilité par offre.",
   },
   {
     icon: FileText,

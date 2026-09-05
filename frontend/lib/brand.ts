@@ -5,7 +5,7 @@
  */
 export const PRODUCT_NAME = "Search";
 export const TAGLINE =
-  "Le copilote IA pour décrocher ton job — pensé pour Dakar et l'Afrique de l'Ouest.";
+  "Le copilote IA pour décrocher ton job, où que tu sois.";
 export const PARENT_NAME = "Yokkute Labs";
 export const PARENT_URL = "https://yokkutelabs.com";
 export const CONTACT_EMAIL = "yokkutelabs@gmail.com";

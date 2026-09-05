@@ -9,7 +9,7 @@ export function AccessSection() {
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           On ouvre l&apos;accès progressivement à un petit groupe de chercheurs
-          d&apos;emploi à Dakar. Laisse-nous ton email.
+          d&apos;emploi. Laisse-nous ton email.
         </p>
       </div>
       <div className="relative mt-8">

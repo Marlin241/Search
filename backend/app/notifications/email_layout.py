@@ -157,8 +157,7 @@ def render_email(
         f'<p style="margin:0 0 6px;">{html.escape(context_line)}</p>'
         f'<p style="margin:0;">{BRAND_NAME} — un produit '
         f'<a href="{PARENT_URL}" style="color:{_MUTED};">{PARENT_NAME}</a>. '
-        "Le copilote IA pour ta recherche d’emploi, pensé pour Dakar "
-        "et l’Afrique de l’Ouest.</p>"
+        "Le copilote IA pour ta recherche d’emploi, où que tu sois.</p>"
         f"</td></tr>"
         f"</table></td></tr></table></body></html>"
     )
