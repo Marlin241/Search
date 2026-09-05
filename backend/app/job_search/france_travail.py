@@ -137,6 +137,7 @@ class FranceTravailClient:
                         source="france_travail",
                         ats_type=None,
                         salary=salary_str,
+                        salary_currency="EUR" if salary_str else None,
                         posted_at=parse_iso_datetime(offre.get("dateCreation")),
                     )
                 )

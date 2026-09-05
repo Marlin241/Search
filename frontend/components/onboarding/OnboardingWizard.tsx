@@ -22,6 +22,7 @@ import { StepGoalsAndCv } from "./StepGoalsAndCv";
 import { StepPhotoPicker } from "./StepPhotoPicker";
 import { StepConfirm } from "./StepConfirm";
 import type { ExtractedPhotoOut } from "@/lib/types";
+import { DEFAULT_CURRENCY } from "@/lib/currencies";
 
 const TOTAL_STEPS = 6;
 
@@ -40,6 +41,7 @@ interface OnboardingDraft {
   contractTypes?: string[];
   salaryMin?: number;
   salaryMax?: number;
+  salaryCurrency?: string;
   weeklyGoal?: number;
 }
 
@@ -64,6 +66,7 @@ export function OnboardingWizard() {
   const [contractTypes, setContractTypes] = useState<string[]>([]);
   const [salaryMin, setSalaryMin] = useState(150000);
   const [salaryMax, setSalaryMax] = useState(350000);
+  const [salaryCurrency, setSalaryCurrency] = useState(DEFAULT_CURRENCY);
 
   // Step 3
   const [weeklyGoal, setWeeklyGoal] = useState(5);
@@ -92,6 +95,7 @@ export function OnboardingWizard() {
       if (draft.contractTypes?.length) setContractTypes(draft.contractTypes);
       if (typeof draft.salaryMin === "number") setSalaryMin(draft.salaryMin);
       if (typeof draft.salaryMax === "number") setSalaryMax(draft.salaryMax);
+      if (draft.salaryCurrency) setSalaryCurrency(draft.salaryCurrency);
       if (typeof draft.weeklyGoal === "number") setWeeklyGoal(draft.weeklyGoal);
     } catch {
       // brouillon corrompu/illisible : on repart simplement à vide.
@@ -111,6 +115,7 @@ export function OnboardingWizard() {
       contractTypes,
       salaryMin,
       salaryMax,
+      salaryCurrency,
       weeklyGoal,
     };
     try {
@@ -128,6 +133,7 @@ export function OnboardingWizard() {
     contractTypes,
     salaryMin,
     salaryMax,
+    salaryCurrency,
     weeklyGoal,
   ]);
 
@@ -196,6 +202,7 @@ export function OnboardingWizard() {
         contract_types: contractTypes,
         salary_min: salaryMin,
         salary_max: salaryMax,
+        salary_currency: salaryCurrency,
         weekly_application_goal: weeklyGoal,
       });
       if (selectedPhotoKey !== null) {
@@ -261,6 +268,8 @@ export function OnboardingWizard() {
                   setSalaryMin(min);
                   setSalaryMax(max);
                 }}
+                salaryCurrency={salaryCurrency}
+                onSalaryCurrencyChange={setSalaryCurrency}
               />
             )}
             {step === 3 && (
@@ -296,6 +305,7 @@ export function OnboardingWizard() {
                 contractTypes={contractTypes}
                 salaryMin={salaryMin}
                 salaryMax={salaryMax}
+                salaryCurrency={salaryCurrency}
                 weeklyGoal={weeklyGoal}
                 cvFileName={cvFile?.name ?? null}
               />

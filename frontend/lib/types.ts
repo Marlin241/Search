@@ -44,6 +44,7 @@ export interface CandidateProfileOut {
   contract_types: string[] | null;
   salary_min: number | null;
   salary_max: number | null;
+  salary_currency: string | null;
   weekly_application_goal: number | null;
   has_profile_photo: boolean;
 }
@@ -58,6 +59,7 @@ export interface OnboardingProfileIn {
   contract_types: string[];
   salary_min: number | null;
   salary_max: number | null;
+  salary_currency?: string | null;
   weekly_application_goal: number | null;
 }
 

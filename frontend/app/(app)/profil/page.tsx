@@ -42,6 +42,7 @@ import {
   MAX_FILE_SIZE,
 } from "@/lib/utils";
 import type { CandidateProfileOut } from "@/lib/types";
+import { DEFAULT_CURRENCY } from "@/lib/currencies";
 
 const WORK_AUTHORIZATIONS = [
   { value: "french_citizen", label: "Nationalité française / Citoyen UE" },
@@ -71,6 +72,7 @@ export default function ProfilPage() {
   const [contractTypes, setContractTypes] = useState<string[]>([]);
   const [salaryMin, setSalaryMin] = useState(25000);
   const [salaryMax, setSalaryMax] = useState(45000);
+  const [salaryCurrency, setSalaryCurrency] = useState(DEFAULT_CURRENCY);
   const [weeklyGoal, setWeeklyGoal] = useState(5);
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
 
@@ -107,6 +109,7 @@ export default function ProfilPage() {
         setContractTypes(res.contract_types || []);
         if (res.salary_min !== null) setSalaryMin(res.salary_min);
         if (res.salary_max !== null) setSalaryMax(res.salary_max);
+        if (res.salary_currency) setSalaryCurrency(res.salary_currency);
         if (res.weekly_application_goal !== null) {
           setWeeklyGoal(res.weekly_application_goal);
         }
@@ -162,6 +165,7 @@ export default function ProfilPage() {
         contract_types: contractTypes,
         salary_min: salaryMin,
         salary_max: salaryMax,
+        salary_currency: salaryCurrency,
         weekly_application_goal: weeklyGoal,
       });
       setProfile(updated);
@@ -218,6 +222,7 @@ export default function ProfilPage() {
       setContractTypes([]);
       setSalaryMin(25000);
       setSalaryMax(45000);
+      setSalaryCurrency(DEFAULT_CURRENCY);
       setWeeklyGoal(5);
       setIsDeleteOpen(false);
       setSuccessMsg("Vos données de profil ont été supprimées.");
@@ -470,6 +475,8 @@ export default function ProfilPage() {
               setSalaryMin(min);
               setSalaryMax(max);
             }}
+            salaryCurrency={salaryCurrency}
+            onSalaryCurrencyChange={setSalaryCurrency}
           />
 
           <div className="space-y-3">

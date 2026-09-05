@@ -44,14 +44,6 @@ _WEIGHTS = {
 # rather than None, which would leave nothing to sort search results on.
 NO_PROFILE_SCORE = 50
 
-# Sources known to price in euros - the candidate's own salary expectation is
-# now collected in FCFA (XOF), so comparing raw digits against these would
-# silently compare the wrong currency. Until listings carry an explicit
-# currency (see the FCFA/EUR conversion left for later), the salary
-# criterion is simply left unevaluated for these sources, exactly like the
-# Senegalese crawlers already do (they never populate `salary` at all).
-_EUR_DENOMINATED_SOURCES = {"france_travail", "adzuna"}
-
 # Mirrors frontend/components/onboarding/StepJobTitles.tsx::SENIORITY_LEVELS.
 # Upper bound for "senior" is a practical cap, not a real ceiling.
 _SENIORITY_YEAR_RANGES: dict[str, tuple[float, float]] = {
@@ -173,7 +165,16 @@ def _extract_salary_range(salary_text: str) -> tuple[int, int] | None:
 
 
 def _score_salary(listing: JobListing, profile: CandidateProfile) -> int | None:
-    if listing.source in _EUR_DENOMINATED_SOURCES:
+    # Une devise absente est traitée comme XOF (Afrique de l'Ouest) plutôt
+    # que comme "donnée manquante à ignorer" : c'était l'hypothèse implicite
+    # de l'app avant l'ajout du champ devise (profils existants, crawlers
+    # sénégalais qui ne le renseignent jamais), donc ce défaut reproduit
+    # exactement le comportement d'avant pour tout ce qui ne précise rien,
+    # tout en bloquant correctement une vraie comparaison entre devises
+    # différentes (ex: offre en EUR vs attente en XOF).
+    listing_currency = listing.salary_currency or "XOF"
+    profile_currency = profile.salary_currency or "XOF"
+    if listing_currency != profile_currency:
         return None
     if profile.salary_min is None and profile.salary_max is None:
         return None

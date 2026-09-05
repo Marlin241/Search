@@ -42,6 +42,7 @@ class CandidateProfile(Base):
     contract_types: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     salary_min: Mapped[int | None] = mapped_column(nullable=True)
     salary_max: Mapped[int | None] = mapped_column(nullable=True)
+    salary_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
     weekly_application_goal: Mapped[int | None] = mapped_column(nullable=True)
     profile_photo_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

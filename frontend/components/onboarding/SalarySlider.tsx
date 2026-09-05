@@ -1,5 +1,7 @@
 "use client";
 
+import { SUPPORTED_CURRENCIES } from "@/lib/currencies";
+
 export interface SalarySliderProps {
   min: number;
   max: number;
@@ -7,6 +9,8 @@ export interface SalarySliderProps {
   valueMin: number;
   valueMax: number;
   onChange: (min: number, max: number) => void;
+  currency: string;
+  onCurrencyChange: (currency: string) => void;
 }
 
 export function SalarySlider({
@@ -16,12 +20,27 @@ export function SalarySlider({
   valueMin,
   valueMax,
   onChange,
+  currency,
+  onCurrencyChange,
 }: SalarySliderProps) {
   return (
     <div className="space-y-3">
-      <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Fourchette de salaire souhaitée (FCFA brut / mois)
-      </label>
+      <div className="flex items-center justify-between gap-3">
+        <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Fourchette de salaire souhaitée (brut / mois)
+        </label>
+        <select
+          value={currency}
+          onChange={(e) => onCurrencyChange(e.target.value)}
+          className="rounded-lg border border-input bg-card px-2 py-1 text-xs font-medium text-foreground outline-none focus:ring-2 focus:ring-ring"
+        >
+          {SUPPORTED_CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.code}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="relative h-1.5 rounded-full bg-muted">
         <div

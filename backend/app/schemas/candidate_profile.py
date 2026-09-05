@@ -15,6 +15,13 @@ _PHONE_RE = re.compile(r"^[0-9+ ().-]{6,30}$")
 
 _URL_RE = re.compile(r"^https?://[^\s/]+\.[^\s]+$", re.IGNORECASE)
 
+# Devises supportées pour l'attente salariale du candidat - un allow-list
+# volontairement restreint (pas la liste ISO 4217 complète) : ce sont les
+# seuls marchés réellement en jeu aujourd'hui. XOF (Afrique de l'Ouest,
+# BCEAO) et XAF (Afrique centrale, BEAC) sont deux devises distinctes bien
+# que toutes deux appelées "FCFA" dans le langage courant.
+_SUPPORTED_CURRENCIES = {"XOF", "XAF", "EUR", "USD"}
+
 
 def _strip_tags(value: str) -> str:
     return _TAG_RE.sub("", value).strip()
@@ -93,6 +100,7 @@ class CandidateProfileOut(BaseModel):
     contract_types: list[str] | None
     salary_min: int | None
     salary_max: int | None
+    salary_currency: str | None
     weekly_application_goal: int | None
     has_profile_photo: bool
 
@@ -107,6 +115,7 @@ class OnboardingProfileIn(BaseModel):
     contract_types: list[str] = Field(default_factory=list, max_length=10)
     salary_min: int | None = Field(default=None, ge=0, le=100_000_000)
     salary_max: int | None = Field(default=None, ge=0, le=100_000_000)
+    salary_currency: str | None = Field(default=None, min_length=3, max_length=3)
     weekly_application_goal: int | None = Field(default=None, ge=0, le=1000)
 
     @field_validator("first_name", "last_name")
@@ -118,6 +127,16 @@ class OnboardingProfileIn(BaseModel):
     @classmethod
     def _clean_str_list(cls, values: list[str]) -> list[str]:
         return _clean_list(values)
+
+    @field_validator("salary_currency")
+    @classmethod
+    def _validate_currency(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip().upper()
+        if value not in _SUPPORTED_CURRENCIES:
+            raise ValueError(f"Devise non supportée : {value}.")
+        return value
 
 
 class ExtractedPhotoOut(BaseModel):

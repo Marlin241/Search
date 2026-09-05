@@ -70,6 +70,7 @@ class JobicyClient:
                         ats_type=None,
                         is_remote=True,
                         salary=salary,
+                        salary_currency=currency or None,
                         posted_at=parse_iso_datetime(pub),
                     )
                 )

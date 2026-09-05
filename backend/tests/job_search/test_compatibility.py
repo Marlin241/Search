@@ -93,10 +93,10 @@ def test_seniority_no_mention_in_snippet_is_not_evaluated():
     assert score["seniority"] is None
 
 
-# Salary tests use a non-EUR source explicitly: the default `_listing()`
-# source (adzuna) is itself excluded from salary scoring (see
-# test_salary_not_evaluated_for_eur_denominated_sources below), which would
-# make every salary assertion pass for the wrong reason.
+# Salary tests below rely on the currency defaulting to XOF on both sides
+# when unset (see _score_salary) - the default `_listing()` source is
+# "adzuna" but none of these listings set salary_currency, so they compare
+# as XOF vs XOF just like a Senegalese-source listing would.
 
 
 def test_salary_within_range_scores_full():
@@ -134,16 +134,21 @@ def test_no_salary_on_listing_is_not_evaluated():
     assert score["salary"] is None
 
 
-def test_salary_not_evaluated_for_eur_denominated_sources():
-    # France Travail/Adzuna quote real salaries, but in euros - the
-    # candidate's expectation is collected in FCFA, so comparing the raw
-    # numbers would be comparing the wrong currency. Left unevaluated until
-    # listings carry an explicit, convertible currency.
-    for source in ("adzuna", "france_travail"):
-        listing = _listing(salary="40 000 - 45 000 € / an", source=source)
-        profile = _profile(salary_min=35000, salary_max=50000)
-        score = score_breakdown(listing, profile)
-        assert score["salary"] is None, source
+def test_salary_not_evaluated_when_currencies_differ():
+    # France Travail/Adzuna quote real salaries, but in euros - comparing
+    # the raw numbers against an XOF expectation would compare the wrong
+    # currency, so the criterion is left unevaluated.
+    listing = _listing(salary="40 000 - 45 000 EUR / an", salary_currency="EUR")
+    profile = _profile(salary_min=35000, salary_max=50000)  # implicit XOF
+    score = score_breakdown(listing, profile)
+    assert score["salary"] is None
+
+
+def test_salary_evaluated_when_currencies_match_non_xof():
+    listing = _listing(salary="40 000 - 45 000 EUR / an", salary_currency="EUR")
+    profile = _profile(salary_min=35000, salary_max=50000, salary_currency="EUR")
+    score = score_breakdown(listing, profile)
+    assert score["salary"] == 100
 
 
 def test_recent_listing_scores_full_freshness():

@@ -98,6 +98,7 @@ class LaBonneAlternanceClient:
                         source="la_bonne_alternance",
                         ats_type=None,
                         salary=salary_str,
+                        salary_currency="EUR" if salary_str else None,
                     )
                 )
         except (ValueError, KeyError, TypeError, AttributeError) as exc:

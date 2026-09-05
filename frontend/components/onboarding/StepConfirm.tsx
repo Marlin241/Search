@@ -11,6 +11,7 @@ export interface StepConfirmProps {
   contractTypes: string[];
   salaryMin: number;
   salaryMax: number;
+  salaryCurrency: string;
   weeklyGoal: number;
   cvFileName: string | null;
 }
@@ -24,6 +25,7 @@ export function StepConfirm({
   contractTypes,
   salaryMin,
   salaryMax,
+  salaryCurrency,
   weeklyGoal,
   cvFileName,
 }: StepConfirmProps) {
@@ -40,7 +42,7 @@ export function StepConfirm({
     { label: "Contrats", value: contractTypes.join(", ") || "—" },
     {
       label: "Salaire visé",
-      value: `${salaryMin.toLocaleString("fr-FR")} - ${salaryMax.toLocaleString("fr-FR")} FCFA / mois`,
+      value: `${salaryMin.toLocaleString("fr-FR")} - ${salaryMax.toLocaleString("fr-FR")} ${salaryCurrency} / mois`,
     },
     { label: "Objectif hebdo", value: `${weeklyGoal} candidature${weeklyGoal > 1 ? "s" : ""}` },
     { label: "CV de référence", value: cvFileName ?? "Non fourni" },

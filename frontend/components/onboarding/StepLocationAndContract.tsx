@@ -23,6 +23,8 @@ export interface StepLocationAndContractProps {
   salaryMin: number;
   salaryMax: number;
   onSalaryChange: (min: number, max: number) => void;
+  salaryCurrency: string;
+  onSalaryCurrencyChange: (currency: string) => void;
 }
 
 export function StepLocationAndContract({
@@ -35,6 +37,8 @@ export function StepLocationAndContract({
   salaryMin,
   salaryMax,
   onSalaryChange,
+  salaryCurrency,
+  onSalaryCurrencyChange,
 }: StepLocationAndContractProps) {
   const cities = useCityList();
 
@@ -117,6 +121,8 @@ export function StepLocationAndContract({
         valueMin={salaryMin}
         valueMax={salaryMax}
         onChange={onSalaryChange}
+        currency={salaryCurrency}
+        onCurrencyChange={onSalaryCurrencyChange}
       />
     </div>
   );

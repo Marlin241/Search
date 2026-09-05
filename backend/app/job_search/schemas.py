@@ -21,6 +21,7 @@ class JobListing(BaseModel):
     source: str
     ats_type: str | None
     salary: str | None = None
+    salary_currency: str | None = None
     posted_at: datetime | None = None
     # Set by remote-only source clients; for every other source the
     # aggregator fills it from app.job_search.remote_signals right after the

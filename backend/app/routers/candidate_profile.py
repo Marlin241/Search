@@ -52,6 +52,7 @@ def _to_out(profile: CandidateProfile) -> CandidateProfileOut:
         contract_types=profile.contract_types,
         salary_min=profile.salary_min,
         salary_max=profile.salary_max,
+        salary_currency=profile.salary_currency,
         weekly_application_goal=profile.weekly_application_goal,
         has_profile_photo=profile.profile_photo_key is not None,
     )
@@ -139,6 +140,7 @@ def submit_onboarding(
     profile.contract_types = payload.contract_types
     profile.salary_min = payload.salary_min
     profile.salary_max = payload.salary_max
+    profile.salary_currency = payload.salary_currency
     profile.weekly_application_goal = payload.weekly_application_goal
     db.commit()
     db.refresh(profile)
