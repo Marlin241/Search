@@ -63,10 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     clearCompatibilityCache();
-    void clearTokenCookie();
-    setToken(null);
-    setUser(null);
-    setProfile(null);
+    void clearTokenCookie().finally(() => {
+      setToken(null);
+      setUser(null);
+      setProfile(null);
+    });
   }, []);
 
   /** Charge (ou recharge) le profil candidat pour un token donné. Un compte
@@ -100,8 +101,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = localStorage.getItem(TOKEN_KEY);
     if (!stored) {
-      setIsLoading(false);
-      setIsProfileLoading(false);
+      /* Un cookie httpOnly orphelin (posé avant un échec de fetchMe, jamais
+       * nettoyé côté serveur) ferait boucler indéfiniment le middleware
+       * entre /login et /dashboard - on retente sa suppression à chaque
+       * montage tant qu'aucun token local n'existe. */
+      void clearTokenCookie().finally(() => {
+        setIsLoading(false);
+        setIsProfileLoading(false);
+      });
       return;
     }
     setToken(stored);
@@ -112,9 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(me);
         void loadProfile(stored);
       })
-      .catch(() => {
+      .catch(async () => {
         localStorage.removeItem(TOKEN_KEY);
-        void clearTokenCookie();
+        await clearTokenCookie();
         setToken(null);
         setIsProfileLoading(false);
       })
