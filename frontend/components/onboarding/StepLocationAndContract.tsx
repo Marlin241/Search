@@ -111,9 +111,9 @@ export function StepLocationAndContract({
       </div>
 
       <SalarySlider
-        min={18000}
-        max={100000}
-        step={1000}
+        min={50000}
+        max={3000000}
+        step={25000}
         valueMin={salaryMin}
         valueMax={salaryMax}
         onChange={onSalaryChange}

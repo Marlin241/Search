@@ -40,7 +40,7 @@ export function StepConfirm({
     { label: "Contrats", value: contractTypes.join(", ") || "—" },
     {
       label: "Salaire visé",
-      value: `${salaryMin.toLocaleString("fr-FR")} - ${salaryMax.toLocaleString("fr-FR")} € / an`,
+      value: `${salaryMin.toLocaleString("fr-FR")} - ${salaryMax.toLocaleString("fr-FR")} FCFA / mois`,
     },
     { label: "Objectif hebdo", value: `${weeklyGoal} candidature${weeklyGoal > 1 ? "s" : ""}` },
     { label: "CV de référence", value: cvFileName ?? "Non fourni" },

@@ -5,6 +5,13 @@ every search (20-40 results), so it has to be cheap. The LLM-backed *detail*
 (app.compatibility.analyzer) is a separate, rate-limited, on-demand call that
 only runs when a user clicks a single listing to see why it scored the way
 it did; it explains this score, it never recomputes it.
+
+Each `_score_*` function returns `None` when there simply isn't enough data
+to judge that criterion (no preference set, no data on the listing...)
+instead of guessing a "neutral" number - a criterion nobody can evaluate
+must not silently push the overall score up or down. `_weighted_total` only
+averages over the criteria that *were* evaluated, redistributing their
+weight rather than assuming a fixed denominator of 100.
 """
 
 from __future__ import annotations
@@ -23,16 +30,27 @@ WEIGHT_SENIORITY = 15
 WEIGHT_SALARY = 15
 WEIGHT_FRESHNESS = 15
 
-NEUTRAL_TITLE_SCORE = 50
-NEUTRAL_LOCATION_SCORE = 30
-NEUTRAL_SENIORITY_SCORE = 50
-NEUTRAL_SALARY_SCORE = 60
-NEUTRAL_FRESHNESS_SCORE = 50
+_WEIGHTS = {
+    "title": WEIGHT_TITLE,
+    "location": WEIGHT_LOCATION,
+    "seniority": WEIGHT_SENIORITY,
+    "salary": WEIGHT_SALARY,
+    "freshness": WEIGHT_FRESHNESS,
+}
 
 # The user hasn't onboarded (no CandidateProfile) yet: nothing here can be
 # personalized, so every listing gets the same middling score rather than 0,
-# which would visually read as "bad match" for offers nobody has judged.
+# which would visually read as "bad match" for offers nobody has judged, and
+# rather than None, which would leave nothing to sort search results on.
 NO_PROFILE_SCORE = 50
+
+# Sources known to price in euros - the candidate's own salary expectation is
+# now collected in FCFA (XOF), so comparing raw digits against these would
+# silently compare the wrong currency. Until listings carry an explicit
+# currency (see the FCFA/EUR conversion left for later), the salary
+# criterion is simply left unevaluated for these sources, exactly like the
+# Senegalese crawlers already do (they never populate `salary` at all).
+_EUR_DENOMINATED_SOURCES = {"france_travail", "adzuna"}
 
 # Mirrors frontend/components/onboarding/StepJobTitles.tsx::SENIORITY_LEVELS.
 # Upper bound for "senior" is a practical cap, not a real ceiling.
@@ -49,7 +67,7 @@ _EXPERIENCE_RE = re.compile(
     re.IGNORECASE,
 )
 
-_SALARY_NUMBER_RE = re.compile(r"\d[\d\s .,]*\d|\d")
+_SALARY_NUMBER_RE = re.compile(r"\d[\d\s .,]*\d|\d")
 
 _FRESHNESS_FULL_CREDIT_DAYS = 7
 _FRESHNESS_FLOOR_DAYS = 60
@@ -69,13 +87,13 @@ def _tokens(value: str) -> set[str]:
     return {tok for tok in re.split(r"[^a-z0-9]+", _normalize(value)) if len(tok) > 2}
 
 
-def _score_title(listing: JobListing, profile: CandidateProfile) -> int:
+def _score_title(listing: JobListing, profile: CandidateProfile) -> int | None:
     desired = profile.desired_job_titles or []
     if not desired:
-        return NEUTRAL_TITLE_SCORE
+        return None
     title_tokens = _tokens(listing.title)
     if not title_tokens:
-        return NEUTRAL_TITLE_SCORE
+        return None
     best_overlap = 0.0
     for desired_title in desired:
         desired_tokens = _tokens(desired_title)
@@ -86,7 +104,7 @@ def _score_title(listing: JobListing, profile: CandidateProfile) -> int:
     return round(best_overlap * 100)
 
 
-def _score_location(listing: JobListing, profile: CandidateProfile) -> int:
+def _score_location(listing: JobListing, profile: CandidateProfile) -> int | None:
     is_remote_listing = listing.is_remote
     desired_locations = profile.desired_locations or []
 
@@ -94,11 +112,11 @@ def _score_location(listing: JobListing, profile: CandidateProfile) -> int:
         return 100
 
     if not listing.location:
-        return NEUTRAL_LOCATION_SCORE
+        return None
 
     if not desired_locations and not profile.remote_preference:
-        # No location constraint entered - nothing to penalize against.
-        return 60
+        # No location constraint entered - nothing to compare against.
+        return None
 
     normalized_location = _normalize(listing.location)
     for desired in desired_locations:
@@ -114,16 +132,16 @@ def _score_location(listing: JobListing, profile: CandidateProfile) -> int:
     return 25
 
 
-def _score_seniority(listing: JobListing, profile: CandidateProfile) -> int:
+def _score_seniority(listing: JobListing, profile: CandidateProfile) -> int | None:
     if not profile.seniority_level:
-        return NEUTRAL_SENIORITY_SCORE
+        return None
     desired_range = _SENIORITY_YEAR_RANGES.get(profile.seniority_level)
     if desired_range is None:
-        return NEUTRAL_SENIORITY_SCORE
+        return None
 
     match = _EXPERIENCE_RE.search(listing.snippet)
     if not match:
-        return NEUTRAL_SENIORITY_SCORE
+        return None
     if match.group(1) and match.group(2):
         offer_years = (float(match.group(1)) + float(match.group(2))) / 2
     else:
@@ -144,7 +162,7 @@ def _score_seniority(listing: JobListing, profile: CandidateProfile) -> int:
 def _extract_salary_range(salary_text: str) -> tuple[int, int] | None:
     numbers = []
     for raw in _SALARY_NUMBER_RE.findall(salary_text):
-        cleaned = re.sub(r"[\s .,]", "", raw)
+        cleaned = re.sub(r"[\s .,]", "", raw)
         if cleaned.isdigit():
             value = int(cleaned)
             if value >= 1000:  # filters out stray small numbers (e.g. "35h/semaine")
@@ -154,14 +172,16 @@ def _extract_salary_range(salary_text: str) -> tuple[int, int] | None:
     return (min(numbers), max(numbers))
 
 
-def _score_salary(listing: JobListing, profile: CandidateProfile) -> int:
+def _score_salary(listing: JobListing, profile: CandidateProfile) -> int | None:
+    if listing.source in _EUR_DENOMINATED_SOURCES:
+        return None
     if profile.salary_min is None and profile.salary_max is None:
-        return NEUTRAL_SALARY_SCORE
+        return None
     if not listing.salary:
-        return NEUTRAL_SALARY_SCORE
+        return None
     extracted = _extract_salary_range(listing.salary)
     if extracted is None:
-        return NEUTRAL_SALARY_SCORE
+        return None
     offer_mid = sum(extracted) / 2
 
     desired_min = profile.salary_min if profile.salary_min is not None else 0
@@ -174,9 +194,9 @@ def _score_salary(listing: JobListing, profile: CandidateProfile) -> int:
     return max(10, round(100 - gap_ratio * 200))
 
 
-def _score_freshness(listing: JobListing) -> int:
+def _score_freshness(listing: JobListing) -> int | None:
     if listing.posted_at is None:
-        return NEUTRAL_FRESHNESS_SCORE
+        return None
     posted_at = listing.posted_at
     if posted_at.tzinfo is None:
         posted_at = posted_at.replace(tzinfo=UTC)
@@ -192,7 +212,7 @@ def _score_freshness(listing: JobListing) -> int:
 
 def _component_scores(
     listing: JobListing, profile: CandidateProfile | None
-) -> dict[str, int]:
+) -> dict[str, int | None]:
     if profile is None:
         return {
             "title": NO_PROFILE_SCORE,
@@ -210,15 +230,16 @@ def _component_scores(
     }
 
 
-def _weighted_total(scores: dict[str, int]) -> int:
-    total = (
-        scores["title"] * WEIGHT_TITLE
-        + scores["location"] * WEIGHT_LOCATION
-        + scores["seniority"] * WEIGHT_SENIORITY
-        + scores["salary"] * WEIGHT_SALARY
-        + scores["freshness"] * WEIGHT_FRESHNESS
-    )
-    return round(total / 100)
+def _weighted_total(scores: dict[str, int | None]) -> int:
+    evaluated = {key: value for key, value in scores.items() if value is not None}
+    if not evaluated:
+        # Nothing could be judged at all (e.g. a listing missing every
+        # signal) - fall back to the same neutral score as "no profile"
+        # rather than divide by zero.
+        return NO_PROFILE_SCORE
+    weighted_sum = sum(value * _WEIGHTS[key] for key, value in evaluated.items())
+    total_weight = sum(_WEIGHTS[key] for key in evaluated)
+    return round(weighted_sum / total_weight)
 
 
 def score_listing(listing: JobListing, profile: CandidateProfile | None) -> int:
@@ -228,10 +249,11 @@ def score_listing(listing: JobListing, profile: CandidateProfile | None) -> int:
 
 def score_breakdown(
     listing: JobListing, profile: CandidateProfile | None
-) -> dict[str, int]:
+) -> dict[str, int | None]:
     """Component scores plus the overall weighted score - feeds the
     compatibility-detail LLM call, which explains this breakdown rather than
-    recomputing it."""
+    recomputing it. A `None` component means "not enough data to judge",
+    never "bad match"."""
     scores = _component_scores(listing, profile)
     scores["overall"] = _weighted_total(scores)
     return scores

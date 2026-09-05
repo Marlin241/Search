@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
@@ -25,9 +25,27 @@ import type { ExtractedPhotoOut } from "@/lib/types";
 
 const TOTAL_STEPS = 6;
 
+// Brouillon best-effort en localStorage : ne couvre que les champs
+// texte/liste (pas le fichier CV, non sérialisable) mais évite déjà de
+// perdre toute la saisie identité/préférences sur un F5 accidentel.
+const DRAFT_KEY = "search_onboarding_draft";
+
+interface OnboardingDraft {
+  firstName?: string;
+  lastName?: string;
+  desiredJobTitles?: string[];
+  seniorityLevel?: string | null;
+  desiredLocations?: string[];
+  remotePreference?: boolean;
+  contractTypes?: string[];
+  salaryMin?: number;
+  salaryMax?: number;
+  weeklyGoal?: number;
+}
+
 export function OnboardingWizard() {
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, refreshProfile } = useAuth();
 
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,8 +62,8 @@ export function OnboardingWizard() {
   const [desiredLocations, setDesiredLocations] = useState<string[]>([]);
   const [remotePreference, setRemotePreference] = useState(false);
   const [contractTypes, setContractTypes] = useState<string[]>([]);
-  const [salaryMin, setSalaryMin] = useState(25000);
-  const [salaryMax, setSalaryMax] = useState(45000);
+  const [salaryMin, setSalaryMin] = useState(150000);
+  const [salaryMax, setSalaryMax] = useState(350000);
 
   // Step 3
   const [weeklyGoal, setWeeklyGoal] = useState(5);
@@ -55,6 +73,63 @@ export function OnboardingWizard() {
 
   // Step 4
   const [selectedPhotoKey, setSelectedPhotoKey] = useState<string | null>(null);
+
+  // Restaure un brouillon existant une fois au montage (jamais sur le
+  // serveur : localStorage n'existe pas là-bas, d'où l'effet plutôt qu'un
+  // état initial paresseux).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft: OnboardingDraft = JSON.parse(raw);
+      if (draft.firstName) setFirstName(draft.firstName);
+      if (draft.lastName) setLastName(draft.lastName);
+      if (draft.desiredJobTitles?.length) setDesiredJobTitles(draft.desiredJobTitles);
+      if (draft.seniorityLevel) setSeniorityLevel(draft.seniorityLevel);
+      if (draft.desiredLocations?.length) setDesiredLocations(draft.desiredLocations);
+      if (typeof draft.remotePreference === "boolean")
+        setRemotePreference(draft.remotePreference);
+      if (draft.contractTypes?.length) setContractTypes(draft.contractTypes);
+      if (typeof draft.salaryMin === "number") setSalaryMin(draft.salaryMin);
+      if (typeof draft.salaryMax === "number") setSalaryMax(draft.salaryMax);
+      if (typeof draft.weeklyGoal === "number") setWeeklyGoal(draft.weeklyGoal);
+    } catch {
+      // brouillon corrompu/illisible : on repart simplement à vide.
+    }
+  }, []);
+
+  // Sauvegarde best-effort à chaque changement (pas le fichier CV, non
+  // sérialisable en JSON).
+  useEffect(() => {
+    const draft: OnboardingDraft = {
+      firstName,
+      lastName,
+      desiredJobTitles,
+      seniorityLevel,
+      desiredLocations,
+      remotePreference,
+      contractTypes,
+      salaryMin,
+      salaryMax,
+      weeklyGoal,
+    };
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      // stockage indisponible (navigation privée, quota...) : tant pis.
+    }
+  }, [
+    firstName,
+    lastName,
+    desiredJobTitles,
+    seniorityLevel,
+    desiredLocations,
+    remotePreference,
+    contractTypes,
+    salaryMin,
+    salaryMax,
+    weeklyGoal,
+  ]);
 
   const canGoNext = (): boolean => {
     if (step === 0) return firstName.trim().length > 0 && lastName.trim().length > 0;
@@ -126,6 +201,12 @@ export function OnboardingWizard() {
       if (selectedPhotoKey !== null) {
         await setProfilePhoto(token, selectedPhotoKey);
       }
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // best-effort
+      }
+      await refreshProfile();
       toast.success("Ton profil est prêt !");
       router.push("/dashboard");
     } catch (err: any) {

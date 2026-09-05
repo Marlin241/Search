@@ -49,14 +49,20 @@ class CompatibilityDetailAnalyzer:
         self._model = model
 
     def analyze(
-        self, cv_text: str, offer_text: str, score_breakdown: dict[str, int]
+        self, cv_text: str, offer_text: str, score_breakdown: dict[str, int | None]
     ) -> CompatibilityDetail:
+        def _fmt(key: str) -> str:
+            value = score_breakdown[key]
+            return (
+                "non évalué (pas assez de données)" if value is None else f"{value}/100"
+            )
+
         breakdown_summary = (
-            f"Intitulé de poste: {score_breakdown['title']}/100, "
-            f"Localisation: {score_breakdown['location']}/100, "
-            f"Expérience/séniorité: {score_breakdown['seniority']}/100, "
-            f"Salaire: {score_breakdown['salary']}/100, "
-            f"Fraîcheur de l'offre: {score_breakdown['freshness']}/100, "
+            f"Intitulé de poste: {_fmt('title')}, "
+            f"Localisation: {_fmt('location')}, "
+            f"Expérience/séniorité: {_fmt('seniority')}, "
+            f"Salaire: {_fmt('salary')}, "
+            f"Fraîcheur de l'offre: {_fmt('freshness')}, "
             f"Score global: {score_breakdown['overall']}/100"
         )
         last_error: Exception | None = None

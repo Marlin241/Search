@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.http import client_ip
 from app.config import get_settings
 from app.database import get_db
-from app.models.access_request import AccessRequest
+from app.models.access_request import STATUS_PENDING, AccessRequest
 from app.notifications.resend_client import (
     EmailSendError,
     send_access_request_confirmation,
@@ -48,13 +48,26 @@ def create_access_request(
         ) from exc
     record_auth_attempt(db, action="access_request", identifier=ip)
 
-    db.add(
-        AccessRequest(
-            email=email,
-            note=payload.note.strip()[:1000],
-            source_ip=ip,
-        )
+    # Une demande "pending" existante pour cet email est mise à jour plutôt
+    # que dupliquée - sans ça, un email qui soumet le formulaire plusieurs
+    # fois (double-clic, hésitation...) empile des demandes identiques que
+    # l'admin doit trier une par une.
+    existing = (
+        db.query(AccessRequest)
+        .filter(AccessRequest.email == email, AccessRequest.status == STATUS_PENDING)
+        .first()
     )
+    if existing is not None:
+        existing.note = payload.note.strip()[:1000]
+        existing.source_ip = ip
+    else:
+        db.add(
+            AccessRequest(
+                email=email,
+                note=payload.note.strip()[:1000],
+                source_ip=ip,
+            )
+        )
     db.commit()
 
     # Accusé de réception au demandeur (non bloquant).

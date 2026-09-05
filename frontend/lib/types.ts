@@ -297,11 +297,13 @@ export interface JobListing {
 }
 
 export interface CompatibilityScoreBreakdown {
-  title: number;
-  location: number;
-  seniority: number;
-  salary: number;
-  freshness: number;
+  // null = pas assez de données pour juger ce critère (jamais une valeur
+  // neutre devinée).
+  title: number | null;
+  location: number | null;
+  seniority: number | null;
+  salary: number | null;
+  freshness: number | null;
   overall: number;
 }
 

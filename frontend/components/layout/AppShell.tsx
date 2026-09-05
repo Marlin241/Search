@@ -8,7 +8,7 @@ import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <RequireAuth>
+    <RequireAuth onboardingGate="block-if-incomplete">
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
         <BetaBanner />
 

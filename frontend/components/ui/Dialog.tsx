@@ -110,7 +110,7 @@ export const Dialog: React.FC<DialogProps> = ({
         aria-describedby={description ? "dialog-description" : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-50 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-lift animate-scale-in outline-none",
+          "relative z-50 flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-border bg-card shadow-lift animate-scale-in outline-none",
           className
         )}
       >
@@ -123,7 +123,7 @@ export const Dialog: React.FC<DialogProps> = ({
         </button>
 
         {title && (
-          <div className="mb-4 pr-8">
+          <div className="shrink-0 px-6 pb-4 pt-6 pr-8">
             <h3 id="dialog-title" className="font-display text-lg font-bold text-foreground">
               {title}
             </h3>
@@ -135,7 +135,7 @@ export const Dialog: React.FC<DialogProps> = ({
           </div>
         )}
 
-        <div>{children}</div>
+        <div className={cn("overflow-y-auto px-6 pb-6", !title && "pt-6")}>{children}</div>
       </div>
     </div>,
     document.body

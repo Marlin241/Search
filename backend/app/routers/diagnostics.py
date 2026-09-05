@@ -144,8 +144,13 @@ def create_diagnostic(
         with capture_usage():
             semantic = analyzer.analyze(parsed_cv.text, offer)
     except LLMAnalysisError as exc:
+        # Ne jamais renvoyer le message brut du fournisseur LLM (peut
+        # contenir des détails techniques - clé API, code d'erreur interne)
+        # à l'utilisateur final. Le détail complet part dans les logs.
+        logger.exception("Semantic analysis failed for user %s", current_user.id)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le diagnostic n'a pas pu être réalisé pour le moment. Réessaie dans quelques minutes.",
         ) from exc
 
     if saved_job_id is not None:

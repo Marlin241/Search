@@ -130,7 +130,7 @@ export default function OffresPage() {
       router.push(`/offres/${saved.id}`);
     } catch (err: any) {
       console.error("Failed to open workspace:", err);
-      alert(err?.detail || "Impossible d'ouvrir l'espace de travail.");
+      toast.error(err?.detail || "Impossible d'ouvrir l'espace de travail.");
     } finally {
       setOpeningWorkspaceUrl(null);
     }
@@ -378,6 +378,9 @@ export default function OffresPage() {
         keywords: alertKeywords.trim(),
         location: alertLocation.trim() || null,
         enabled: alertEnabled,
+        // Fuseau réel de l'utilisateur plutôt que le défaut serveur
+        // (Europe/Paris jusqu'ici, sans rapport avec sa localisation réelle).
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       setSavedSearch(saved);
       setIsAlertModalOpen(false);
@@ -591,13 +594,11 @@ export default function OffresPage() {
                           </span>
                         )}
                         {salaryHint && (
-                          <Badge variant="success">
-                            💰 {salaryHint}
-                          </Badge>
+                          <Badge variant="success">{salaryHint}</Badge>
                         )}
                         <Badge variant="outline">{sourceLabel(job.source)}</Badge>
                         {job.is_remote && (
-                          <Badge variant="accent">🌍 Remote</Badge>
+                          <Badge variant="accent">Remote</Badge>
                         )}
                         {job.ats_type && (
                           <Badge variant="accent">ATS : {job.ats_type}</Badge>
@@ -690,7 +691,7 @@ export default function OffresPage() {
                 <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Localisation</span>
                 <span className="font-bold text-foreground">
                   {selectedModalJob.location || "Non précisée"}
-                  {selectedModalJob.is_remote && " · 🌍 Remote"}
+                  {selectedModalJob.is_remote && " · Remote"}
                 </span>
               </div>
               <div>
@@ -769,9 +770,11 @@ export default function OffresPage() {
                         offer_text: selectedModalJob.snippet,
                       });
                       setSelectedModalJob(null);
-                      alert("Candidature créée avec succès ! Retrouvez-la dans votre suivi.");
+                      toast.success(
+                        "Candidature créée avec succès ! Retrouvez-la dans votre suivi."
+                      );
                     } catch (err: any) {
-                      alert(err?.detail || "Erreur lors de la création de la candidature.");
+                      toast.error(err?.detail || "Erreur lors de la création de la candidature.");
                     }
                   }}
                 >

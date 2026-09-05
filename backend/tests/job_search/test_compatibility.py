@@ -48,10 +48,10 @@ def test_unrelated_title_scores_lower_than_matching_title():
     assert unrelated < matching
 
 
-def test_missing_location_is_neutral_not_zero():
+def test_missing_location_is_not_evaluated():
     listing = _listing(location=None)
     score = score_breakdown(listing, _profile())
-    assert score["location"] == 30
+    assert score["location"] is None
 
 
 def test_remote_preference_matches_remote_listing():
@@ -65,11 +65,11 @@ def test_remote_preference_matches_remote_listing():
     assert score["location"] == 100
 
 
-def test_no_location_constraint_does_not_penalize():
+def test_no_location_constraint_is_not_evaluated():
     listing = _listing(location="Lyon")
     profile = _profile(desired_locations=[], remote_preference=False)
     score = score_breakdown(listing, profile)
-    assert score["location"] == 60
+    assert score["location"] is None
 
 
 def test_seniority_within_range_scores_full():
@@ -86,46 +86,64 @@ def test_seniority_far_outside_range_scores_low():
     assert score["seniority"] < 50
 
 
-def test_seniority_no_mention_in_snippet_is_neutral():
+def test_seniority_no_mention_in_snippet_is_not_evaluated():
     listing = _listing(snippet="Rejoignez une équipe dynamique.")
     profile = _profile(seniority_level="senior")
     score = score_breakdown(listing, profile)
-    assert score["seniority"] == 50
+    assert score["seniority"] is None
+
+
+# Salary tests use a non-EUR source explicitly: the default `_listing()`
+# source (adzuna) is itself excluded from salary scoring (see
+# test_salary_not_evaluated_for_eur_denominated_sources below), which would
+# make every salary assertion pass for the wrong reason.
 
 
 def test_salary_within_range_scores_full():
-    listing = _listing(salary="40 000 - 45 000 € / an")
+    listing = _listing(salary="40 000 - 45 000 FCFA / mois", source="senjob")
     profile = _profile(salary_min=35000, salary_max=50000)
     score = score_breakdown(listing, profile)
     assert score["salary"] == 100
 
 
 def test_salary_above_range_is_not_penalized():
-    listing = _listing(salary="60 000 - 65 000 € / an")
+    listing = _listing(salary="60 000 - 65 000 FCFA / mois", source="senjob")
     profile = _profile(salary_min=35000, salary_max=50000)
     score = score_breakdown(listing, profile)
     assert score["salary"] == 90
 
 
 def test_salary_below_range_is_penalized():
-    listing = _listing(salary="20 000 € / an")
+    listing = _listing(salary="20 000 FCFA / mois", source="senjob")
     profile = _profile(salary_min=35000, salary_max=50000)
     score = score_breakdown(listing, profile)
-    assert score["salary"] < 90
+    assert score["salary"] is not None and score["salary"] < 90
 
 
-def test_no_salary_expectation_is_neutral():
-    listing = _listing(salary="40 000 € / an")
+def test_no_salary_expectation_is_not_evaluated():
+    listing = _listing(salary="40 000 FCFA / mois", source="senjob")
     profile = _profile(salary_min=None, salary_max=None)
     score = score_breakdown(listing, profile)
-    assert score["salary"] == 60
+    assert score["salary"] is None
 
 
-def test_no_salary_on_listing_is_neutral():
-    listing = _listing(salary=None)
+def test_no_salary_on_listing_is_not_evaluated():
+    listing = _listing(salary=None, source="senjob")
     profile = _profile(salary_min=35000, salary_max=50000)
     score = score_breakdown(listing, profile)
-    assert score["salary"] == 60
+    assert score["salary"] is None
+
+
+def test_salary_not_evaluated_for_eur_denominated_sources():
+    # France Travail/Adzuna quote real salaries, but in euros - the
+    # candidate's expectation is collected in FCFA, so comparing the raw
+    # numbers would be comparing the wrong currency. Left unevaluated until
+    # listings carry an explicit, convertible currency.
+    for source in ("adzuna", "france_travail"):
+        listing = _listing(salary="40 000 - 45 000 € / an", source=source)
+        profile = _profile(salary_min=35000, salary_max=50000)
+        score = score_breakdown(listing, profile)
+        assert score["salary"] is None, source
 
 
 def test_recent_listing_scores_full_freshness():
@@ -140,10 +158,32 @@ def test_old_listing_scores_low_freshness():
     assert score["freshness"] == 15
 
 
-def test_missing_posted_at_is_neutral_freshness():
+def test_missing_posted_at_is_not_evaluated():
     listing = _listing(posted_at=None)
     score = score_breakdown(listing, _profile())
-    assert score["freshness"] == 50
+    assert score["freshness"] is None
+
+
+def test_nothing_evaluable_falls_back_to_neutral_overall():
+    # No desired job titles/locations/seniority/salary, listing has no
+    # location/salary/posted_at either - literally nothing to compare.
+    listing = _listing(
+        location=None,
+        salary=None,
+        posted_at=None,
+        source="senjob",
+        snippet="Poste disponible.",
+    )
+    profile = _profile(
+        desired_job_titles=[],
+        seniority_level=None,
+        desired_locations=[],
+        salary_min=None,
+        salary_max=None,
+    )
+    score = score_breakdown(listing, profile)
+    assert all(score[key] is None for key in ("title", "location", "seniority", "salary", "freshness"))
+    assert score["overall"] == 50
 
 
 def test_score_breakdown_overall_matches_score_listing():

@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,8 @@ from app.models.candidate_profile import CandidateProfile
 from app.models.diagnostic import Diagnostic
 from app.offer_ingestion.ingestion import OfferIngestionError, get_offer_text
 from app.rules_engine.rules import evaluate_structure
+
+logger = logging.getLogger(__name__)
 
 
 class ApplicationCreationError(Exception):
@@ -69,7 +73,15 @@ def create_application(
     try:
         semantic = analyzer.analyze(profile.cv_text, offer_text)
     except LLMAnalysisError as exc:
-        raise ApplicationCreationError(str(exc)) from exc
+        # Même règle que dans le router /diagnostics : jamais le message brut
+        # du fournisseur LLM jusqu'au client, le détail va dans les logs.
+        logger.exception(
+            "Semantic analysis failed while creating application for user %s",
+            user_id,
+        )
+        raise ApplicationCreationError(
+            "Le diagnostic n'a pas pu être réalisé pour le moment. Réessaie dans quelques minutes."
+        ) from exc
 
     report = build_diagnostic_report(structural, semantic)
 

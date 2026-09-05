@@ -99,7 +99,7 @@ export default function LoginPage() {
 
             <div className="space-y-4">
               {[
-                "Offres agrégées en temps réel (France Travail, Adzuna, ATS)",
+                "Offres agrégées en temps réel",
                 "Diagnostic ATS instantané & mots-clés manquants",
                 "CV & lettres de motivation ultra-personnalisés par IA",
               ].map((feature, i) => (
@@ -177,7 +177,11 @@ export default function LoginPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* noValidate : on gère toute la validation nous-mêmes (voir
+             handleSubmit) pour un message et un style d'erreur cohérents -
+             sans ça, la bulle de validation native du navigateur intercepte
+             les champs vides avant que notre message custom ne s'affiche. */}
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {error && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-xl flex items-start gap-2.5">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />

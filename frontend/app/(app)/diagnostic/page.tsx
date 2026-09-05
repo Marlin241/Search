@@ -328,7 +328,7 @@ export default function DiagnosticPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Offre ciblée (optionnel)
+                  Offre ciblée
                 </label>
                 <div className="flex gap-2">
                   <button
@@ -379,7 +379,11 @@ export default function DiagnosticPage() {
               variant="primary"
               size="lg"
               fullWidth
-              disabled={!cvFile || isAnalyzing}
+              disabled={
+                !cvFile ||
+                isAnalyzing ||
+                (offerMode === "text" ? !offerText.trim() : !offerUrl.trim())
+              }
               isLoading={isAnalyzing}
               icon={<Sparkles className="w-4 h-4" />}
             >

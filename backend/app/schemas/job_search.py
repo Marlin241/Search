@@ -21,7 +21,11 @@ class SavedSearchIn(BaseModel):
     contract_type: str | None = None
     remote: bool | None = None
     exclude_keywords: list[str] = []
-    timezone: str = "Europe/Paris"
+    # Le frontend envoie le fuseau réel du navigateur (Intl.DateTimeFormat) ;
+    # ce défaut ne joue que si le champ est omis (appel direct de l'API) -
+    # Africa/Dakar (UTC, pas d'heure d'été) est plus proche du marché ciblé
+    # que l'ancien défaut Europe/Paris.
+    timezone: str = "Africa/Dakar"
     enabled: bool = True
 
 

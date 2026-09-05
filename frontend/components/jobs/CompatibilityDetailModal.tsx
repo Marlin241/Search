@@ -5,6 +5,10 @@ import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import { ScoreRing } from "@/components/ui/ScoreRing";
 import { getCompatibilityDetail } from "@/lib/api";
+import {
+  getCachedCompatibilityDetail,
+  setCachedCompatibilityDetail,
+} from "@/lib/compatibilityCache";
 import { cn, scoreColor, sourceLabel } from "@/lib/utils";
 import type { CompatibilityDetailOut, JobListing } from "@/lib/types";
 import { ApiError } from "@/lib/types";
@@ -38,10 +42,21 @@ export function CompatibilityDetailModal({
       setError(null);
       return;
     }
+    const cached = getCachedCompatibilityDetail(listing.url);
+    if (cached) {
+      setDetail(cached);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     getCompatibilityDetail(token, listing)
-      .then(setDetail)
+      .then((result) => {
+        setCachedCompatibilityDetail(listing.url, result);
+        setDetail(result);
+      })
       .catch((err: unknown) => {
         const detail =
           err instanceof ApiError
@@ -98,20 +113,28 @@ export function CompatibilityDetailModal({
                   <div key={key} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-muted-foreground">{label}</span>
-                      <span className={cn("font-bold", scoreColor(value))}>{value}%</span>
+                      {value === null ? (
+                        <span className="font-medium italic text-muted-foreground">
+                          Non évalué
+                        </span>
+                      ) : (
+                        <span className={cn("font-bold", scoreColor(value))}>{value}%</span>
+                      )}
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          value >= 70
-                            ? "bg-success"
-                            : value >= 40
-                              ? "bg-warning"
-                              : "bg-destructive"
-                        )}
-                        style={{ width: `${value}%` }}
-                      />
+                      {value !== null && (
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            value >= 70
+                              ? "bg-success"
+                              : value >= 40
+                                ? "bg-warning"
+                                : "bg-destructive"
+                          )}
+                          style={{ width: `${value}%` }}
+                        />
+                      )}
                     </div>
                   </div>
                 );

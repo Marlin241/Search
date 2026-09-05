@@ -13,7 +13,7 @@ import {
   Globe,
   Phone,
   MapPin,
-  Euro,
+  Banknote,
   Moon,
   Sun,
 } from "lucide-react";
@@ -390,11 +390,11 @@ export default function ProfilPage() {
               />
 
               <Input
-                label="Prétentions salariales (€)"
-                placeholder="ex: 55k-60k€"
+                label="Prétentions salariales (FCFA / mois)"
+                placeholder="ex: 150k-300k FCFA / mois"
                 value={salaryExpectation}
                 onChange={(e) => setSalaryExpectation(e.target.value)}
-                icon={<Euro className="w-4 h-4" />}
+                icon={<Banknote className="w-4 h-4" />}
               />
 
               <Input

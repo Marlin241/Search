@@ -10,12 +10,19 @@ import {
   type ReactNode,
 } from "react";
 import * as api from "@/lib/api";
-import type { User } from "@/lib/types";
+import { clearCompatibilityCache } from "@/lib/compatibilityCache";
+import type { CandidateProfileOut, User } from "@/lib/types";
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  /** Profil candidat de l'utilisateur courant, ou `null` s'il n'en a pas
+   * encore (compte tout juste créé) - utilisé pour savoir si l'onboarding
+   * a déjà été complété (voir lib/onboarding.ts). */
+  profile: CandidateProfileOut | null;
+  isProfileLoading: boolean;
+  refreshProfile: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (
     email: string,
@@ -50,13 +57,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<CandidateProfileOut | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
+    clearCompatibilityCache();
     void clearTokenCookie();
     setToken(null);
     setUser(null);
+    setProfile(null);
   }, []);
+
+  /** Charge (ou recharge) le profil candidat pour un token donné. Un compte
+   * flambant neuf n'a pas encore de ligne `candidate_profiles` -> 404, ce
+   * qui équivaut simplement à "onboarding pas fait", pas à une erreur. */
+  const loadProfile = useCallback(async (authToken: string) => {
+    setIsProfileLoading(true);
+    try {
+      const fetched = await api.getCandidateProfile(authToken);
+      setProfile(fetched);
+    } catch {
+      setProfile(null);
+    } finally {
+      setIsProfileLoading(false);
+    }
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    if (!token) return;
+    await loadProfile(token);
+  }, [token, loadProfile]);
 
   /* Global 401 handler: any API call that comes back unauthorized forces
    * a logout instead of leaving the page silently broken. */
@@ -70,29 +101,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem(TOKEN_KEY);
     if (!stored) {
       setIsLoading(false);
+      setIsProfileLoading(false);
       return;
     }
     setToken(stored);
     void setTokenCookie(stored);
     api
       .fetchMe(stored)
-      .then(setUser)
+      .then((me) => {
+        setUser(me);
+        void loadProfile(stored);
+      })
       .catch(() => {
         localStorage.removeItem(TOKEN_KEY);
         void clearTokenCookie();
         setToken(null);
+        setIsProfileLoading(false);
       })
       .finally(() => setIsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loginFn = useCallback(async (email: string, password: string) => {
-    const { access_token } = await api.login(email, password);
-    localStorage.setItem(TOKEN_KEY, access_token);
-    await setTokenCookie(access_token);
-    setToken(access_token);
-    const me = await api.fetchMe(access_token);
-    setUser(me);
-  }, []);
+  const loginFn = useCallback(
+    async (email: string, password: string) => {
+      const { access_token } = await api.login(email, password);
+      localStorage.setItem(TOKEN_KEY, access_token);
+      await setTokenCookie(access_token);
+      setToken(access_token);
+      const me = await api.fetchMe(access_token);
+      setUser(me);
+      await loadProfile(access_token);
+    },
+    [loadProfile]
+  );
 
   const registerFn = useCallback(
     async (email: string, password: string, inviteCode: string) => {
@@ -103,8 +144,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ user, token, isLoading, login: loginFn, register: registerFn, logout }),
-    [user, token, isLoading, loginFn, registerFn, logout]
+    () => ({
+      user,
+      token,
+      isLoading,
+      profile,
+      isProfileLoading,
+      refreshProfile,
+      login: loginFn,
+      register: registerFn,
+      logout,
+    }),
+    [
+      user,
+      token,
+      isLoading,
+      profile,
+      isProfileLoading,
+      refreshProfile,
+      loginFn,
+      registerFn,
+      logout,
+    ]
   );
 
   return (

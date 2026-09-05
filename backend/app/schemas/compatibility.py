@@ -8,11 +8,13 @@ class CompatibilityDetailIn(BaseModel):
 
 
 class CompatibilityScoreBreakdown(BaseModel):
-    title: int
-    location: int
-    seniority: int
-    salary: int
-    freshness: int
+    # None = not enough data to judge this criterion (no preference set, no
+    # data on the listing...), never a guessed "neutral" value.
+    title: int | None
+    location: int | None
+    seniority: int | None
+    salary: int | None
+    freshness: int | None
     overall: int
 
 

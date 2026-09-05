@@ -20,7 +20,7 @@ export function SalarySlider({
   return (
     <div className="space-y-3">
       <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Fourchette de salaire souhaitée (€ brut / an)
+        Fourchette de salaire souhaitée (FCFA brut / mois)
       </label>
 
       <div className="relative h-1.5 rounded-full bg-muted">
